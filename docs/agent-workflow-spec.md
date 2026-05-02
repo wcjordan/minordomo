@@ -58,14 +58,14 @@ Open → In Progress → In Review → Open → ... → Approved → Done
 |---|---|
 | Open | Ready for Majordomo to assign to planning agent (or human answered questions) |
 | In Progress | Planning agent is actively working |
-| In Review | Agent posted questions or final plan; awaiting human response |
-| Needs Input | Agent requires a specific human answer to continue (blocks re-queue until answered) |
+| In Review | Agent opened a PR for the final plan; awaiting human response |
+| Needs Input | Agent posted questions on the ticket and requires a specific human answer to continue (blocks re-queue until answered) |
 | Approved | Human satisfied with multi-stage plan; ready to spin off tasks |
 | Done | Implementation tasks created; planning ticket closed |
 
 **Human actions:**
-- Answer questions → set back to **Open**
-- Approve final plan → set to **Approved**
+- Answer questions → set ticket back to **Open**
+- Approve final plan → merge and set ticket to **Approved**
 
 ### Implementation Task Status Flow
 ```
@@ -153,10 +153,8 @@ When a stage's implementation reveals necessary changes to the plan, the spec do
 - Majordomo polls GH Issues across configured repos
 - Filters by `allowed_gh_users`
 - Skips issues already linked to a Jira Epic (idempotent)
-- Assesses complexity:
-  - Simple/single-feature → creates **Story** + Planning Task
-  - Multi-feature/cross-cutting → creates **Epic** → Story → Planning Task
-- Links the Jira Epic/Story back to the GH Issue (via description or custom field)
+- Creates **Epic** + Planning **Task** under the Epic
+- Links the Jira Epic back to the GH Issue (via description)
 - Planning Task created in status **Open**
 
 ### 2.2 Minimal Worker
@@ -259,14 +257,15 @@ A task is eligible for **Ready** if:
 
 Majordomo ranks eligible tasks by:
 1. Tasks whose parent Story/Epic has other stages already in flight (continuity)
-2. Priority label: `P0` > `P1` > `P2`
-3. Jira rank (manual ordering within a project)
+2. Priority label: `P0` > `P1` > `P2` of the Epic
+3. Jira rank (manual ordering within a project) of the Epic
 
 ### 4.3 Ready Targets
 
 - Majordomo aims to maintain **at least one** `Ready` task per repo
 - Multiple `Ready` tasks per repo are allowed if they won't collide (different epics/stories)
-- Majordomo transitions eligible tasks to **Ready** and selects one to launch per run
+- Majordomo transitions eligible tasks to **Ready** and selects one to launch
+- Majordomo submits a Jenkins job to run a worker task to implement the Ready ticket, passing the ticket ID as a parameter
 
 ### 4.4 Feature → Main PR
 
@@ -301,34 +300,22 @@ schedule:
   weekend_override: false
 ```
 
-### 5.3 Local Scheduling (Phase A)
+### 5.3 Jenkins Scheduling
 
-- Majordomo triggered via local cron or Claude Code's built-in scheduling
-- Acknowledged as less reliable (laptop sleep, connectivity)
-- Suitable for initial testing only
-
-### 5.4 Jenkins Scheduling (Phase B)
-
-- Majordomo runs as a Jenkins job on a devbox on a defined cron schedule
+- Majordomo runs as a Jenkins job on a defined cron schedule
 - Jenkins configured with **no concurrency** (one Majordomo run at a time)
 - Jenkinsfile isolates all scheduling and trigger logic so migration to GH Actions is straightforward
 
 ---
 
-## Stage 6 — Full Worker & Concurrent Path
+## Stage 6 — Spec Evolution
 
-**Goal:** Harden the worker with spec update handling and lay the groundwork for future concurrent workers.
+**Goal:** Harden the worker with spec update handling.
 
 ### 6.1 Spec Update Handling
 
 - If implementation of a stage reveals necessary changes to the plan, worker updates the spec doc and includes it in the PR
 - Next stage worker branches from updated feature branch tip, picking up the revised spec automatically
-
-### 6.2 Concurrency Path (Future)
-
-- Today: Majordomo launches exactly one worker per run; Jenkins job has no concurrency
-- Future: Allow Majordomo to launch N workers; Jenkins parallel builds handle isolation
-- Task `In Progress` transition is the atomic claim preventing double-pickup
 
 ---
 
@@ -348,7 +335,7 @@ If the worker agent crashes or halts awaiting input:
 
 If the Jenkins job itself crashes, the worker cannot self-recover. A dedicated sweep job handles this:
 
-- Runs on a regular schedule (e.g. every hour)
+- Runs on a regular schedule (e.g. every 4 hours)
 - Finds any Implementation Task in **In Progress** for more than **12 hours**
 - Transitions those tickets back to **Ready**
 - Posts a comment noting the reset and timestamp
