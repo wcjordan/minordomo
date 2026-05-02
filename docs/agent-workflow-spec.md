@@ -30,7 +30,7 @@ Human Request (GH Issue)
 **Work sources:**
 - **GitHub Issues** — human-created feature requests (filtered by allowlist)
 
-**Projects tracked by Majordomo:** `chalk`, `gcp-setup`, `forester`
+**Projects tracked by Majordomo:** `minordomo`, `chalk`, `gcp-setup`, `forester`
 
 ---
 
@@ -129,7 +129,7 @@ When a stage's implementation reveals necessary changes to the plan, the spec do
 
 ### 1.2 Jira Project & Schema Setup
 
-- Confirm issue hierarchy: Epic → Story → Task in each project (`chalk`, `gcp-setup`, `forester`)
+- Confirm issue hierarchy: Epic → Story → Task in each project (`minordomo`, `chalk`, `gcp-setup`, `forester`)
 - Define all required statuses: `Open`, `In Progress`, `In Review`, `Ready`, `Needs Input`, `Approved`, `Done`
 - Define priority labels: `P0`, `P1`, `P2`
 - Establish GH Issue ↔ Jira Epic linking convention (e.g. a custom field or description reference)
