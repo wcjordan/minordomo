@@ -30,7 +30,60 @@ Human Request (GH Issue)
 **Work sources:**
 - **GitHub Issues** — human-created feature requests (filtered by allowlist)
 
-**Projects tracked by Majordomo:** `minordomo`, `chalk`, `gcp-setup`, `forester`
+**Projects tracked by Majordomo:**
+
+| Repo | Jira Project Key |
+|---|---|
+| `minordomo` | `MDOMO` |
+| `chalk` | `CHALK` |
+| `gcp-setup` | `INFRA` |
+| `forester` | `FSTR` |
+
+**Jira instance:** `https://${JIRA_DOMAIN}.atlassian.net` (Jira Cloud). `JIRA_DOMAIN` is a configurable environment variable (default: `flipperkid`).
+
+---
+
+## Running Agents
+
+Each agent (Majordomo, planning agent, worker) is a non-interactive Claude Code invocation:
+
+```bash
+claude -p "<system prompt>" --allowlist-file majordomo/claude-allowlist.json
+```
+
+The system prompt tells the agent how to access its Jira ticket, how the system is running it, and where to post questions or results.
+
+**Majordomo launches sub-agents** by triggering parameterized Jenkins jobs via the Jenkins API, passing the Jira ticket ID as a job parameter.
+
+**Credentials** are injected by Jenkins as environment variables:
+- `JIRA_DOMAIN` — Jira Cloud subdomain (e.g. `flipperkid`)
+- `ANTHROPIC_API_KEY` — for Claude
+- `GH_TOKEN` — for `gh` CLI GitHub interactions
+- Jira auth is handled via the Atlassian MCP server (credentials provided as env vars to the MCP)
+
+**Sandboxing:**
+
+Agents run in ephemeral containers with no sensitive files on disk. The repo's `.claude/settings.json` uses a broad allowlist with a targeted deny list:
+
+```json
+{
+  "permissions": {
+    "allow": ["Bash(*)", "Read(*)", "Edit(*)", "Write(*)", "mcp__atlassian__*"],
+    "deny": [
+      "Bash(git push --force*)",
+      "Bash(git push -f *)",
+      "Bash(git commit --no-verify*)",
+      "Bash(git rebase*)",
+      "Bash(sudo *)",
+      "Bash(rm -rf /*)",
+      "Bash(curl *metadata.google.internal*)",
+      "Bash(curl *169.254.169.254*)"
+    ]
+  }
+}
+```
+
+A `PreBashCommand` hook (`hooks/pre-bash-guard.sh`) provides a secondary check for dangerous patterns. Container-level network restrictions (allowlisting outbound to `api.anthropic.com`, `api.github.com`, `*.atlassian.net`) are recommended.
 
 ---
 
@@ -39,7 +92,7 @@ Human Request (GH Issue)
 ```
 Epic (linked to GH Issue)
 └── Story (if multi-feature complexity)
-    ├── Planning Task (grooming, questions, implementation plan)
+    ├── Planning Task  (task/PROJ-43 branch; grooming, Q&A, spec doc)
     └── Implementation Tasks (one per stage from approved plan)
 ```
 
@@ -47,25 +100,40 @@ Implementation tasks are leaf nodes — no further planning needed. They become 
 
 ---
 
+## GH Issue ↔ Jira Epic Linking
+
+When Majordomo creates a Jira Epic for a GH Issue it:
+1. Adds the GH Issue URL to the Jira Epic description
+2. Adds the Jira Epic key to the GH Issue description (via `gh` CLI)
+3. Applies the label `jira-epic-created` to the GH Issue
+
+On subsequent runs, Majordomo filters out all GH Issues that already have the `jira-epic-created` label — this is the idempotency gate. No cross-system querying is needed.
+
+---
+
 ## Jira Status Flows
 
 ### Planning Task Status Flow
 ```
-Open → In Progress → In Review → Open → ... → Approved → Done
+Open → In Progress → Needs Input → Open → ... → In Progress → In Review → Approved → Done
 ```
 
 | Status | Meaning |
 |---|---|
-| Open | Ready for Majordomo to assign to planning agent (or human answered questions) |
+| Open | Ready for Majordomo to assign to planning agent (or human has answered questions) |
 | In Progress | Planning agent is actively working |
-| In Review | Agent opened a PR for the final plan; awaiting human response |
-| Needs Input | Agent posted questions on the ticket and requires a specific human answer to continue (blocks re-queue until answered) |
-| Approved | Human satisfied with multi-stage plan; ready to spin off tasks |
+| Needs Input | Agent posted questions on the Jira ticket; blocks re-queue until human answers and resets to Open |
+| In Review | Agent opened a PR (spec doc branch → feature branch); awaiting human review and merge |
+| Approved | Human merged spec PR and is satisfied with the multi-stage plan; ready to spin off tasks |
 | Done | Implementation tasks created; planning ticket closed |
 
 **Human actions:**
-- Answer questions → set ticket back to **Open**
-- Approve final plan → merge and set ticket to **Approved**
+- Answer questions on ticket → set ticket back to **Open**
+- Approve final spec → merge PR → set ticket to **Approved**
+
+**Key distinction:**
+- **Needs Input** — agent has questions or needs clarification before it can proceed. Majordomo will not re-queue until human resets to Open. This is the async equivalent of the synchronous Q&A exercise.
+- **In Review** — a PR is open (spec doc or implementation). No Majordomo re-queue; human reviews, merges, and advances the ticket manually.
 
 ### Implementation Task Status Flow
 ```
@@ -89,24 +157,25 @@ All branch merges require a human-reviewed PR. Workers and the Majordomo never m
 
 ```
 main
-└── feature/PROJ-42              (epic/story branch; planning spec lives here)
-    ├── task/PROJ-43             (stage 1; PRs → feature/PROJ-42)
-    ├── task/PROJ-44             (stage 2; PRs → feature/PROJ-42)
-    └── task/PROJ-45             (stage 3; PRs → feature/PROJ-42)
+└── feature/PROJ-42              (epic/story branch)
+    ├── task/PROJ-43             (planning task; spec doc PR → feature/PROJ-42)
+    ├── task/PROJ-44             (impl stage 1; PR → feature/PROJ-42)
+    ├── task/PROJ-45             (impl stage 2; PR → feature/PROJ-42)
+    └── task/PROJ-46             (impl stage 3; PR → feature/PROJ-42)
 ```
 
-- **feature branch** — created by the planning agent; holds the canonical spec doc (e.g. `docs/planning/PROJ-42-spec.md`)
-- **task branches** — created by the worker at launch time, always branching from the current feature branch tip
-- **task → feature PRs** — opened by worker on task completion; reviewed and merged by human; spec updates travel with this PR
+- **feature branch** — created by the planning agent; holds the canonical spec doc (e.g. `docs/planning/PROJ-42-spec.md`) after the planning PR is merged
+- **task branches** — created by the agent (planning or worker) at launch time, always branching from the current feature branch tip; named `task/<ticket-id>`
+- **task → feature PRs** — opened by the agent on completion; reviewed and merged by human
 - **feature → main PR** — opened by the Majordomo when all subtasks of the Story are Done; reviewed and merged by human; PR description references the originating GH Issue and summarizes what the epic delivered
 
-**Key principle:** Workers never pre-create branches. Branching at launch time ensures each worker starts from the latest feature branch, including spec updates from prior merged stages.
+**Key principle:** Agents never pre-create branches. Branching at launch time ensures each agent starts from the latest feature branch tip, including spec and code updates from prior merged stages.
 
 ---
 
 ## Spec Document
 
-The implementation plan lives as a markdown file on the feature branch (e.g. `docs/planning/PROJ-42-spec.md`). It is the canonical source of truth for the full multi-stage plan.
+The implementation plan lives as a markdown file on the feature branch (e.g. `docs/planning/PROJ-42-spec.md`). It is the canonical source of truth for the full multi-stage plan. It arrives on the feature branch when the planning agent's PR is merged.
 
 Each implementation task ticket contains:
 - A concise description of its specific stage
@@ -129,14 +198,23 @@ When a stage's implementation reveals necessary changes to the plan, the spec do
 
 ### 1.2 Jira Project & Schema Setup
 
-- Confirm issue hierarchy: Epic → Story → Task in each project (`minordomo`, `chalk`, `gcp-setup`, `forester`)
+Create four Jira Cloud projects (all on `https://${JIRA_DOMAIN}.atlassian.net`):
+
+| Project | Key |
+|---|---|
+| minordomo | `MDOMO` |
+| chalk | `CHALK` |
+| gcp-setup | `INFRA` |
+| forester | `FSTR` |
+
+For each project:
+- Configure issue hierarchy: Epic → Story → Task
 - Define all required statuses: `Open`, `In Progress`, `In Review`, `Ready`, `Needs Input`, `Approved`, `Done`
 - Define priority labels: `P0`, `P1`, `P2`
-- Establish GH Issue ↔ Jira Epic linking convention (e.g. a custom field or description reference)
 
 ### 1.3 Majordomo Skeleton
 
-- Implement Majordomo as a Claude Code agent running as a Jenkins job
+- Implement Majordomo as a Claude Code agent running as a Jenkins job (`claude -p`)
 - Majordomo reads `majordomo/config.yaml` for allowed users, project list, and limits config
 - Majordomo produces a structured run log; logs stored in Jenkins build logs for auditability
 - Jenkins job designed to be portable to GH Actions (no Jenkins-specific logic in Majordomo itself; orchestration concerns isolated to Jenkinsfile)
@@ -152,9 +230,11 @@ When a stage's implementation reveals necessary changes to the plan, the spec do
 
 - Majordomo polls GH Issues across configured repos
 - Filters by `allowed_gh_users`
-- Skips issues already linked to a Jira Epic (idempotent)
+- Skips issues that already have the `jira-epic-created` label (idempotent)
 - Creates **Epic** + Planning **Task** under the Epic
-- Links the Jira Epic back to the GH Issue (via description)
+- Adds the GH Issue URL to the Jira Epic description
+- Adds the Jira Epic key to the GH Issue description via `gh` CLI
+- Applies the `jira-epic-created` label to the GH Issue
 - Planning Task created in status **Open**
 
 ### 2.2 Minimal Worker
@@ -165,7 +245,7 @@ A thin worker implementation sufficient to execute one task end-to-end:
 - No prioritization logic, no usage limits, no scheduling — human selects the task
 - Worker:
   1. Reads Jira task (stage description, acceptance criteria, spec doc path, feature branch reference)
-  2. Checks out the feature branch tip and creates a new task branch (e.g. `task/PROJ-43`)
+  2. Checks out the feature branch tip and creates a new task branch (e.g. `task/PROJ-44`)
   3. Reads the spec doc from the feature branch
   4. Implements the stage
   5. Fixes any failing tests before committing (no WIP commits)
@@ -201,35 +281,38 @@ On each run the Planning Agent:
 
 1. Reads the Jira Planning Task (description, comments, linked GH Issue, existing research docs)
 2. Checks out or creates the feature branch for the Epic (e.g. `feature/PROJ-42`)
-3. Reads any existing research doc from the branch to resume prior context
-4. Performs research relevant to the task
-5. Identifies open questions blocking the plan
+3. Creates a task branch off the feature branch tip (e.g. `task/PROJ-43`)
+4. Reads any existing research doc from the branch to resume prior context
+5. Performs research relevant to the task
+6. Identifies open questions blocking the plan
 
 **If blocking questions remain:**
 - Posts questions as a structured comment on the Jira ticket
-- Commits current research doc to the feature branch
-- Transitions ticket to **In Review** (or **Needs Input** if a specific answer is required to proceed)
+- Commits current research doc to the task branch
+- Transitions ticket to **Needs Input**
 - Exits
 
 **If no blocking questions remain:**
 - Produces a multi-stage implementation plan sized so each stage averages ~30 minutes and does not exceed ~1 hour of implementation work
 - Each stage defined such that tests pass and a PR can be opened after each stage
-- Commits final spec doc to the feature branch (e.g. `docs/planning/PROJ-42-spec.md`)
+- Commits final spec doc to the task branch (e.g. `docs/planning/PROJ-42-spec.md`)
+- Opens a PR from the task branch against the feature branch
 - Posts plan summary on the Jira ticket
 - Transitions ticket to **In Review** for human approval
 
 ### 3.3 Human Q&A Flow
 
-- Human reviews questions on the Jira ticket
-- Human answers in a comment
+- Human reviews questions posted on the Jira ticket (under **Needs Input**)
+- Human answers in a comment on the ticket
 - Human sets ticket back to **Open**
-- On next Majordomo run, Planning Agent is re-launched, reads prior research doc from branch, continues
+- On next Majordomo run, Planning Agent is re-launched, reads prior research doc from task branch, continues
 
 ### 3.4 Plan Approval & Task Spinoff
 
-- Human reviews final multi-stage plan
+- Human reviews final spec PR on the task branch
+- Human merges the PR (spec doc lands on feature branch)
 - Human transitions Planning Task to **Approved**
-- On next Majordomo run, Majordomo reads the approved spec and creates one Jira Implementation Task per stage under the same Epic/Story
+- On next Majordomo run, Majordomo reads the approved spec doc from the feature branch and creates one Jira Implementation Task per stage under the same Epic/Story
 - Each task ticket includes: stage description, acceptance criteria, reference to spec doc path and feature branch
 - All implementation tasks created in status **Open**
 - Planning Task transitioned to **Done**
@@ -282,7 +365,9 @@ Majordomo ranks eligible tasks by:
 ### 5.1 Usage Check
 
 Before launching any worker, Majordomo:
-- Makes an OAuth request to the Claude usage API
+- Makes an OAuth request to `https://api.anthropic.com/api/oauth/usage` to retrieve weekly usage
+  - Reference implementation: [`claude_quota.py`](https://github.com/slopware/claude-quota/blob/main/claude_quota.py)
+  - **Note:** This endpoint is unofficial and undocumented; verify it works before relying on it and handle gracefully if it changes
 - Checks weekly usage against a configurable threshold (default: **50%**)
 - If usage ≥ threshold → logs decision, exits without launching a worker
 
@@ -351,7 +436,7 @@ For failures not caught by the sweep job (e.g. worker completes and opens a PR b
 ### 7.4 Planning Agent Failure
 
 Same principles apply to the planning agent:
-- Crash → commit research doc to feature branch, post comment, reset to **Open**
+- Crash → commit research doc to task branch, post comment, reset to **Open**
 - Needs Input → transition to **Needs Input**, human answers and resets to **Open**
 - Sweep job covers Jenkins-level crashes for planning jobs as well (same 12-hour threshold)
 
