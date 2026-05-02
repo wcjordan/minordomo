@@ -2,7 +2,7 @@
 
 ## Overview
 
-A multi-agent system for autonomously picking up, planning, and implementing development tasks. The system is orchestrated by a **Captain agent** that runs on a schedule, evaluates work across projects, manages Claude usage limits, and launches **worker agents** to execute implementation tasks. A separate **planning agent** handles ticket grooming through an iterative human Q&A loop.
+A multi-agent system for autonomously picking up, planning, and implementing development tasks. The system is orchestrated by a **Majordomo agent** that runs on a schedule, evaluates work across projects, manages Claude usage limits, and launches **worker agents** to execute implementation tasks. A separate **planning agent** handles ticket grooming through an iterative human Q&A loop.
 
 The stages are ordered so that the system can take over building itself as early as possible. After Stage 3, a GH Issue can be filed for the remaining stages and the system will plan and implement them autonomously.
 
@@ -14,7 +14,7 @@ The stages are ordered so that the system can take over building itself as early
 Human Request (GH Issue)
         │
         ▼
-  Captain Agent (scheduled Jenkins job)
+  Majordomo Agent (scheduled Jenkins job)
         │
         ├── Creates Jira Epic/Story + Planning Task
         │
@@ -30,7 +30,7 @@ Human Request (GH Issue)
 **Work sources:**
 - **GitHub Issues** — human-created feature requests (filtered by allowlist)
 
-**Projects tracked by Captain:** `chalk`, `gcp-setup`, `forester`
+**Projects tracked by Majordomo:** `chalk`, `gcp-setup`, `forester`
 
 ---
 
@@ -43,7 +43,7 @@ Epic (linked to GH Issue)
     └── Implementation Tasks (one per stage from approved plan)
 ```
 
-Implementation tasks are leaf nodes — no further planning needed. They become available to the Captain once created and all prior sibling stages are Done.
+Implementation tasks are leaf nodes — no further planning needed. They become available to the Majordomo once created and all prior sibling stages are Done.
 
 ---
 
@@ -56,7 +56,7 @@ Open → In Progress → In Review → Open → ... → Approved → Done
 
 | Status | Meaning |
 |---|---|
-| Open | Ready for Captain to assign to planning agent (or human answered questions) |
+| Open | Ready for Majordomo to assign to planning agent (or human answered questions) |
 | In Progress | Planning agent is actively working |
 | In Review | Agent posted questions or final plan; awaiting human response |
 | Needs Input | Agent requires a specific human answer to continue (blocks re-queue until answered) |
@@ -74,8 +74,8 @@ Open → Ready → In Progress → In Review → Done
 
 | Status | Meaning |
 |---|---|
-| Open | Created, not yet evaluated by Captain |
-| Ready | Captain has selected it; worker can pick it up |
+| Open | Created, not yet evaluated by Majordomo |
+| Ready | Majordomo has selected it; worker can pick it up |
 | In Progress | Worker agent is actively implementing |
 | In Review | Worker opened PR; awaiting human review and merge |
 | Needs Input | Worker encountered a blocker requiring human input |
@@ -85,7 +85,7 @@ Open → Ready → In Progress → In Review → Done
 
 ## Branching Model
 
-All branch merges require a human-reviewed PR. Workers and the Captain never merge directly across branches.
+All branch merges require a human-reviewed PR. Workers and the Majordomo never merge directly across branches.
 
 ```
 main
@@ -98,7 +98,7 @@ main
 - **feature branch** — created by the planning agent; holds the canonical spec doc (e.g. `docs/planning/PROJ-42-spec.md`)
 - **task branches** — created by the worker at launch time, always branching from the current feature branch tip
 - **task → feature PRs** — opened by worker on task completion; reviewed and merged by human; spec updates travel with this PR
-- **feature → main PR** — opened by the Captain when all subtasks of the Story are Done; reviewed and merged by human; PR description references the originating GH Issue and summarizes what the epic delivered
+- **feature → main PR** — opened by the Majordomo when all subtasks of the Story are Done; reviewed and merged by human; PR description references the originating GH Issue and summarizes what the epic delivered
 
 **Key principle:** Workers never pre-create branches. Branching at launch time ensures each worker starts from the latest feature branch, including spec updates from prior merged stages.
 
@@ -123,8 +123,8 @@ When a stage's implementation reveals necessary changes to the plan, the spec do
 
 ### 1.1 GitHub Issue Allowlist Filter
 
-- Maintain a config file (e.g. `captain/config.yaml`) with an `allowed_gh_users` list
-- Captain only considers GH Issues authored by users on this list
+- Maintain a config file (e.g. `majordomo/config.yaml`) with an `allowed_gh_users` list
+- Majordomo only considers GH Issues authored by users on this list
 - Issues from non-allowed users are silently ignored (no labels, no Jira tickets)
 
 ### 1.2 Jira Project & Schema Setup
@@ -134,12 +134,12 @@ When a stage's implementation reveals necessary changes to the plan, the spec do
 - Define priority labels: `P0`, `P1`, `P2`
 - Establish GH Issue ↔ Jira Epic linking convention (e.g. a custom field or description reference)
 
-### 1.3 Captain Skeleton
+### 1.3 Majordomo Skeleton
 
-- Implement Captain as a Claude Code agent running as a Jenkins job
-- Captain reads `captain/config.yaml` for allowed users, project list, and limits config
-- Captain produces a structured run log; logs stored in Jenkins build logs for auditability
-- Jenkins job designed to be portable to GH Actions (no Jenkins-specific logic in Captain itself; orchestration concerns isolated to Jenkinsfile)
+- Implement Majordomo as a Claude Code agent running as a Jenkins job
+- Majordomo reads `majordomo/config.yaml` for allowed users, project list, and limits config
+- Majordomo produces a structured run log; logs stored in Jenkins build logs for auditability
+- Jenkins job designed to be portable to GH Actions (no Jenkins-specific logic in Majordomo itself; orchestration concerns isolated to Jenkinsfile)
 - No scheduling yet — trigger manually for initial testing
 
 ---
@@ -150,7 +150,7 @@ When a stage's implementation reveals necessary changes to the plan, the spec do
 
 ### 2.1 GH Issue → Jira Epic/Story
 
-- Captain polls GH Issues across configured repos
+- Majordomo polls GH Issues across configured repos
 - Filters by `allowed_gh_users`
 - Skips issues already linked to a Jira Epic (idempotent)
 - Assesses complexity:
@@ -163,7 +163,7 @@ When a stage's implementation reveals necessary changes to the plan, the spec do
 
 A thin worker implementation sufficient to execute one task end-to-end:
 
-- Captain manually triggered with a hardcoded or manually specified Jira task ID
+- Majordomo manually triggered with a hardcoded or manually specified Jira task ID
 - No prioritization logic, no usage limits, no scheduling — human selects the task
 - Worker:
   1. Reads Jira task (stage description, acceptance criteria, spec doc path, feature branch reference)
@@ -175,7 +175,7 @@ A thin worker implementation sufficient to execute one task end-to-end:
   7. Transitions Jira task to **In Review**
   8. Exits
 - Human reviews PR, merges, and marks task **Done**
-- Captain detects all Story subtasks Done → opens feature → main PR referencing the GH Issue
+- Majordomo detects all Story subtasks Done → opens feature → main PR referencing the GH Issue
 
 ### 2.3 Task Sizing
 
@@ -193,7 +193,7 @@ A thin worker implementation sufficient to execute one task end-to-end:
 
 ### 3.1 Planning Agent Trigger
 
-- Captain identifies Planning Tasks in status **Open**
+- Majordomo identifies Planning Tasks in status **Open**
 - Transitions task to **In Progress** and launches Planning Agent as a Jenkins job with the Jira task ID
 - Jenkins job designed to be portable to GH Actions
 
@@ -225,13 +225,13 @@ On each run the Planning Agent:
 - Human reviews questions on the Jira ticket
 - Human answers in a comment
 - Human sets ticket back to **Open**
-- On next Captain run, Planning Agent is re-launched, reads prior research doc from branch, continues
+- On next Majordomo run, Planning Agent is re-launched, reads prior research doc from branch, continues
 
 ### 3.4 Plan Approval & Task Spinoff
 
 - Human reviews final multi-stage plan
 - Human transitions Planning Task to **Approved**
-- On next Captain run, Captain reads the approved spec and creates one Jira Implementation Task per stage under the same Epic/Story
+- On next Majordomo run, Majordomo reads the approved spec and creates one Jira Implementation Task per stage under the same Epic/Story
 - Each task ticket includes: stage description, acceptance criteria, reference to spec doc path and feature branch
 - All implementation tasks created in status **Open**
 - Planning Task transitioned to **Done**
@@ -240,13 +240,13 @@ On each run the Planning Agent:
 
 ## ✦ Handoff Point
 
-After Stage 3 is operational, file a GH Issue describing Stages 4–7. The Captain will ingest it, the Planning Agent will research and produce a spec, and the Worker will implement each stage. Stages 4–7 below serve as the specification for that work.
+After Stage 3 is operational, file a GH Issue describing Stages 4–7. The Majordomo will ingest it, the Planning Agent will research and produce a spec, and the Worker will implement each stage. Stages 4–7 below serve as the specification for that work.
 
 ---
 
-## Stage 4 — Captain Prioritization & Ready Promotion
+## Stage 4 — Majordomo Prioritization & Ready Promotion
 
-**Goal:** Captain intelligently selects which implementation tasks are ready to be worked next, replacing the manual task selection from Stage 2.
+**Goal:** Majordomo intelligently selects which implementation tasks are ready to be worked next, replacing the manual task selection from Stage 2.
 
 ### 4.1 Eligibility Criteria
 
@@ -257,22 +257,22 @@ A task is eligible for **Ready** if:
 
 ### 4.2 Prioritization Order
 
-Captain ranks eligible tasks by:
+Majordomo ranks eligible tasks by:
 1. Tasks whose parent Story/Epic has other stages already in flight (continuity)
 2. Priority label: `P0` > `P1` > `P2`
 3. Jira rank (manual ordering within a project)
 
 ### 4.3 Ready Targets
 
-- Captain aims to maintain **at least one** `Ready` task per repo
+- Majordomo aims to maintain **at least one** `Ready` task per repo
 - Multiple `Ready` tasks per repo are allowed if they won't collide (different epics/stories)
-- Captain transitions eligible tasks to **Ready** and selects one to launch per run
+- Majordomo transitions eligible tasks to **Ready** and selects one to launch per run
 
 ### 4.4 Feature → Main PR
 
-- When Captain detects all subtasks of a Story are **Done**, it opens a PR from the feature branch to `main`
+- When Majordomo detects all subtasks of a Story are **Done**, it opens a PR from the feature branch to `main`
 - PR description references the originating GH Issue and summarizes what the story delivered
-- Human reviews and merges; Captain never merges directly
+- Human reviews and merges; Majordomo never merges directly
 
 ---
 
@@ -282,18 +282,18 @@ Captain ranks eligible tasks by:
 
 ### 5.1 Usage Check
 
-Before launching any worker, Captain:
+Before launching any worker, Majordomo:
 - Makes an OAuth request to the Claude usage API
 - Checks weekly usage against a configurable threshold (default: **50%**)
 - If usage ≥ threshold → logs decision, exits without launching a worker
 
 ### 5.2 Time-of-Day Gating
 
-Captain enforces a configurable schedule:
+Majordomo enforces a configurable schedule:
 - **Allowed windows** (default): weekday daytimes and overnight
 - **Blocked windows** (default): weekends
 
-Config in `captain/config.yaml`:
+Config in `majordomo/config.yaml`:
 ```yaml
 schedule:
   allowed_days: [Mon, Tue, Wed, Thu, Fri]
@@ -303,14 +303,14 @@ schedule:
 
 ### 5.3 Local Scheduling (Phase A)
 
-- Captain triggered via local cron or Claude Code's built-in scheduling
+- Majordomo triggered via local cron or Claude Code's built-in scheduling
 - Acknowledged as less reliable (laptop sleep, connectivity)
 - Suitable for initial testing only
 
 ### 5.4 Jenkins Scheduling (Phase B)
 
-- Captain runs as a Jenkins job on a devbox on a defined cron schedule
-- Jenkins configured with **no concurrency** (one Captain run at a time)
+- Majordomo runs as a Jenkins job on a devbox on a defined cron schedule
+- Jenkins configured with **no concurrency** (one Majordomo run at a time)
 - Jenkinsfile isolates all scheduling and trigger logic so migration to GH Actions is straightforward
 
 ---
@@ -326,8 +326,8 @@ schedule:
 
 ### 6.2 Concurrency Path (Future)
 
-- Today: Captain launches exactly one worker per run; Jenkins job has no concurrency
-- Future: Allow Captain to launch N workers; Jenkins parallel builds handle isolation
+- Today: Majordomo launches exactly one worker per run; Jenkins job has no concurrency
+- Future: Allow Majordomo to launch N workers; Jenkins parallel builds handle isolation
 - Task `In Progress` transition is the atomic claim preventing double-pickup
 
 ---
@@ -342,7 +342,7 @@ If the worker agent crashes or halts awaiting input:
 - Any completed work is committed and pushed to the task branch before exit where possible
 - Worker posts a comment on the Jira ticket describing where it stopped and why
 - Worker transitions ticket to **Ready** (can retry) or **Needs Input** (human answer required)
-- Captain will re-queue a **Ready** task on next run; **Needs Input** tasks wait for human intervention
+- Majordomo will re-queue a **Ready** task on next run; **Needs Input** tasks wait for human intervention
 
 ### 7.2 Jenkins Crash (Sweep Job)
 
@@ -352,7 +352,7 @@ If the Jenkins job itself crashes, the worker cannot self-recover. A dedicated s
 - Finds any Implementation Task in **In Progress** for more than **12 hours**
 - Transitions those tickets back to **Ready**
 - Posts a comment noting the reset and timestamp
-- Captain will re-queue on next run
+- Majordomo will re-queue on next run
 
 ### 7.3 Partial / Silent Failure
 
@@ -372,6 +372,6 @@ Same principles apply to the planning agent:
 
 ## Future Considerations
 
-- **GH Actions migration** — when ready, Jenkinsfile logic moves to workflow YAML; Captain, planning agent, worker, and sweep job code remain unchanged
-- **Parallel workers** — Captain launches N workers; Jenkins parallel builds; `In Progress` transition is the atomic claim
+- **GH Actions migration** — when ready, Jenkinsfile logic moves to workflow YAML; Majordomo, planning agent, worker, and sweep job code remain unchanged
+- **Parallel workers** — Majordomo launches N workers; Jenkins parallel builds; `In Progress` transition is the atomic claim
 - **WIP commits** — if task failure rates or durations warrant it, introduce WIP commits to task branch mid-task to reduce lost work on Jenkins crash
