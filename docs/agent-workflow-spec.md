@@ -39,7 +39,7 @@ Human Request (GH Issue)
 | `gcp-setup` | `INFRA` |
 | `forester` | `FSTR` |
 
-**Jira instance:** `https://${JIRA_DOMAIN}.atlassian.net` (Jira Cloud). `JIRA_DOMAIN` is a configurable environment variable (default: `flipperkid`).
+**Jira instance:** `https://${JIRA_DOMAIN}.atlassian.net` (Jira Cloud). `JIRA_DOMAIN` is a configurable environment variable.
 
 ---
 
@@ -56,7 +56,7 @@ The system prompt tells the agent how to access its Jira ticket, how the system 
 **Majordomo launches sub-agents** by triggering parameterized Jenkins jobs via the Jenkins API, passing the Jira ticket ID as a job parameter.
 
 **Credentials** are injected by Jenkins as environment variables:
-- `JIRA_DOMAIN` — Jira Cloud subdomain (e.g. `flipperkid`)
+- `JIRA_DOMAIN` — Jira Cloud subdomain
 - `ANTHROPIC_API_KEY` — for Claude
 - `GH_TOKEN` — for `gh` CLI GitHub interactions
 - Jira auth is handled via the Atlassian MCP server (credentials provided as env vars to the MCP)
