@@ -5,11 +5,7 @@
       "args": ["mcp-atlassian"],
       "env": {
         "JIRA_URL": "https://flipperkid.atlassian.net",
-        "JIRA_USERNAME": "${ATLASSIAN_EMAIL}",
-        "JIRA_API_TOKEN": "${ATLASSIAN_TOKEN}",
-        "CONFLUENCE_URL": "https://flipperkid.atlassian.net",
-        "CONFLUENCE_USERNAME": "${ATLASSIAN_EMAIL}",
-        "CONFLUENCE_API_TOKEN": "${ATLASSIAN_TOKEN}"
+        "JIRA_API_TOKEN": "${JIRA_TOKEN}"
       }
     }
   }

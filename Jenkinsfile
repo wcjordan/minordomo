@@ -35,8 +35,7 @@ pipeline {
                 CLAUDE_CODE_OAUTH_TOKEN = credentials('claude-code-oauth-token')
                 GH_APP                  = credentials('github-app')
                 JIRA_DOMAIN             = 'flipperkid'
-                // ATLASSIAN_EMAIL         = credentials('atlassian-email')
-                // ATLASSIAN_TOKEN         = credentials('atlassian-api-token')
+                JIRA_TOKEN         = credentials('jira_api_key')
             }
             options {
                 timeout(time: 60, unit: 'MINUTES')
