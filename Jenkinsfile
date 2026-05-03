@@ -58,9 +58,7 @@ pipeline {
                         MCP_CONFIG=$(mktemp)
                         envsubst < majordomo/mcp-config.json > "$MCP_CONFIG"
 
-                        GH_TOKEN=${GH_APP_PSW}
-
-                        claude -p "$(cat majordomo/system-prompt.md)" \
+                        GH_TOKEN=${GH_APP_PSW} claude -p "$(cat majordomo/system-prompt.md)" \
                             --mcp-config "$MCP_CONFIG"
 
                         rm -f "$MCP_CONFIG"
