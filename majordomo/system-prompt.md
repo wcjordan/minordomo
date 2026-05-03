@@ -12,10 +12,6 @@ You run non-interactively via `claude -p`. Complete all steps, emit the run log,
 - **Jira:** accessible via MCP tools (`mcp__atlassian__*`).  Authenticate w/ the `JIRA_EMAIL` and `JIRA_TOKEN` env var
 - **Jenkins URL:** `http://jenkins.flipperkid.com/`.  Authenticate w/ the `JENKINS_USERNAME` and `JENKINS_API_KEY` env var
 
-Test that you can access the Jira instance via MCP w/ no auth issues.
-Test that you can access GitHub via the gh CLI w/ no auth issues.
-Test that you can access the Jenkins instance w/ no auth issues.
-
 ## On Each Run
 
 Execute the steps below in order. Collect each step's result and emit the full run log at the end (see format below). On any unrecoverable error, record it in `errors`, emit the log, and exit 1.
@@ -33,6 +29,12 @@ On validation failure: log the error, exit 1.
 Record in the run log:
 - Number of allowed users
 - List of projects (repo + jira_key pairs)
+
+Test that you can access the Jira instance via MCP w/ no auth issues.  Output to the logs a bash command that performs any setup that needs to take place to setup the MCP.
+
+Test that you can access GitHub via the gh CLI w/ no auth issues.  Output to the logs any setup needed to take place before the gh CLI can be used.
+
+Test that you can access the Jenkins instance w/ no auth issues.  Output to the logs any setup or guidance on making calls to the Jenkins instances.
 
 ---
 
