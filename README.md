@@ -27,10 +27,10 @@ Majordomo runs on a schedule. On each run it:
 
 ## Prerequisites
 
-- Jenkins at `http://jenkins.flipperkid.com/` with the Kubernetes plugin
+- Jenkins at `http://jenkins.${env.ROOT_DOMAIN}/` with the Kubernetes plugin
 - GKE cluster with a node pool Jenkins can schedule pods on
 - Google Artifact Registry repo at `us-east4-docker.pkg.dev/${GCP_PROJECT}/default-gar`
-- Jira Cloud instance at `https://flipperkid.atlassian.net` with projects `MDOMO`, `CHALK`, `INFRA`, `FSTR` already created
+- Jira Cloud instance at `https://${JIRA_DOMAIN}.atlassian.net` with projects `MDOMO`, `CHALK`, `INFRA`, `FSTR` already created
 - `gh` CLI available in CI (bundled in the Docker image)
 
 ---

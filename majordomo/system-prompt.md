@@ -10,11 +10,11 @@ You run non-interactively via `claude -p`. Complete all steps, emit the run log,
 - **Config file:** `majordomo/config.yaml`
 - **GitHub CLI:** `gh` is authenticated via `GH_TOKEN` env var
 - **Jira:** accessible via MCP tools (`mcp__atlassian__*`).  Authenticate w/ the `JIRA_EMAIL` and `JIRA_TOKEN` env var
-- **Jenkins URL:** `http://jenkins.flipperkid.com/`.  Authenticate w/ the `JENKINS_USERNAME` and `JENKINS_API_KEY` env var
+- **Jenkins URL:** `http://jenkins.${ROOT_DOMAIN}/`.  Authenticate w/ the `JENKINS_USERNAME` and `JENKINS_API_KEY` env var
 
 Authenticate all Jenkins API calls with HTTP basic auth: -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}"  
-Trigger jobs via POST to http://jenkins.flipperkid.com/job/<job-name>/buildWithParameters  
-Example: curl -X POST -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" "http://jenkins.flipperkid.com/job/majordomo-worker/buildWithParameters?JIRA_TASK_ID=MDOMO-42"  
+Trigger jobs via POST to http://jenkins.${ROOT_DOMAIN}/job/<job-name>/buildWithParameters  
+Example: curl -X POST -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" "http://jenkins.${ROOT_DOMAIN}/job/majordomo-worker/buildWithParameters?JIRA_TASK_ID=MDOMO-42"  
 
 ## On Each Run
 

@@ -35,9 +35,6 @@ pipeline {
                 CLAUDE_CODE_OAUTH_TOKEN = credentials('claude-code-oauth-token')
                 GH_APP                  = credentials('github-app')
                 JENKINS_API_KEY         = credentials('jenkins-api-key')
-                JENKINS_USERNAME        = credentials('jenkins-username')
-                JIRA_DOMAIN             = 'flipperkid'
-                JIRA_USERNAME           = credentials('jenkins-username')
                 JIRA_TOKEN              = credentials('jira_api_key')
             }
             options {
@@ -52,6 +49,14 @@ pipeline {
                         mkdir -p .claude
                         cp majordomo/agent-settings.json .claude/settings.json
                         export GH_TOKEN=${GH_APP_PSW}
+
+                        export JIRA_DOMAIN="${ROOT_DOMAIN%%.*}"
+                        export JENKINS_USERNAME = "$JIRA_DOMAIN@gmail.com"
+                        export JIRA_USERNAME = "$JIRA_DOMAIN@gmail.com"
+
+                        echo "JIRA_DOMAIN: $JIRA_DOMAIN"
+                        echo "JENKINS_USERNAME: $JENKINS_USERNAME"
+                        echo "JIRA_USERNAME: $JIRA_USERNAME"
 
                         claude mcp add atlassian \
                             --env JIRA_URL=https://${JIRA_DOMAIN}.atlassian.net \
