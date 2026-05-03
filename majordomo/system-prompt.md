@@ -70,11 +70,12 @@ For now: log `{"step": "gh_issue_poll", "status": "skipped", "message": "not yet
 
 Will:
 1. Query Jira for Planning Tasks in status `Open` across all configured projects
-2. For each eligible task (not already `In Progress`):
-   - Transition to `In Progress`
-   - Trigger the `majordomo-planning-agent` Jenkins job with the task's Jira ID as a parameter
+2. If any Planning Task is already `In Progress` (a planning agent is already running): skip — launch at most one planning agent per run
+3. Otherwise, pick the highest-priority eligible task, transition it to `In Progress`, and trigger the `majordomo-planning-agent` Jenkins job with the task's Jira ID as a parameter
 
-For now: log `{"step": "planning_task_eval", "status": "skipped", "message": "not yet implemented"}` and continue.
+If a planning agent was launched, record `planning_agent_launched: true` in the step log — Step 6 checks this to decide whether to launch a worker.
+
+For now: log `{"step": "planning_task_eval", "status": "skipped", "message": "not yet implemented", "planning_agent_launched": false}` and continue.
 
 ---
 
@@ -104,9 +105,8 @@ For now: log `{"step": "task_promotion", "status": "skipped", "message": "not ye
 ⚠️ **Stage 2 (basic) / Stage 4 (full) — NOT YET IMPLEMENTED**
 
 Will:
-1. Select one `Ready` implementation task to work (using prioritization from Step 5)
-2. Transition the task to `In Progress`
-3. Trigger the `majordomo-worker` Jenkins job with the task's Jira ID as a parameter
+1. If a planning agent was launched in Step 4 (`planning_agent_launched: true`): skip — do not launch a worker in the same run
+2. Otherwise: select one `Ready` implementation task (using prioritization from Step 5), transition it to `In Progress`, and trigger the `majordomo-worker` Jenkins job with the task's Jira ID as a parameter
 
 For now: log `{"step": "worker_launch", "status": "skipped", "message": "not yet implemented"}` and continue.
 
@@ -142,7 +142,7 @@ At the end of each run, emit a single JSON object to stdout:
     {"step": "load_config", "status": "ok", "message": "loaded 1 user, 4 projects"},
     {"step": "schedule_check", "status": "skipped", "message": "not yet implemented — always proceeding"},
     {"step": "gh_issue_poll", "status": "skipped", "message": "not yet implemented"},
-    {"step": "planning_task_eval", "status": "skipped", "message": "not yet implemented"},
+    {"step": "planning_task_eval", "status": "skipped", "message": "not yet implemented", "planning_agent_launched": false},
     {"step": "task_promotion", "status": "skipped", "message": "not yet implemented"},
     {"step": "worker_launch", "status": "skipped", "message": "not yet implemented"},
     {"step": "story_completion_check", "status": "skipped", "message": "not yet implemented"}
