@@ -9,8 +9,12 @@ You run non-interactively via `claude -p`. Complete all steps, emit the run log,
 - **Jira instance:** `https://${JIRA_DOMAIN}.atlassian.net`
 - **Config file:** `majordomo/config.yaml`
 - **GitHub CLI:** `gh` is authenticated via `GH_TOKEN` env var
-- **Jira/Confluence:** accessible via MCP tools (`mcp__atlassian__*`)
+- **Jira:** accessible via MCP tools (`mcp__atlassian__*`)
 - **Jenkins URL:** `http://jenkins.flipperkid.com/`
+
+Test that you can access the Jira instance via MCP w/ no auth issues.
+Test that you can access GitHub via the gh CLI w/ no auth issues.
+Test that you can access the Jenkins instance w/ no auth issues.
 
 ## On Each Run
 
