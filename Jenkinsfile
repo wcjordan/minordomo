@@ -45,18 +45,15 @@ pipeline {
                     sh '''
                         set -euo pipefail
 
-                        # Deploy agent permissions into the repo's .claude directory
-                        mkdir -p .claude
-                        cp majordomo/agent-settings.json .claude/settings.json
-                        export GH_TOKEN=${GH_APP_PSW}
-
+                        # Setup environment variables based on ROOT_DOMAIN or GH_APP
                         export JIRA_DOMAIN="${ROOT_DOMAIN%%.*}"
                         export JENKINS_USERNAME="$JIRA_DOMAIN@gmail.com"
                         export JIRA_USERNAME="$JIRA_DOMAIN@gmail.com"
+                        export GH_TOKEN=${GH_APP_PSW}
 
-                        echo "JIRA_DOMAIN: $JIRA_DOMAIN"
-                        echo "JENKINS_USERNAME: $JENKINS_USERNAME"
-                        echo "JIRA_USERNAME: $JIRA_USERNAME"
+                        # Deploy agent permissions into the repo's .claude directory
+                        mkdir -p .claude
+                        cp majordomo/agent-settings.json .claude/settings.json
 
                         claude mcp add atlassian \
                             --env JIRA_URL=https://${JIRA_DOMAIN}.atlassian.net \
