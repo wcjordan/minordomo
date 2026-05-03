@@ -45,12 +45,9 @@ Add the following credentials in Jenkins → Manage Jenkins → Credentials:
 |---|---|---|
 | `claude-code-oauth-token` | Secret text | Claude Code OAuth token |
 | `github-app` | GitHub App | GitHub App for repo access (provides `GH_TOKEN` at runtime) |
-| `jenkins-username` | Secret text | Jenkins username — also used as the Jira/Atlassian account email for MCP auth |
 | `jenkins-api-key` | Secret text | Jenkins API key for triggering parameterized jobs |
 | `jira_api_key` | Secret text | Jira API token (generate at id.atlassian.com) |
 | `jenkins-gke-sa` | Secret file | GCP service account JSON key with `roles/artifactregistry.writer` (build jobs only) |
-
-> **Note:** `jenkins-username` is reused as both `JENKINS_USERNAME` and `JIRA_EMAIL`. This assumes your Jenkins username is your Atlassian account email. If they differ, add a separate `jira-email` credential and update `Jenkinsfile` accordingly.
 
 ### 2. Build and Push the Docker Image
 

@@ -51,8 +51,8 @@ pipeline {
                         export GH_TOKEN=${GH_APP_PSW}
 
                         export JIRA_DOMAIN="${ROOT_DOMAIN%%.*}"
-                        export JENKINS_USERNAME = "$JIRA_DOMAIN@gmail.com"
-                        export JIRA_USERNAME = "$JIRA_DOMAIN@gmail.com"
+                        export JENKINS_USERNAME="$JIRA_DOMAIN@gmail.com"
+                        export JIRA_USERNAME="$JIRA_DOMAIN@gmail.com"
 
                         echo "JIRA_DOMAIN: $JIRA_DOMAIN"
                         echo "JENKINS_USERNAME: $JENKINS_USERNAME"
