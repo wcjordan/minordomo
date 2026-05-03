@@ -18,7 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Claude Code CLI
-RUN npm install -g @anthropic-ai/claude-code
+RUN curl -fsSL https://claude.ai/install.sh | bash
 
 # uv (fast Python package runner) — used to run the mcp-atlassian MCP server via uvx
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
