@@ -32,11 +32,11 @@ pipeline {
                 }
             }
             environment {
-                ANTHROPIC_API_KEY = credentials('anthropic-api-key')
-                GH_TOKEN          = credentials('gh-token')
-                JIRA_DOMAIN       = 'flipperkid'
-                ATLASSIAN_EMAIL   = credentials('atlassian-email')
-                ATLASSIAN_TOKEN   = credentials('atlassian-api-token')
+                CLAUDE_CODE_OAUTH_TOKEN = credentials('claude-code-oauth-token')
+                GH_TOKEN                = credentials('gh-token')
+                JIRA_DOMAIN             = 'flipperkid'
+                ATLASSIAN_EMAIL         = credentials('atlassian-email')
+                ATLASSIAN_TOKEN         = credentials('atlassian-api-token')
             }
             options {
                 timeout(time: 60, unit: 'MINUTES')
