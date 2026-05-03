@@ -58,7 +58,7 @@ pipeline {
 
                         GH_TOKEN=${GH_APP_PSW}
 
-                        CLAUDE_CODE_OAUTH_TOKEN="${CLAUDE_CODE_OAUTH_TOKEN}" claude -p "$(cat majordomo/system-prompt.md)" \
+                        claude -p "$(cat majordomo/system-prompt.md)" \
                             --mcp-config "$MCP_CONFIG"
 
                         rm -f "$MCP_CONFIG"
