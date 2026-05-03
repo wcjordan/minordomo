@@ -53,12 +53,11 @@ pipeline {
                         cp majordomo/agent-settings.json .claude/settings.json
                         export GH_TOKEN=${GH_APP_PSW}
 
-                        claude mcp list
                         claude mcp add atlassian \
                             --env JIRA_URL=https://${JIRA_DOMAIN}.atlassian.net \
                             --env JIRA_USERNAME=$JIRA_EMAIL \
                             --env JIRA_API_TOKEN=$JIRA_TOKEN \
-                            -- uvx -y mcp-atlassian
+                            -- uvx mcp-atlassian
                         claude mcp list
 
                         claude -p "$(cat majordomo/system-prompt.md)"
