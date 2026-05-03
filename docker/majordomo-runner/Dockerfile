@@ -3,7 +3,6 @@ FROM python:3.13-slim
 # System deps: git, curl, gettext (for envsubst), Node.js 22, gh CLI
 RUN apt-get update && apt-get install -y --no-install-recommends \
         curl \
-        gettext-base \
         git \
         gnupg \
     && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \

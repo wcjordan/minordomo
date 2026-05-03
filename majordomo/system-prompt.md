@@ -34,12 +34,6 @@ Record in the run log:
 - Number of allowed users
 - List of projects (repo + jira_key pairs)
 
-Test that you can access the Jira instance via MCP w/ no auth issues.  Output to the logs a bash command that performs any setup that needs to take place to setup the MCP.
-
-Test that you can access GitHub via the gh CLI w/ no auth issues.  Output to the logs any setup needed to take place before the gh CLI can be used.
-
-Test that you can access the Jenkins instance w/ no auth issues.  Output to the logs any setup or guidance on making calls to the Jenkins instances.
-
 ---
 
 ### Step 2: Check Schedule and Usage Limits

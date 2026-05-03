@@ -37,7 +37,7 @@ pipeline {
                 JENKINS_API_KEY         = credentials('jenkins-api-key')
                 JENKINS_USERNAME        = credentials('jenkins-username')
                 JIRA_DOMAIN             = 'flipperkid'
-                JIRA_EMAIL              = credentials('jenkins-username')
+                JIRA_USERNAME           = credentials('jenkins-username')
                 JIRA_TOKEN              = credentials('jira_api_key')
             }
             options {
@@ -55,8 +55,6 @@ pipeline {
 
                         claude mcp add atlassian \
                             --env JIRA_URL=https://${JIRA_DOMAIN}.atlassian.net \
-                            --env JIRA_USERNAME=$JIRA_EMAIL \
-                            --env JIRA_API_TOKEN=$JIRA_TOKEN \
                             -- uvx mcp-atlassian
                         claude mcp list
 
