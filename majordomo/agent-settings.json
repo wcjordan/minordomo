@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(*)",
+      "Read(*)",
+      "Edit(*)",
+      "Write(*)",
+      "mcp__atlassian__*"
+    ],
+    "deny": [
+      "Bash(git push --force*)",
+      "Bash(git push -f *)",
+      "Bash(git commit --no-verify*)",
+      "Bash(git rebase*)",
+      "Bash(sudo *)",
+      "Bash(rm -rf /*)",
+      "Bash(curl *metadata.google.internal*)",
+      "Bash(curl *169.254.169.254*)"
+    ]
+  },
+  "hooks": {
+    "PreBashCommand": "hooks/pre-bash-guard.sh"
+  }
+}
