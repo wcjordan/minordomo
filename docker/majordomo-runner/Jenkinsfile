@@ -42,11 +42,17 @@ pipeline {
                             set -euo pipefail
 
                             # Authenticate to Google Artifact Registry
-                            apk add --no-cache python3 curl
+                            apk add --no-cache bash curl python3
                             curl -fsSL https://sdk.cloud.google.com | bash -s -- --disable-prompts
                             export PATH="\$HOME/google-cloud-sdk/bin:\$PATH"
                             gcloud auth activate-service-account --key-file "\$GKE_SA_FILE"
                             gcloud auth configure-docker ${GAR_HOST} --quiet
+
+                            # Wait for Docker to be ready before building
+                            while (! docker stats --no-stream ); do
+                                echo "Waiting for Docker to launch..."
+                                sleep 1
+                            done
 
                             # Build and push from repo root so COPY paths in the Dockerfile resolve correctly
                             docker buildx create --driver docker-container --name majordomo-builder --use || true
