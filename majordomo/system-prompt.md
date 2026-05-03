@@ -12,6 +12,10 @@ You run non-interactively via `claude -p`. Complete all steps, emit the run log,
 - **Jira:** accessible via MCP tools (`mcp__atlassian__*`).  Authenticate w/ the `JIRA_EMAIL` and `JIRA_TOKEN` env var
 - **Jenkins URL:** `http://jenkins.flipperkid.com/`.  Authenticate w/ the `JENKINS_USERNAME` and `JENKINS_API_KEY` env var
 
+Authenticate all Jenkins API calls with HTTP basic auth: -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}"  
+Trigger jobs via POST to http://jenkins.flipperkid.com/job/<job-name>/buildWithParameters  
+Example: curl -X POST -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" "http://jenkins.flipperkid.com/job/majordomo-worker/buildWithParameters?JIRA_TASK_ID=MDOMO-42"  
+
 ## On Each Run
 
 Execute the steps below in order. Collect each step's result and emit the full run log at the end (see format below). On any unrecoverable error, record it in `errors`, emit the log, and exit 1.

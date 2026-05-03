@@ -52,16 +52,9 @@ pipeline {
                         mkdir -p .claude
                         cp majordomo/agent-settings.json .claude/settings.json
 
-                        # Substitute credentials into the MCP config and write to a temp file.
-                        # The MCP server inherits the container environment, so env vars in the
-                        # config template are resolved by the shell before claude starts.
-                        MCP_CONFIG=$(mktemp)
-                        envsubst < majordomo/mcp-config.json > "$MCP_CONFIG"
-
-                        GH_TOKEN=${GH_APP_PSW} claude -p "$(cat majordomo/system-prompt.md)" \
-                            --mcp-config "$MCP_CONFIG"
-
-                        rm -f "$MCP_CONFIG"
+                        export GH_TOKEN=${GH_APP_PSW}
+                        claude --mcp-config majordomo/mcp-config.json \
+                            -p "$(cat majordomo/system-prompt.md)"
                     '''
                 }
             }
