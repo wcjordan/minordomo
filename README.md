@@ -43,11 +43,14 @@ Add the following credentials in Jenkins → Manage Jenkins → Credentials:
 
 | Credential ID | Type | Description |
 |---|---|---|
-| `anthropic-api-key` | Secret text | Anthropic API key for Claude |
-| `gh-token` | Secret text | GitHub personal access token (scopes: `repo`, `read:org`) |
-| `atlassian-email` | Secret text | Atlassian account email for Jira API auth |
-| `atlassian-api-token` | Secret text | Atlassian API token (generate at id.atlassian.com) |
-| `jenkins-gke-sa` | Secret file | GCP service account JSON key with `roles/artifactregistry.writer` |
+| `claude-code-oauth-token` | Secret text | Claude Code OAuth token |
+| `github-app` | GitHub App | GitHub App for repo access (provides `GH_TOKEN` at runtime) |
+| `jenkins-username` | Secret text | Jenkins username — also used as the Jira/Atlassian account email for MCP auth |
+| `jenkins-api-key` | Secret text | Jenkins API key for triggering parameterized jobs |
+| `jira_api_key` | Secret text | Jira API token (generate at id.atlassian.com) |
+| `jenkins-gke-sa` | Secret file | GCP service account JSON key with `roles/artifactregistry.writer` (build jobs only) |
+
+> **Note:** `jenkins-username` is reused as both `JENKINS_USERNAME` and `JIRA_EMAIL`. This assumes your Jenkins username is your Atlassian account email. If they differ, add a separate `jira-email` credential and update `Jenkinsfile` accordingly.
 
 ### 2. Build and Push the Docker Image
 
@@ -79,10 +82,6 @@ docker push ${GAR_REPO}/majordomo-runner:latest
 The planning-agent and worker Jenkinsfiles do not exist yet — they will be created in Stages 2 and 3.
 
 For each job: New Item → Pipeline → select "Pipeline script from SCM" → point to this repo and the Jenkinsfile path listed above.
-
-### 4. Verify the MCP Server Package
-
-`majordomo/mcp-config.json` references the `mcp-atlassian` package run via `uvx`. Confirm this matches the Atlassian MCP server you already have configured. If the package name differs, update `mcp-config.json`.
 
 ---
 
