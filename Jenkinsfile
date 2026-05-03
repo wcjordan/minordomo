@@ -33,10 +33,10 @@ pipeline {
             }
             environment {
                 CLAUDE_CODE_OAUTH_TOKEN = credentials('claude-code-oauth-token')
-                GH_TOKEN                = credentials('gh-token')
+                GH_APP                  = credentials('github-app')
                 JIRA_DOMAIN             = 'flipperkid'
-                ATLASSIAN_EMAIL         = credentials('atlassian-email')
-                ATLASSIAN_TOKEN         = credentials('atlassian-api-token')
+                // ATLASSIAN_EMAIL         = credentials('atlassian-email')
+                // ATLASSIAN_TOKEN         = credentials('atlassian-api-token')
             }
             options {
                 timeout(time: 60, unit: 'MINUTES')
@@ -55,6 +55,8 @@ pipeline {
                         # config template are resolved by the shell before claude starts.
                         MCP_CONFIG=$(mktemp)
                         envsubst < majordomo/mcp-config.json > "$MCP_CONFIG"
+
+                        GH_TOKEN=${GH_APP_PSW}
 
                         claude -p "$(cat majordomo/system-prompt.md)" \
                             --mcp-config "$MCP_CONFIG"
