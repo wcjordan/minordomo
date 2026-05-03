@@ -6,6 +6,9 @@ pipeline {
     options {
         timestamps()
     }
+    triggers {
+        cron('H 2 * * 0')  // Sundays ~2 AM; keeps base image deps fresh
+    }
     stages {
         stage('Build and Push') {
             agent {

@@ -72,7 +72,7 @@ docker push ${GAR_REPO}/majordomo-runner:latest
 | Job name | Jenkinsfile path | Trigger |
 |---|---|---|
 | `majordomo` | `Jenkinsfile` | Manual (Stage 1); cron after Stage 5 |
-| `majordomo-build-runner` | `docker/majordomo-runner/Jenkinsfile` | Manual |
+| `majordomo-build-runner` | `docker/majordomo-runner/Jenkinsfile` | Weekly cron (Sundays ~2 AM); manual as needed |
 | `majordomo-planning-agent` | `majordomo/jenkins/planning-agent/Jenkinsfile` | Triggered by Majordomo (Stage 3) |
 | `majordomo-worker` | `majordomo/jenkins/worker/Jenkinsfile` | Triggered by Majordomo (Stage 2) |
 
