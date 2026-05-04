@@ -11,5 +11,7 @@ cp majordomo/agent-settings.json .claude/settings.json
 
 claude mcp add atlassian \
     --env JIRA_URL="https://${JIRA_DOMAIN}.atlassian.net" \
+    --env JIRA_USERNAME="${JIRA_USERNAME}" \
+    --env JIRA_API_TOKEN="${JIRA_TOKEN}" \
     -- uvx mcp-atlassian
 claude mcp list
