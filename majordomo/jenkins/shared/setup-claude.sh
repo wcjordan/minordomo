@@ -13,6 +13,6 @@ claude mcp add atlassian \
     --env JIRA_URL="https://${JIRA_DOMAIN}.atlassian.net" \
     --env JIRA_USERNAME="${JIRA_USERNAME}" \
     --env JIRA_EMAIL="${JIRA_EMAIL}" \
-    --env JIRA_API_TOKEN="${JIRA_TOKEN}" \
+    --env JIRA_TOKEN="${JIRA_TOKEN}" \
     -- uvx mcp-atlassian
 claude mcp list
