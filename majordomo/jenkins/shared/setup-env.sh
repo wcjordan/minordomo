@@ -9,4 +9,5 @@ set -euo pipefail
 export JIRA_DOMAIN="${ROOT_DOMAIN%%.*}"
 export JENKINS_USERNAME="${JIRA_DOMAIN}@gmail.com"
 export JIRA_USERNAME="${JIRA_DOMAIN}@gmail.com"
+export JIRA_EMAIL="$JIRA_USERNAME"
 export GH_TOKEN="${GH_APP_PSW}"
