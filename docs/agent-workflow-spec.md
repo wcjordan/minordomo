@@ -233,7 +233,7 @@ For each project:
 - Skips issues that already have the `jira-epic-created` label (idempotent)
 - Creates **Epic** + Planning **Task** under the Epic
 - Adds the GH Issue URL to the Jira Epic description
-- Adds the Jira Epic key to the GH Issue description via `gh` CLI
+- Adds the Jira Epic key as a comment on the GH Issue via `gh` CLI
 - Applies the `jira-epic-created` label to the GH Issue
 - Planning Task created in status **Open**
 
@@ -253,7 +253,6 @@ A thin worker implementation sufficient to execute one task end-to-end:
   7. Transitions Jira task to **In Review**
   8. Exits
 - Human reviews PR, merges, and marks task **Done**
-- Majordomo detects all Story subtasks Done → opens feature → main PR referencing the GH Issue
 
 ### 2.3 Task Sizing
 
