@@ -46,9 +46,6 @@ pipeline {
                         set -euo pipefail
 
                         source majordomo/jenkins/shared/setup-env.sh
-
-                        sleep 1800
-
                         source majordomo/jenkins/shared/setup-claude.sh
 
                         claude -p "$(cat majordomo/system-prompt.md)"
