@@ -47,7 +47,7 @@ pipeline {
 
                         source majordomo/jenkins/shared/setup-env.sh
 
-                        sleep 900
+                        sleep 1800
 
                         source majordomo/jenkins/shared/setup-claude.sh
 
