@@ -58,7 +58,7 @@ Parameterized Jenkins pipeline job for the worker agent.
 - `JIRA_TOKEN` → `jira_api_key`
 
 **Shell steps:**
-1. Derive `JIRA_DOMAIN`, `JENKINS_USERNAME`, `JIRA_USERNAME`, `GH_TOKEN` from injected credentials — extract into a shared script (`majordomo/jenkins/shared/setup-env.sh`) sourced by both Majordomo and worker Jenkinsfiles
+1. Derive `JIRA_URL`, `JENKINS_USERNAME`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, & `GH_TOKEN` from injected credentials & env variables — extract into a shared script (`majordomo/jenkins/shared/setup-env.sh`) sourced by both Majordomo and worker Jenkinsfiles
 2. Deploy `majordomo/agent-settings.json` to `.claude/settings.json` and register the Atlassian MCP server — extract into a shared script (`majordomo/jenkins/shared/setup-claude.sh`)
 3. Run `majordomo/jenkins/worker/setup-workspace.sh` to derive REPO and FEATURE_BRANCH and set up the task branch (see below)
 4. Run: `claude -p "$(cat majordomo/jenkins/worker/system-prompt.md)"` from inside the cloned repo directory, with `JIRA_TASK_ID` and `FEATURE_BRANCH` in the environment
@@ -86,9 +86,9 @@ Bash script that runs before Claude and prepares the git workspace:
 Worker system prompt. The worker runs non-interactively (`claude -p`) and must complete all steps and exit without prompting for input.
 
 **Environment available:**
-- `JIRA_TASK_ID` — the Jira task to implement
-- `JIRA_DOMAIN` — Jira Cloud subdomain
-- `GH_TOKEN` — for `gh` CLI
+- `JIRA_ACCT` — Jira Cloud credentials
+- `CLAUDE_CODE_OAUTH_TOKEN` — for Claude
+- `GH_APP` — for `gh` CLI GitHub interactions
 - Atlassian MCP (`mcp__atlassian__*`) for Jira reads/writes
 
 The worker starts with the target repo already cloned and the `task/<JIRA_TASK_ID>` branch already checked out and pushed (done by the Jenkinsfile). The worker's working directory is the root of the cloned repo.

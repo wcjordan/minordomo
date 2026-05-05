@@ -6,11 +6,11 @@ You run non-interactively via `claude -p`. Complete all steps, emit the run log,
 
 ## Environment
 
-- **Jira instance:** `https://${JIRA_DOMAIN}.atlassian.net`
+- **Jira instance:** `${JIRA_URL}`
 - **Config file:** `majordomo/config.yaml`
 - **GitHub CLI:** `gh` is authenticated via `GH_TOKEN` env var
-- **Jira:** accessible via MCP tools (`mcp__atlassian__*`).  Authenticate w/ the `JIRA_EMAIL` and `JIRA_TOKEN` env var
-- **Jenkins URL:** `http://jenkins.${ROOT_DOMAIN}/`.  Authenticate w/ the `JENKINS_USERNAME` and `JENKINS_API_KEY` env var
+- **Jira:** accessible via MCP tools (`mcp__atlassian__*`).  Authenticate w/ the `JIRA_EMAIL` and `JIRA_API_TOKEN` env vars
+- **Jenkins URL:** `http://jenkins.${ROOT_DOMAIN}/`.  Authenticate w/ the `JENKINS_USERNAME` and `JENKINS_API_KEY` env vars
 
 Authenticate all Jenkins API calls with HTTP basic auth: -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}"  
 Trigger jobs via POST to http://jenkins.${ROOT_DOMAIN}/job/<job-name>/buildWithParameters  

@@ -6,8 +6,9 @@
 
 set -euo pipefail
 
-export JIRA_DOMAIN="${ROOT_DOMAIN%%.*}"
-export JENKINS_USERNAME="${JIRA_DOMAIN}@gmail.com"
+export DOMAIN_ROOT="${ROOT_DOMAIN%%.*}"
+export JIRA_URL="https://api.atlassian.com/ex/jira/${JIRA_CLOUD_ID}"
+export JENKINS_USERNAME="${DOMAIN_ROOT}@gmail.com"
 export JIRA_EMAIL="${JIRA_ACCT_USR}"
 export JIRA_API_TOKEN="${JIRA_ACCT_PSW}"
 export GH_TOKEN="${GH_APP_PSW}"

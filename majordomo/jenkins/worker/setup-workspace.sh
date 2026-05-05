@@ -3,7 +3,7 @@
 # and creates the task branch. Source this script — do not execute it directly.
 # After sourcing, the shell's working directory is the root of the cloned repo.
 #
-# Requires: JIRA_TASK_ID, JIRA_DOMAIN, JIRA_USERNAME, JIRA_TOKEN, GH_TOKEN env vars
+# Requires: JIRA_TASK_ID, DOMAIN_ROOT, JIRA_URL, JIRA_USERNAME, JIRA_TOKEN, GH_TOKEN env vars
 # Exports:  REPO, FEATURE_BRANCH
 
 set -euo pipefail
@@ -24,7 +24,7 @@ print(matches[0])
 JIRA_RESPONSE=$(curl -s -f \
     -u "${JIRA_USERNAME}:${JIRA_TOKEN}" \
     -H "Accept: application/json" \
-    "https://${JIRA_DOMAIN}.atlassian.net/rest/api/3/issue/${JIRA_TASK_ID}?fields=parent")
+    "${JIRA_URL}/rest/api/3/issue/${JIRA_TASK_ID}?fields=parent")
 
 EPIC_KEY=$(echo "$JIRA_RESPONSE" | python3 -c "
 import json, sys
