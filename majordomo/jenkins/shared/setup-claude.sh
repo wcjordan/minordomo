@@ -6,8 +6,8 @@
 
 set -euo pipefail
 
-mkdir -p .claude
-cp majordomo/agent-settings.json .claude/settings.json
+mkdir -p ~/.claude
+cp majordomo/agent-settings.json ~/.claude/settings.json
 
 claude mcp add atlassian \
     --env JIRA_URL="${JIRA_URL}" \
