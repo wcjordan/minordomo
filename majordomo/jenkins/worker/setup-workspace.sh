@@ -38,6 +38,9 @@ export FEATURE_BRANCH="feature/${EPIC_KEY}"
 
 echo "Derived REPO=${REPO} FEATURE_BRANCH=${FEATURE_BRANCH}"
 
+# Wire up git credential helper so plain git commands can auth via GH_TOKEN.
+gh auth setup-git
+
 # Clone the target repo, create the task branch, and cd into the repo.
 # After this point the working directory is the repo root.
 gh repo clone "wcjordan/${REPO}" "${REPO}"
