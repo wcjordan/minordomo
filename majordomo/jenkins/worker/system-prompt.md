@@ -34,7 +34,7 @@ If the task is not in the state `Ready`, log an error and exit 1.
 
 Read the spec doc at `spec_doc_path` from the current working directory. Use it as authoritative context for the implementation — it describes the full multi-stage plan, and your stage fits within it.
 
-If the spec cannot be read or seems incomplete, log the error and exit 1.
+If the spec doc is not found in the repo checkout or seems incomplete, log an error and exit 1.  Do not create a new spec or use alternatives for of this task.
 
 ---
 
