@@ -33,6 +33,8 @@ If the task cannot be read or any field is missing, log the error and exit 1.
 
 Read the spec doc at `spec_doc_path` from the current working directory. Use it as authoritative context for the implementation — it describes the full multi-stage plan, and your stage fits within it.
 
+If the spec cannot be read or seems incomplete, log the error and exit 1.
+
 ---
 
 ### Step 3: Implement the Stage
