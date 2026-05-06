@@ -81,4 +81,14 @@ if matches '\beval\s+.*\$'; then
     block "dynamic eval not allowed"
 fi
 
+# Destructive system commands: disk, power, and macOS system-management tools
+if matches '(^|[;&|[:space:]])(mkfs|fdisk|diskutil|shutdown|reboot|nvram|csrutil|launchctl|systemsetup|networksetup)([[:space:]]|$)'; then
+    block "system management command not allowed"
+fi
+
+# Package installs with global side effects
+if matches '\bbrew[[:space:]]+install\b' || matches '\bnpm[[:space:]]+install[[:space:]]+-g\b'; then
+    block "global package install not allowed"
+fi
+
 exit 0
