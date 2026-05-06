@@ -26,6 +26,7 @@ Read the task at `$JIRA_TASK_ID` via MCP. Extract:
 - `acceptance_criteria` — the conditions that define done for this stage
 
 If the task cannot be read or any field is missing, log the error and exit 1.
+If the task is not in the state `Ready`, log an error and exit 1.
 
 ---
 
