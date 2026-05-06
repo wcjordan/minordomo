@@ -5,7 +5,6 @@ pipeline {
     agent none
     options {
         timestamps()
-        disableConcurrentBuilds()
     }
     parameters {
         string(name: 'JIRA_TASK_ID', description: 'Jira task ID to implement (e.g. MDOMO-44)', trim: true)

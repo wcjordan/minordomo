@@ -55,11 +55,11 @@ Parameterized Jenkins pipeline job for the worker agent.
 **Credentials injected:**
 - `CLAUDE_CODE_OAUTH_TOKEN` → `claude-code-oauth-token`
 - `GH_APP` → `github-app`
-- `JIRA_TOKEN` → `jira_api_key`
+- `JIRA_ACCT` → `minordomo_jenkins_token`
 
 **Shell steps:**
 1. Derive `JIRA_URL`, `JENKINS_USERNAME`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, & `GH_TOKEN` from injected credentials & env variables — extract into a shared script (`majordomo/jenkins/shared/setup-env.sh`) sourced by both Majordomo and worker Jenkinsfiles
-2. Deploy `majordomo/agent-settings.json` to `.claude/settings.json` and register the Atlassian MCP server — extract into a shared script (`majordomo/jenkins/shared/setup-claude.sh`)
+2. Deploy `majordomo/agent-settings.json` to `~/.claude/settings.json` and register the Atlassian MCP server — extract into a shared script (`majordomo/jenkins/shared/setup-claude.sh`)
 3. Run `majordomo/jenkins/worker/setup-workspace.sh` to derive REPO and FEATURE_BRANCH and set up the task branch (see below)
 4. Run: `claude -p "$(cat majordomo/jenkins/worker/system-prompt.md)"` from inside the cloned repo directory, with `JIRA_TASK_ID` and `FEATURE_BRANCH` in the environment
 
