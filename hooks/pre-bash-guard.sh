@@ -81,4 +81,27 @@ if matches '\beval\s+.*\$'; then
     block "dynamic eval not allowed"
 fi
 
+# Disk partitioning and filesystem tools
+if matches '\b(mkfs|fdisk|diskutil)\b'; then
+    block "disk partitioning/filesystem tools not allowed"
+fi
+
+# System shutdown/reboot
+if matches '(^|[;&|[:space:]])(shutdown|reboot)\b'; then
+    block "system shutdown/reboot not allowed"
+fi
+
+# macOS system configuration tools
+if matches '\b(nvram|csrutil|launchctl|systemsetup|networksetup)\b'; then
+    block "macOS system configuration tools not allowed"
+fi
+
+# Global package installation
+if matches 'brew[[:space:]]+install\b'; then
+    block "brew install not allowed"
+fi
+if matches 'npm[[:space:]]+install[[:space:]]+-g\b'; then
+    block "npm install -g not allowed"
+fi
+
 exit 0

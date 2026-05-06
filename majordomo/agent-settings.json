@@ -15,7 +15,19 @@
       "Bash(sudo *)",
       "Bash(rm -rf /*)",
       "Bash(curl *metadata.google.internal*)",
-      "Bash(curl *169.254.169.254*)"
+      "Bash(curl *169.254.169.254*)",
+      "Bash(mkfs*)",
+      "Bash(fdisk*)",
+      "Bash(diskutil*)",
+      "Bash(shutdown*)",
+      "Bash(reboot*)",
+      "Bash(nvram*)",
+      "Bash(csrutil*)",
+      "Bash(launchctl*)",
+      "Bash(systemsetup*)",
+      "Bash(networksetup*)",
+      "Bash(brew install*)",
+      "Bash(npm install -g*)"
     ]
   },
   "hooks": {
