@@ -43,10 +43,10 @@ Add the following credentials in Jenkins → Manage Jenkins → Credentials:
 
 | Credential ID | Type | Description |
 |---|---|---|
-| `claude-code-oauth-token` | Secret text | Claude Code OAuth token |
+| `claude-code-oauth-token` | Secret text | Claude Code OAuth token. Get by running `claude setup-token` |
+| `jenkins-api-key` | Secret text | Jenkins API key for triggering parameterized jobs (generate at <ROOT>/user/<username>/security/) |
+| `jira-api-key` | Secret text | Jira API token (generate at id.atlassian.com, Directory > Service Accounts) |
 | `github-app` | GitHub App | GitHub App for repo access (provides `GH_TOKEN` at runtime)<br>(provided by gcp-setup repo) |
-| `jenkins-api-key` | Secret text | Jenkins API key for triggering parameterized jobs |
-| `jira_api_key` | Secret text | Jira API token (generate at id.atlassian.com) |
 | `jenkins-gke-sa` | Secret file | GCP service account JSON key with `roles/artifactregistry.writer` (build jobs only)<br>(provided by gcp-setup repo) |
 
 Also add a global environment variable `JIRA_CLOUD_ID` w/ the Jira Cloud ID found at `https://<your-domain>.atlassian.net/_edge/tenant_info`

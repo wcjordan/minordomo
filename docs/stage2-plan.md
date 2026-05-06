@@ -55,7 +55,7 @@ Parameterized Jenkins pipeline job for the worker agent.
 **Credentials injected:**
 - `CLAUDE_CODE_OAUTH_TOKEN` → `claude-code-oauth-token`
 - `GH_APP` → `github-app`
-- `JIRA_ACCT` → `minordomo_jenkins_token`
+- `JIRA_ACCT` → `jira-api-key`
 
 **Shell steps:**
 1. Derive `JIRA_URL`, `JENKINS_USERNAME`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, & `GH_TOKEN` from injected credentials & env variables — extract into a shared script (`majordomo/jenkins/shared/setup-env.sh`) sourced by both Majordomo and worker Jenkinsfiles

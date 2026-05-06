@@ -35,7 +35,7 @@ pipeline {
                 CLAUDE_CODE_OAUTH_TOKEN = credentials('claude-code-oauth-token')
                 GH_APP                  = credentials('github-app')
                 JENKINS_API_KEY         = credentials('jenkins-api-key')
-                JIRA_ACCT               = credentials('minordomo_jenkins_token')
+                JIRA_ACCT               = credentials('jira-api-key')
             }
             options {
                 timeout(time: 60, unit: 'MINUTES')
