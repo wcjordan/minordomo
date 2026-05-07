@@ -81,4 +81,17 @@ if matches '\beval\s+.*\$'; then
     block "dynamic eval not allowed"
 fi
 
+# System-destructive single-word commands
+if matches '\b(mkfs|fdisk|diskutil|shutdown|reboot|nvram|csrutil|launchctl|systemsetup|networksetup)\b'; then
+    block "system-destructive command not allowed"
+fi
+
+# Package manager global installs
+if matches '\bbrew\s+install\b'; then
+    block "brew install not allowed"
+fi
+if matches '\bnpm\s+install\s+(.*\s)?-g\b'; then
+    block "npm install -g not allowed"
+fi
+
 exit 0
