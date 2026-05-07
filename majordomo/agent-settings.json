@@ -19,6 +19,6 @@
     ]
   },
   "hooks": {
-    "PreBashCommand": "hooks/pre-bash-guard.sh"
+    "PreBashCommand": "~/.claude/hooks/pre-bash-guard.sh"
   }
 }

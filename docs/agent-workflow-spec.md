@@ -39,8 +39,6 @@ Human Request (GH Issue)
 | `gcp-setup` | `INFRA` |
 | `forester` | `FSTR` |
 
-**Jira instance:** `https://${JIRA_DOMAIN}.atlassian.net` (Jira Cloud). `JIRA_DOMAIN` is a configurable environment variable.
-
 ---
 
 ## Running Agents
@@ -56,9 +54,9 @@ The system prompt tells the agent how to access its Jira ticket, how the system 
 **Majordomo launches sub-agents** by triggering parameterized Jenkins jobs via the Jenkins API, passing the Jira ticket ID as a job parameter.
 
 **Credentials** are injected by Jenkins as environment variables:
-- `JIRA_DOMAIN` — Jira Cloud subdomain
-- `ANTHROPIC_API_KEY` — for Claude
-- `GH_TOKEN` — for `gh` CLI GitHub interactions
+- `JIRA_ACCT` — Jira Cloud credentials
+- `CLAUDE_CODE_OAUTH_TOKEN` — for Claude
+- `GH_APP` — for `gh` CLI GitHub interactions
 - Jira auth is handled via the Atlassian MCP server (credentials provided as env vars to the MCP)
 
 **Sandboxing:**
@@ -198,7 +196,7 @@ When a stage's implementation reveals necessary changes to the plan, the spec do
 
 ### 1.2 Jira Project & Schema Setup
 
-Create four Jira Cloud projects (all on `https://${JIRA_DOMAIN}.atlassian.net`):
+Create four Jira Cloud projects
 
 | Project | Key |
 |---|---|
@@ -233,7 +231,7 @@ For each project:
 - Skips issues that already have the `jira-epic-created` label (idempotent)
 - Creates **Epic** + Planning **Task** under the Epic
 - Adds the GH Issue URL to the Jira Epic description
-- Adds the Jira Epic key to the GH Issue description via `gh` CLI
+- Adds the Jira Epic key as a comment on the GH Issue via `gh` CLI
 - Applies the `jira-epic-created` label to the GH Issue
 - Planning Task created in status **Open**
 
@@ -253,7 +251,6 @@ A thin worker implementation sufficient to execute one task end-to-end:
   7. Transitions Jira task to **In Review**
   8. Exits
 - Human reviews PR, merges, and marks task **Done**
-- Majordomo detects all Story subtasks Done → opens feature → main PR referencing the GH Issue
 
 ### 2.3 Task Sizing
 

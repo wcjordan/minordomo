@@ -6,11 +6,11 @@ You run non-interactively via `claude -p`. Complete all steps, emit the run log,
 
 ## Environment
 
-- **Jira instance:** `https://${JIRA_DOMAIN}.atlassian.net`
+- **Jira instance:** `${JIRA_URL}`
 - **Config file:** `majordomo/config.yaml`
 - **GitHub CLI:** `gh` is authenticated via `GH_TOKEN` env var
-- **Jira:** accessible via MCP tools (`mcp__atlassian__*`).  Authenticate w/ the `JIRA_EMAIL` and `JIRA_TOKEN` env var
-- **Jenkins URL:** `http://jenkins.${ROOT_DOMAIN}/`.  Authenticate w/ the `JENKINS_USERNAME` and `JENKINS_API_KEY` env var
+- **Jira:** accessible via MCP tools (`mcp__atlassian__*`).  Authenticate w/ the `JIRA_EMAIL` and `JIRA_API_TOKEN` env vars
+- **Jenkins URL:** `http://jenkins.${ROOT_DOMAIN}/`.  Authenticate w/ the `JENKINS_USERNAME` and `JENKINS_API_KEY` env vars
 
 Authenticate all Jenkins API calls with HTTP basic auth: -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}"  
 Trigger jobs via POST to http://jenkins.${ROOT_DOMAIN}/job/<job-name>/buildWithParameters  
@@ -51,20 +51,22 @@ For now: log `{"step": "schedule_check", "status": "skipped", "message": "not ye
 
 ### Step 3: Poll GitHub Issues → Create Jira Epics
 
-⚠️ **Stage 2 — NOT YET IMPLEMENTED**
+For each project in config:
 
-Will:
-1. For each project in config, fetch open GH Issues from `wcjordan/<repo>` via `gh issue list`
-2. Filter to issues authored by `allowed_gh_users`
+1. Fetch open GH Issues: `gh issue list --repo wcjordan/<repo> --state open --json number,title,body,author,labels`
+2. Filter to issues where `author.login` is in `allowed_gh_users`
 3. Skip issues that already have the `jira-epic-created` label (idempotency gate)
 4. For each new issue:
-   - Create a Jira Epic under the project's `jira_key`
-   - Create a Planning Task under the Epic (status: `Open`)
-   - Add the GH Issue URL to the Epic description
-   - Add the Jira Epic key to the GH Issue description via `gh issue edit`
-   - Apply `jira-epic-created` label to the GH Issue via `gh issue edit`
+   a. Create a Jira Epic under the project's `jira_key`. Set the Epic name to the issue title. Include the GH Issue URL in the description.
+   b. Create a Planning Task linked as a child of the Epic. Set status to **Open**. Title: "Plan: <issue title>".
+   c. Post a comment on the GH Issue with the Jira Epic key: `gh issue comment <number> --repo wcjordan/<repo> --body "Jira Epic: <EPIC_KEY>"`
+   d. Apply the `jira-epic-created` label: `gh issue edit <number> --repo wcjordan/<repo> --add-label jira-epic-created`
 
-For now: log `{"step": "gh_issue_poll", "status": "skipped", "message": "not yet implemented"}` and continue.
+Record in the step log:
+- Total issues fetched per repo
+- Issues skipped (already labelled)
+- Issues processed (Epic + Planning Task created)
+- Any per-issue errors (log and continue; do not abort the whole step)
 
 ---
 

@@ -30,7 +30,7 @@ Majordomo runs on a schedule. On each run it:
 - Jenkins at `http://jenkins.${env.ROOT_DOMAIN}/` with the Kubernetes plugin
 - GKE cluster with a node pool Jenkins can schedule pods on
 - Google Artifact Registry repo at `us-east4-docker.pkg.dev/${GCP_PROJECT}/default-gar`
-- Jira Cloud instance at `https://${JIRA_DOMAIN}.atlassian.net` with projects `MDOMO`, `CHALK`, `INFRA`, `FSTR` already created
+- Jira Cloud instance with projects `MDOMO`, `CHALK`, `INFRA`, `FSTR` already created
 - `gh` CLI available in CI (bundled in the Docker image)
 
 ---
@@ -43,11 +43,13 @@ Add the following credentials in Jenkins → Manage Jenkins → Credentials:
 
 | Credential ID | Type | Description |
 |---|---|---|
-| `claude-code-oauth-token` | Secret text | Claude Code OAuth token |
-| `github-app` | GitHub App | GitHub App for repo access (provides `GH_TOKEN` at runtime) |
-| `jenkins-api-key` | Secret text | Jenkins API key for triggering parameterized jobs |
-| `jira_api_key` | Secret text | Jira API token (generate at id.atlassian.com) |
-| `jenkins-gke-sa` | Secret file | GCP service account JSON key with `roles/artifactregistry.writer` (build jobs only) |
+| `claude-code-oauth-token` | Secret text | Claude Code OAuth token. Get by running `claude setup-token` |
+| `jenkins-api-key` | Secret text | Jenkins API key for triggering parameterized jobs (generate at <ROOT>/user/<username>/security/) |
+| `jira-api-key` | Secret text | Jira API token (generate at id.atlassian.com, Directory > Service Accounts) |
+| `github-app` | GitHub App | GitHub App for repo access (provides `GH_TOKEN` at runtime)<br>(provided by gcp-setup repo) |
+| `jenkins-gke-sa` | Secret file | GCP service account JSON key with `roles/artifactregistry.writer` (build jobs only)<br>(provided by gcp-setup repo) |
+
+Also add a global environment variable `JIRA_CLOUD_ID` w/ the Jira Cloud ID found at `https://<your-domain>.atlassian.net/_edge/tenant_info`
 
 ### 2. Build and Push the Docker Image
 

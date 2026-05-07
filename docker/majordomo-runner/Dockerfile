@@ -1,5 +1,8 @@
 FROM python:3.13-slim
 
+# Use bash as /bin/sh so Jenkins sh steps and sourced scripts get bash built-ins
+RUN ln -sf /bin/bash /bin/sh
+
 # System deps: git, curl, gettext (for envsubst), Node.js 22, gh CLI
 RUN apt-get update && apt-get install -y --no-install-recommends \
         curl \
