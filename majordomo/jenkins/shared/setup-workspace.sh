@@ -62,7 +62,11 @@ else
     git checkout "${FEATURE_BRANCH}"
 fi
 
-# Task branch: planning resumes existing branch on re-run; worker always creates fresh.
+# Task branch: planning resumes an existing branch because the Needs Input cycle re-triggers
+# it on the same task (research notes from the first run must survive). Workers have no
+# re-run cycle yet — each Implementation Task is expected to complete in one shot — so
+# always creating fresh keeps things simple. If worker re-runs are added later (Stage 6+),
+# resume logic will need to be introduced here.
 if [[ "$MODE" == "planning" ]]; then
     if git ls-remote --exit-code origin "task/${JIRA_TASK_ID}" > /dev/null 2>&1; then
         git checkout "task/${JIRA_TASK_ID}"
