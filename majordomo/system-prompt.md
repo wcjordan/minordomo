@@ -72,20 +72,39 @@ Record in the step log:
 
 ### Step 4: Evaluate Planning Tasks
 
-⚠️ **Stage 3 — NOT YET IMPLEMENTED**
+1. Query Jira for Planning Tasks in status `Open` across all configured projects (using `issuetype = "Planning Task"` and the project's `jira_key`)
+2. If any Planning Task is already `In Progress`: log decision and set `planning_agent_launched: false`; skip to Step 5 — launch at most one planning agent per run
+3. Otherwise, pick the highest-priority eligible task (by Epic priority label P0 > P1 > P2, then Jira rank), transition it to `In Progress`, and trigger the `majordomo-planning-agent` Jenkins job:
+   ```bash
+   curl -X POST -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" \
+     "http://jenkins.${ROOT_DOMAIN}/job/majordomo-planning-agent/buildWithParameters?JIRA_TASK_ID=<task_id>"
+   ```
+4. Record `planning_agent_launched: true` in the step log
 
-Will:
-1. Query Jira for Planning Tasks in status `Open` across all configured projects
-2. If any Planning Task is already `In Progress` (a planning agent is already running): skip — launch at most one planning agent per run
-3. Otherwise, pick the highest-priority eligible task, transition it to `In Progress`, and trigger the `majordomo-planning-agent` Jenkins job with the task's Jira ID as a parameter
-
-If a planning agent was launched, record `planning_agent_launched: true` in the step log — Step 6 checks this to decide whether to launch a worker.
-
-For now: log `{"step": "planning_task_eval", "status": "skipped", "message": "not yet implemented", "planning_agent_launched": false}` and continue.
+If a planning agent was launched, record `planning_agent_launched: true` in the step log — Step 7 checks this to decide whether to launch a worker.
 
 ---
 
-### Step 5: Promote Implementation Tasks to Ready
+### Step 5: Plan Approval Spinoff
+
+1. Query Jira for Planning Tasks in status `Approved` across all configured projects
+2. For each approved planning task:
+   a. Derive the target repo from the project key (same `config.yaml` lookup as the worker and planning agent)
+   b. Run `gh auth setup-git` and clone the repo into a temp directory: `gh repo clone wcjordan/$REPO /tmp/spinoff-$EPIC_KEY`
+   c. Check out `$FEATURE_BRANCH`
+   d. Read `docs/planning/$EPIC_KEY-spec.md` from the feature branch
+   e. Parse the stages — each `## Stage N:` section yields one Implementation Task
+   f. Create one Jira Implementation Task per stage under the same Epic, in status `Open`, with:
+      - Title: the stage title (text after `## Stage N:`)
+      - Description: the stage description (from `### Description` subsection)
+      - Acceptance criteria: from the `### Acceptance Criteria` subsection
+      - In the description, also include: `spec_doc_path: docs/planning/$EPIC_KEY-spec.md` and `feature_branch: $FEATURE_BRANCH`
+   g. Transition the Planning Task to `Done`
+3. Record in the step log: number of approved tasks processed and total implementation tasks created
+
+---
+
+### Step 6: Promote Implementation Tasks to Ready
 
 ⚠️ **Stage 4 — NOT YET IMPLEMENTED**
 
@@ -106,19 +125,19 @@ For now: log `{"step": "task_promotion", "status": "skipped", "message": "not ye
 
 ---
 
-### Step 6: Launch Worker Agent
+### Step 7: Launch Worker Agent
 
 ⚠️ **Stage 2 (basic) / Stage 4 (full) — NOT YET IMPLEMENTED**
 
 Will:
 1. If a planning agent was launched in Step 4 (`planning_agent_launched: true`): skip — do not launch a worker in the same run
-2. Otherwise: select one `Ready` implementation task (using prioritization from Step 5), transition it to `In Progress`, and trigger the `majordomo-worker` Jenkins job with the task's Jira ID as a parameter
+2. Otherwise: select one `Ready` implementation task (using prioritization from Step 6), transition it to `In Progress`, and trigger the `majordomo-worker` Jenkins job with the task's Jira ID as a parameter
 
 For now: log `{"step": "worker_launch", "status": "skipped", "message": "not yet implemented"}` and continue.
 
 ---
 
-### Step 7: Open Feature → Main PRs for Completed Stories
+### Step 8: Open Feature → Main PRs for Completed Stories
 
 ⚠️ **Stage 4 — NOT YET IMPLEMENTED**
 
@@ -147,8 +166,9 @@ At the end of each run, emit a single JSON object to stdout:
   "steps": [
     {"step": "load_config", "status": "ok", "message": "loaded 1 user, 4 projects"},
     {"step": "schedule_check", "status": "skipped", "message": "not yet implemented — always proceeding"},
-    {"step": "gh_issue_poll", "status": "skipped", "message": "not yet implemented"},
-    {"step": "planning_task_eval", "status": "skipped", "message": "not yet implemented", "planning_agent_launched": false},
+    {"step": "gh_issue_poll", "status": "ok", "issues_processed": 0},
+    {"step": "planning_task_eval", "status": "ok", "planning_agent_launched": false},
+    {"step": "plan_approval_spinoff", "status": "ok", "approved_tasks_processed": 0, "implementation_tasks_created": 0},
     {"step": "task_promotion", "status": "skipped", "message": "not yet implemented"},
     {"step": "worker_launch", "status": "skipped", "message": "not yet implemented"},
     {"step": "story_completion_check", "status": "skipped", "message": "not yet implemented"}

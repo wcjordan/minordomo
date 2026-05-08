@@ -1,0 +1,60 @@
+def GAR_HOST = 'us-east4-docker.pkg.dev'
+def GAR_REPO = "${GAR_HOST}/${env.GCP_PROJECT}/default-gar"
+
+pipeline {
+    agent none
+    options {
+        timestamps()
+    }
+    parameters {
+        string(name: 'JIRA_TASK_ID', description: 'Jira planning task ID to plan (e.g. MDOMO-44)', trim: true)
+    }
+    stages {
+        stage('Planning Agent') {
+            agent {
+                kubernetes {
+                    yaml """
+                        apiVersion: v1
+                        kind: Pod
+                        spec:
+                          containers:
+                          - name: worker
+                            image: ${GAR_REPO}/majordomo-runner:latest
+                            command:
+                            - cat
+                            tty: true
+                            resources:
+                              requests:
+                                cpu: "500m"
+                                memory: "1Gi"
+                              limits:
+                                cpu: "1000m"
+                                memory: "2Gi"
+                    """
+                }
+            }
+            environment {
+                CLAUDE_CODE_OAUTH_TOKEN = credentials('claude-code-oauth-token')
+                GH_APP                  = credentials('github-app')
+                JIRA_ACCT               = credentials('jira-api-key')
+            }
+            options {
+                timeout(time: 120, unit: 'MINUTES')
+            }
+            steps {
+                container('worker') {
+                    sh '''
+                        set -euo pipefail
+
+                        source majordomo/jenkins/shared/setup-env.sh
+                        source majordomo/jenkins/shared/setup-claude.sh
+
+                        source majordomo/jenkins/planning-agent/setup-workspace.sh
+
+                        claude -p "$(cat ../majordomo/jenkins/planning-agent/system-prompt.md)"
+                    '''
+                }
+            }
+        }
+    }
+}
