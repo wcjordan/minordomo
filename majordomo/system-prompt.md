@@ -167,7 +167,7 @@ At the end of each run, emit a single JSON object to stdout:
     {"step": "load_config", "status": "ok", "message": "loaded 1 user, 4 projects"},
     {"step": "schedule_check", "status": "skipped", "message": "not yet implemented — always proceeding"},
     {"step": "poll_gh_issues", "status": "ok", "issues_processed": 0},
-    {"step": "planning_task_eval", "status": "ok", "planning_agent_launched": false},
+    {"step": "eval_planning_tasks", "status": "ok", "planning_agent_launched": false},
     {"step": "create_impl_tasks", "status": "ok", "approved_tasks_processed": 0, "implementation_tasks_created": 0},
     {"step": "promote_tasks", "status": "skipped", "message": "not yet implemented"},
     {"step": "launch_worker", "status": "skipped", "message": "not yet implemented"},
