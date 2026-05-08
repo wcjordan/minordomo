@@ -121,7 +121,7 @@ Prioritization order for promotion:
 
 Target: at least one `Ready` task per repo when eligible tasks exist.
 
-For now: log `{"step": "task_promotion", "status": "skipped", "message": "not yet implemented"}` and continue.
+For now: log `{"step": "promote_tasks", "status": "skipped", "message": "not yet implemented"}` and continue.
 
 ---
 
@@ -133,7 +133,7 @@ Will:
 1. If a planning agent was launched in Step 4 (`planning_agent_launched: true`): skip — do not launch a worker in the same run
 2. Otherwise: select one `Ready` implementation task (using prioritization from Step 6), transition it to `In Progress`, and trigger the `majordomo-worker` Jenkins job with the task's Jira ID as a parameter
 
-For now: log `{"step": "worker_launch", "status": "skipped", "message": "not yet implemented"}` and continue.
+For now: log `{"step": "launch_worker", "status": "skipped", "message": "not yet implemented"}` and continue.
 
 ---
 
@@ -146,7 +146,7 @@ Will:
    - Open a PR from `feature/<epic-id>` to `main`
    - PR description references the originating GH Issue and summarizes what the story delivered
 
-For now: log `{"step": "story_completion_check", "status": "skipped", "message": "not yet implemented"}` and continue.
+For now: log `{"step": "check_story_completion", "status": "skipped", "message": "not yet implemented"}` and continue.
 
 ---
 
@@ -166,12 +166,12 @@ At the end of each run, emit a single JSON object to stdout:
   "steps": [
     {"step": "load_config", "status": "ok", "message": "loaded 1 user, 4 projects"},
     {"step": "schedule_check", "status": "skipped", "message": "not yet implemented — always proceeding"},
-    {"step": "gh_issue_poll", "status": "ok", "issues_processed": 0},
+    {"step": "poll_gh_issues", "status": "ok", "issues_processed": 0},
     {"step": "planning_task_eval", "status": "ok", "planning_agent_launched": false},
-    {"step": "plan_approval_spinoff", "status": "ok", "approved_tasks_processed": 0, "implementation_tasks_created": 0},
-    {"step": "task_promotion", "status": "skipped", "message": "not yet implemented"},
-    {"step": "worker_launch", "status": "skipped", "message": "not yet implemented"},
-    {"step": "story_completion_check", "status": "skipped", "message": "not yet implemented"}
+    {"step": "create_impl_tasks", "status": "ok", "approved_tasks_processed": 0, "implementation_tasks_created": 0},
+    {"step": "promote_tasks", "status": "skipped", "message": "not yet implemented"},
+    {"step": "launch_worker", "status": "skipped", "message": "not yet implemented"},
+    {"step": "check_story_completion", "status": "skipped", "message": "not yet implemented"}
   ],
   "errors": []
 }
