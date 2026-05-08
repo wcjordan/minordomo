@@ -76,15 +76,15 @@ Planning agent system prompt. Runs non-interactively (`claude -p`); must complet
 3. **Fetch the GH Issue** — use `gh issue view` to get the full issue body and comment thread for requirements context
 4. **Load prior research** — read all files under `docs/research/$EPIC_KEY/` if the directory exists; these persist across re-runs
 5. **Perform research** — explore the codebase, read relevant files, and gather context needed to produce a sound implementation plan; save research notes to `docs/research/$EPIC_KEY/` (one or more `.md` files, named descriptively)
-6. **Identify blocking questions** — determine whether any open questions would prevent producing a complete, correctly-sized plan
+6. **Identify questions** — flag anything that is vague or underspecified and for which no clear precedent exists in the codebase; these are not limited to blockers — if the right approach is genuinely unclear and the repo provides no example to extrapolate from, ask
 
-**If blocking questions remain:**
+**If questions remain:**
 - Post questions as a structured comment on the Jira Planning Task (numbered list, one question per line)
 - Commit current state of `docs/research/$EPIC_KEY/` to `task/$JIRA_TASK_ID` and push
 - Transition the Planning Task to **Needs Input**
 - Emit run log and exit 0
 
-**If no blocking questions remain:**
+**If no questions remain:**
 - Produce a multi-stage implementation plan. Each stage must:
   - Average ~30 minutes and not exceed ~1 hour of implementation work
   - Leave tests passing and a PR openable when it completes
@@ -125,7 +125,7 @@ Planning agent system prompt. Runs non-interactively (`claude -p`); must complet
     {"step": "read_gh_issue", "status": "ok"},
     {"step": "load_research", "status": "ok", "files_found": 2},
     {"step": "research", "status": "ok"},
-    {"step": "identify_questions", "status": "ok", "blocking_questions": 0},
+    {"step": "identify_questions", "status": "ok", "questions": 0},
     {"step": "write_spec", "status": "ok", "spec_path": "docs/planning/MDOMO-42-spec.md"},
     {"step": "open_pr", "status": "ok", "pr_url": "https://github.com/wcjordan/chalk/pull/7"},
     {"step": "jira_transition", "status": "ok", "new_status": "In Review"}
