@@ -49,7 +49,7 @@ pipeline {
                         source majordomo/jenkins/shared/setup-env.sh
                         source majordomo/jenkins/shared/setup-claude.sh
 
-                        source majordomo/jenkins/worker/setup-workspace.sh
+                        source majordomo/jenkins/shared/setup-workspace.sh worker
 
                         claude -p "$(cat ../majordomo/jenkins/worker/system-prompt.md)"
                     '''

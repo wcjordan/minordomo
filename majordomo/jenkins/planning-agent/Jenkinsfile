@@ -49,7 +49,7 @@ pipeline {
                         source majordomo/jenkins/shared/setup-env.sh
                         source majordomo/jenkins/shared/setup-claude.sh
 
-                        source majordomo/jenkins/planning-agent/setup-workspace.sh
+                        source majordomo/jenkins/shared/setup-workspace.sh planning
 
                         claude -p "$(cat ../majordomo/jenkins/planning-agent/system-prompt.md)"
                     '''
