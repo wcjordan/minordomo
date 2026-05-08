@@ -72,9 +72,11 @@ Record in the step log:
 
 ### Step 4: Evaluate Planning Tasks
 
-1. Query Jira for Planning Tasks in status `Open` across all configured projects (using `issuetype = "Planning Task"` and the project's `jira_key`)
-2. If any Planning Task is already `In Progress`: log decision and set `planning_agent_launched: false`; skip to Step 5 — launch at most one planning agent per run
-3. Otherwise, pick the highest-priority eligible task (by Epic priority label P0 > P1 > P2, then Jira rank), transition it to `In Progress`, and trigger the `majordomo-planning-agent` Jenkins job:
+Planning Tasks are Jira Tasks (`issuetype = Task`) whose summary starts with `Plan:`.
+
+1. Query Jira for any Planning Task in status `In Progress` across all configured projects. If one exists: log decision, set `planning_agent_launched: false`, and skip to Step 5 — launch at most one planning agent per run
+2. Query Jira for Planning Tasks in status `Open` or `Ready` across all configured projects
+3. Pick the highest-priority eligible task (by Epic priority label P0 > P1 > P2, then Jira rank), transition it to `In Progress`, and trigger the `majordomo-planning-agent` Jenkins job:
    ```bash
    curl -X POST -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" \
      "http://jenkins.${ROOT_DOMAIN}/job/majordomo-planning-agent/buildWithParameters?JIRA_TASK_ID=<task_id>"
