@@ -216,16 +216,21 @@ For each project in config (repo + jira_key):
       ```
       If the returned JSON array is non-empty, increment `epics_skipped` (reason: `"pr_already_open"`) and continue to the next Epic.
    f. **Extract GH Issue URL:** Recursively traverse the Epic's ADF `description` field, collecting all `text` leaf values. Look for a segment matching `GitHub Issue: <url>` and extract the URL. If not found: append a per-Epic error to `epic_errors`, increment `epics_skipped`, and continue to the next Epic.
-   g. **Build PR title:** Use the Epic's `summary` field verbatim.
-   h. **Build PR body:**
+   g. **Fetch task descriptions:** For each Implementation Task, fetch its full issue: `GET ${JIRA_URL}/rest/api/3/issue/<TASK_KEY>?fields=summary,description`. Recursively collect all `text` leaf values from the ADF `description` field to get the plain-text description. Use the first sentence (up to the first `.` or 120 characters, whichever is shorter) as the task's one-line summary.
+   h. **Build PR title:** Use the Epic's `summary` field verbatim.
+   i. **Build PR body:**
       ```
       Implements: <GH Issue URL>
 
+      ## Summary
+
+      <2-3 sentence synthesis of what the Epic delivers, written from the task descriptions — explain the overall capability added, not just a list of the task names>
+
       ## What was delivered
 
-      <bullet list: one `- <title>` line per Implementation Task, in the order returned by Jira>
+      <bullet list: one `- **<title>:** <one-line summary from description>` line per Implementation Task, in the order returned by Jira>
       ```
-   i. **Open PR:**
+   j. **Open PR:**
       ```bash
       gh pr create \
         --repo wcjordan/<repo> \
@@ -235,11 +240,11 @@ For each project in config (repo + jira_key):
         --body "<PR body>"
       ```
       Capture stdout and log the PR URL.
-   j. **Transition Epic to In Review:**
+   k. **Transition Epic to In Review:**
       - `GET ${JIRA_URL}/rest/api/3/issue/<EPIC_KEY>/transitions` — find the entry where `to.name == "In Review"` and extract its `id`.
       - `POST ${JIRA_URL}/rest/api/3/issue/<EPIC_KEY>/transitions` with body `{"transition": {"id": "<id>"}}`.
       - On error: append to `epic_errors` (do not abort the step).
-   k. Increment `prs_opened`.
+   l. Increment `prs_opened`.
 
 3. **Log step result:**
    ```json
