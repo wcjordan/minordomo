@@ -5,7 +5,7 @@
 #   worker   — feature branch must exist; always creates a fresh task branch
 #   planning — creates feature branch if missing; resumes task branch if it exists
 #
-# Requires: JIRA_TASK_ID, JIRA_URL, JIRA_EMAIL, JIRA_API_TOKEN, GH_TOKEN env vars
+# Requires: JIRA_TASK_ID, JIRA_URL, JIRA_EMAIL, JIRA_API_TOKEN, GH_TOKEN, BASE_BRANCH env vars
 # Exports:  REPO, EPIC_KEY, FEATURE_BRANCH
 
 set -euo pipefail
@@ -55,7 +55,7 @@ if [[ "$MODE" == "planning" ]]; then
     if git ls-remote --exit-code origin "${FEATURE_BRANCH}" > /dev/null 2>&1; then
         git checkout "${FEATURE_BRANCH}"
     else
-        git checkout -b "${FEATURE_BRANCH}" main
+        git checkout -b "${FEATURE_BRANCH}" "origin/${BASE_BRANCH}"
         git push -u origin "${FEATURE_BRANCH}"
     fi
 else
