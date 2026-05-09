@@ -215,22 +215,27 @@ For each project in config (repo + jira_key):
       gh pr list --repo wcjordan/<repo> --base <base_branch> --head feature/<EPIC_KEY> --state open --json number
       ```
       If the returned JSON array is non-empty, increment `epics_skipped` (reason: `"pr_already_open"`) and continue to the next Epic.
-   f. **Extract GH Issue URL:** Recursively traverse the Epic's ADF `description` field, collecting all `text` leaf values. Look for a segment matching `GitHub Issue: <url>` and extract the URL. If not found: append a per-Epic error to `epic_errors`, increment `epics_skipped`, and continue to the next Epic.
-   g. **Fetch task descriptions:** For each Implementation Task, fetch its full issue: `GET ${JIRA_URL}/rest/api/3/issue/<TASK_KEY>?fields=summary,description`. Recursively collect all `text` leaf values from the ADF `description` field to get the plain-text description. Use the first sentence (up to the first `.` or 120 characters, whichever is shorter) as the task's one-line summary.
-   h. **Build PR title:** Use the Epic's `summary` field verbatim.
-   i. **Build PR body:**
+   f. **Extract GH Issue URL and Epic description:** Recursively traverse the Epic's ADF `description` field, collecting all `text` leaf values. Look for a segment matching `GitHub Issue: <url>` and extract the URL. If not found: append a per-Epic error to `epic_errors`, increment `epics_skipped`, and continue to the next Epic. Collect the remaining plain-text content of the Epic description as the "what and why" narrative.
+   g. **Read commit messages from the feature branch:** Run:
+      ```bash
+      git -C /tmp/spinoff-<EPIC_KEY> log <base_branch>..feature/<EPIC_KEY> --format="%s%n%b" --no-merges
+      ```
+      Collect the output as implementation context — commit messages capture what was actually built, trade-offs made, and edge cases handled.
+   h. **Fetch task descriptions:** For each Implementation Task, fetch its full issue: `GET ${JIRA_URL}/rest/api/3/issue/<TASK_KEY>?fields=summary,description`. Recursively collect all `text` leaf values from the ADF `description` field to get the plain-text description. Use the first sentence (up to the first `.` or 120 characters, whichever is shorter) as the task's one-line summary.
+   i. **Build PR title:** Use the Epic's `summary` field verbatim.
+   j. **Build PR body:**
       ```
       Implements: <GH Issue URL>
 
       ## Summary
 
-      <2-3 sentence synthesis of what the Epic delivers, written from the task descriptions — explain the overall capability added, not just a list of the task names>
+      <2-3 sentences: open with what this feature is and why it was built (from the Epic description), then explain how it was implemented at a high level (from the commit messages)>
 
       ## What was delivered
 
-      <bullet list: one `- **<title>:** <one-line summary from description>` line per Implementation Task, in the order returned by Jira>
+      <bullet list: one `- **<title>:** <one-line summary from task description>` line per Implementation Task, in the order returned by Jira>
       ```
-   j. **Open PR:**
+   k. **Open PR:**
       ```bash
       gh pr create \
         --repo wcjordan/<repo> \
@@ -240,11 +245,11 @@ For each project in config (repo + jira_key):
         --body "<PR body>"
       ```
       Capture stdout and log the PR URL.
-   k. **Transition Epic to In Review:**
+   l. **Transition Epic to In Review:**
       - `GET ${JIRA_URL}/rest/api/3/issue/<EPIC_KEY>/transitions` — find the entry where `to.name == "In Review"` and extract its `id`.
       - `POST ${JIRA_URL}/rest/api/3/issue/<EPIC_KEY>/transitions` with body `{"transition": {"id": "<id>"}}`.
       - On error: append to `epic_errors` (do not abort the step).
-   l. Increment `prs_opened`.
+   m. Increment `prs_opened`.
 
 3. **Log step result:**
    ```json
