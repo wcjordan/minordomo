@@ -55,7 +55,7 @@ if [[ "$MODE" == "planning" ]]; then
     if git ls-remote --exit-code origin "${FEATURE_BRANCH}" > /dev/null 2>&1; then
         git checkout "${FEATURE_BRANCH}"
     else
-        git checkout -b "${FEATURE_BRANCH}" "${BASE_BRANCH}"
+        git checkout -b "${FEATURE_BRANCH}" "origin/${BASE_BRANCH}"
         git push -u origin "${FEATURE_BRANCH}"
     fi
 else
