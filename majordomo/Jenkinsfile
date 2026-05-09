@@ -45,8 +45,8 @@ pipeline {
                     sh '''
                         set -euo pipefail
 
-                        source majordomo/jenkins/shared/setup-env.sh
-                        source majordomo/jenkins/shared/setup-claude.sh
+                        source shared/setup-env.sh
+                        source shared/setup-claude.sh
 
                         claude -p "$(cat majordomo/system-prompt.md)"
                     '''

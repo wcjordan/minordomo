@@ -59,7 +59,7 @@ pipeline {
                             docker buildx build --push \\
                                 --cache-to  type=registry,ref=${GAR_REPO}/majordomo-runner-cache:latest,mode=max \\
                                 --cache-from type=registry,ref=${GAR_REPO}/majordomo-runner-cache:latest \\
-                                -f docker/majordomo-runner/Dockerfile \\
+                                -f minordomo-container-builder/Dockerfile \\
                                 -t ${GAR_REPO}/majordomo-runner:latest \\
                                 .
                         """

@@ -7,8 +7,8 @@
 set -euo pipefail
 
 mkdir -p ~/.claude/hooks
-cp majordomo/agent-settings.json ~/.claude/settings.json
-cp hooks/pre-bash-guard.sh ~/.claude/hooks/pre-bash-guard.sh
+cp shared/agent-settings.json ~/.claude/settings.json
+cp shared/pre-bash-guard.sh ~/.claude/hooks/pre-bash-guard.sh
 
 claude mcp add atlassian \
     --env JIRA_URL="${JIRA_URL}" \

@@ -16,6 +16,6 @@ export GH_TOKEN="${GH_APP_PSW}"
 export BASE_BRANCH
 BASE_BRANCH=$(python3 -c "
 import yaml
-cfg = yaml.safe_load(open('majordomo/config.yaml'))
+cfg = yaml.safe_load(open('shared/config.yaml'))
 print(cfg.get('base_branch', 'main'))
 ")
