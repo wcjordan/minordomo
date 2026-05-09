@@ -79,7 +79,7 @@ Planning Tasks are Jira Tasks (`issuetype = Task`) whose summary starts with `Pl
 3. Pick the highest-priority eligible task (by Epic priority label P0 > P1 > P2, then Jira rank), transition it to `In Progress`, and trigger the `majordomo-planning-agent` Jenkins job:
    ```bash
    curl -X POST -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" \
-     "http://jenkins.${ROOT_DOMAIN}/job/majordomo-planner/job/bootstrap_stage3/buildWithParameters?JIRA_TASK_ID=<task_id>"
+     "http://jenkins.${ROOT_DOMAIN}/job/majordomo-planner/job/bootstrap/buildWithParameters?JIRA_TASK_ID=<task_id>"
    ```
 4. Record `planning_agent_launched: true` in the step log
 
