@@ -222,8 +222,9 @@ For each project in config (repo + jira_key):
       ```
       Collect the output as implementation context — commit messages capture what was actually built, trade-offs made, and edge cases handled.
    h. **Fetch task descriptions:** For each Implementation Task, fetch its full issue: `GET ${JIRA_URL}/rest/api/3/issue/<TASK_KEY>?fields=summary,description`. Recursively collect all `text` leaf values from the ADF `description` field to get the plain-text description. Use the first sentence (up to the first `.` or 120 characters, whichever is shorter) as the task's one-line summary.
-   i. **Build PR title:** Use the Epic's `summary` field verbatim.
-   j. **Build PR body:**
+   i. **Build PR title and body** — these will become the squash-merge commit subject and body when the PR is merged, so write them as a good commit message: the title is the one-line subject (imperative mood, ≤72 chars, no trailing period) and the body explains what and why at a level useful to someone reading `git log` months later.
+      - **PR title:** Rewrite the Epic summary as an imperative-mood commit subject line (e.g. "Add X", "Implement Y") rather than using it verbatim if it reads as a noun phrase.
+      - **PR body:**
       ```
       Implements: <GH Issue URL>
 
