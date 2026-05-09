@@ -27,5 +27,5 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="/root/.local/bin:$PATH"
 
 # Python dependencies
-COPY majordomo/requirements.txt /tmp/requirements.txt
+COPY minordomo-container-builder/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt

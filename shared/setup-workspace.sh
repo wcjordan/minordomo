@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Shared workspace setup for majordomo agents.
 # Source from an agent-specific wrapper — do not source directly.
-# Usage: source majordomo/jenkins/shared/setup-workspace.sh <mode>
+# Usage: source shared/setup-workspace.sh <mode>
 #   worker   — feature branch must exist; always creates a fresh task branch
 #   planning — creates feature branch if missing; resumes task branch if it exists
 #
@@ -17,7 +17,7 @@ PROJECT_KEY="${JIRA_TASK_ID%%-*}"
 export REPO
 REPO=$(python3 -c "
 import yaml, sys
-cfg = yaml.safe_load(open('majordomo/config.yaml'))
+cfg = yaml.safe_load(open('shared/config.yaml'))
 matches = [p['repo'] for p in cfg['projects'] if p['jira_key'] == '$PROJECT_KEY']
 if not matches:
     sys.exit('No repo found for project key $PROJECT_KEY')

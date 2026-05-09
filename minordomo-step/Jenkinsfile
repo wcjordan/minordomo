@@ -7,10 +7,10 @@ pipeline {
         timestamps()
     }
     parameters {
-        string(name: 'JIRA_TASK_ID', description: 'Jira planning task ID to plan (e.g. MDOMO-44)', trim: true)
+        string(name: 'JIRA_TASK_ID', description: 'Jira task ID to implement (e.g. MDOMO-44)', trim: true)
     }
     stages {
-        stage('Planning Agent') {
+        stage('Worker') {
             agent {
                 kubernetes {
                     yaml """
@@ -46,12 +46,12 @@ pipeline {
                     sh '''
                         set -euo pipefail
 
-                        source majordomo/jenkins/shared/setup-env.sh
-                        source majordomo/jenkins/shared/setup-claude.sh
+                        source shared/setup-env.sh
+                        source shared/setup-claude.sh
 
-                        source majordomo/jenkins/shared/setup-workspace.sh planning
+                        source shared/setup-workspace.sh worker
 
-                        claude -p "$(cat ../majordomo/jenkins/planning-agent/system-prompt.md)"
+                        claude -p "$(cat ../minordomo-step/system-prompt.md)"
                     '''
                 }
             }
