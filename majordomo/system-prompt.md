@@ -192,14 +192,62 @@ Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for all Jira 
 
 ### Step 8: Open Feature → Main PRs for Completed Stories
 
-⚠️ **Stage 4 — NOT YET IMPLEMENTED**
+Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for all Jira REST API calls in this step.
 
-Will:
-1. For each Story where all subtasks are `Done` and no feature → main PR is open yet:
-   - Open a PR from `feature/<epic-id>` to `main`
-   - PR description references the originating GH Issue and summarizes what the story delivered
+Initialize: `epics_checked = 0`, `prs_opened = 0`, `epics_skipped = 0`, `epic_errors = []`
 
-For now: log `{"step": "check_story_completion", "status": "skipped", "message": "not yet implemented"}` and continue.
+For each project in config (repo + jira_key):
+
+1. **Query Epics:** Fetch all Epics in the project:
+   - JQL: `project = <jira_key> AND issuetype = Epic`
+   - `GET ${JIRA_URL}/rest/api/3/search?jql=<encoded_jql>&fields=summary,description,status&maxResults=100`
+
+2. **For each Epic returned:**
+   a. Increment `epics_checked`.
+   b. Fetch all child tasks under the Epic:
+      - JQL: `parent = <EPIC_KEY> AND issuetype = Task`
+      - Fields: `summary`, `status`
+      - Separate into Planning Tasks (summary starts with `Plan:`) and Implementation Tasks (all others).
+   c. **Skip — no impl tasks:** If the Implementation Tasks list is empty, increment `epics_skipped` (reason: `"no_impl_tasks"`) and continue to the next Epic.
+   d. **Skip — incomplete:** If any Implementation Task has status other than `Done`, increment `epics_skipped` (reason: `"impl_tasks_not_done"`) and continue to the next Epic.
+   e. **Skip — PR exists:** Run:
+      ```bash
+      gh pr list --repo wcjordan/<repo> --base main --head feature/<EPIC_KEY> --state open --json number
+      ```
+      If the returned JSON array is non-empty, increment `epics_skipped` (reason: `"pr_already_open"`) and continue to the next Epic.
+   f. **Extract GH Issue URL:** Recursively traverse the Epic's ADF `description` field, collecting all `text` leaf values. Look for a segment matching `GitHub Issue: <url>` and extract the URL. If not found: append a per-Epic error to `epic_errors`, increment `epics_skipped`, and continue to the next Epic.
+   g. **Build PR title:** Use the Epic's `summary` field verbatim.
+   h. **Build PR body:**
+      ```
+      Implements: <GH Issue URL>
+
+      ## What was delivered
+
+      <bullet list: one `- <title>` line per Implementation Task, in the order returned by Jira>
+      ```
+   i. **Open PR:**
+      ```bash
+      gh pr create \
+        --repo wcjordan/<repo> \
+        --base main \
+        --head feature/<EPIC_KEY> \
+        --title "<PR title>" \
+        --body "<PR body>"
+      ```
+      Capture stdout and log the PR URL.
+   j. **Transition Epic to In Review:**
+      - `GET ${JIRA_URL}/rest/api/3/issue/<EPIC_KEY>/transitions` — find the entry where `to.name == "In Review"` and extract its `id`.
+      - `POST ${JIRA_URL}/rest/api/3/issue/<EPIC_KEY>/transitions` with body `{"transition": {"id": "<id>"}}`.
+      - On error: append to `epic_errors` (do not abort the step).
+   k. Increment `prs_opened`.
+
+3. **Log step result:**
+   ```json
+   {"step": "check_story_completion", "status": "ok", "epics_checked": <N>, "prs_opened": <N>, "epics_skipped": <N>}
+   ```
+   Append any entries from `epic_errors` to the top-level `errors` array.
+
+On any per-Epic error that prevents PR opening: append to `epic_errors`, increment `epics_skipped`, and continue (do not abort the step).
 
 ---
 
@@ -224,7 +272,7 @@ At the end of each run, emit a single JSON object to stdout:
     {"step": "create_impl_tasks", "status": "ok", "approved_tasks_processed": 0, "implementation_tasks_created": 0},
     {"step": "promote_tasks", "status": "ok", "tasks_evaluated": 0, "tasks_promoted": 0, "tasks_skipped": 0},
     {"step": "launch_worker", "status": "ok", "worker_launched": false, "message": "no Ready tasks found"},
-    {"step": "check_story_completion", "status": "skipped", "message": "not yet implemented"}
+    {"step": "check_story_completion", "status": "ok", "epics_checked": 0, "prs_opened": 0, "epics_skipped": 0}
   ],
   "errors": []
 }
