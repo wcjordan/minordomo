@@ -140,13 +140,53 @@ Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for all Jira 
 
 ### Step 7: Launch Worker Agent
 
-⚠️ **Stage 2 (basic) / Stage 4 (full) — NOT YET IMPLEMENTED**
+Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for all Jira REST API calls in this step.
 
-Will:
-1. If a planning agent was launched in Step 4 (`planning_agent_launched: true`): skip — do not launch a worker in the same run
-2. Otherwise: select one `Ready` implementation task (using prioritization from Step 6), transition it to `In Progress`, and trigger the `majordomo-worker` Jenkins job with the task's Jira ID as a parameter
+1. **Skip check:** If `planning_agent_launched` is `true` from Step 4: log `{"step": "launch_worker", "status": "skipped", "message": "planning agent launched this run"}` and continue to Step 8.
 
-For now: log `{"step": "launch_worker", "status": "skipped", "message": "not yet implemented"}` and continue.
+2. **Query Ready tasks:** Fetch all Implementation Tasks in status `Ready` across all configured projects:
+   - Build comma-separated project keys from config (same as Step 6).
+   - JQL: `project in (<jira_keys>) AND issuetype = Task AND summary !~ "^Plan:" AND status = Ready`
+   - `GET ${JIRA_URL}/rest/api/3/search?jql=<encoded_jql>&fields=summary,status,parent,customfield_10019&maxResults=100`
+
+3. **No Ready tasks:** If none found, log `{"step": "launch_worker", "status": "ok", "worker_launched": false, "message": "no Ready tasks found"}` and continue to Step 8.
+
+4. **Build candidate list:** For each Ready task:
+   a. Extract the parent Epic key from `fields.parent.key`. On missing parent: skip task (log per-task error and continue).
+   b. Fetch the parent Epic: `GET ${JIRA_URL}/rest/api/3/issue/<EPIC_KEY>?fields=labels,customfield_10019`
+   c. Extract:
+      - `epic_labels`: the `labels` array from the Epic
+      - `epic_rank`: `customfield_10019` from the Epic
+   d. Fetch all Implementation Task siblings under the same Epic:
+      - JQL: `parent = <EPIC_KEY> AND issuetype = Task AND summary !~ "^Plan:"`
+      - Fields: `summary`, `status`, `customfield_10019`
+   e. **Exclusion check:** If any sibling has status `In Progress` or `In Review`, exclude this task from selection and continue to the next Ready task.
+   f. Otherwise, record for this candidate:
+      - `has_done_siblings`: `true` if any sibling has status `Done`
+      - `priority_order`: `0` if `P0` in epic_labels, `1` if `P1`, `2` if `P2`, `3` otherwise
+      - `epic_rank`: the Epic's rank value
+
+5. **No eligible candidates after exclusions:** If the candidate list is empty after applying exclusions, log `{"step": "launch_worker", "status": "ok", "worker_launched": false, "message": "no Ready tasks found"}` and continue to Step 8.
+
+6. **Rank candidates:**
+   - Sort by: `has_done_siblings` descending (`true` first), then `priority_order` ascending (0=P0 best), then `epic_rank` ascending (lexicographic).
+   - Select the top-ranked candidate as the target task.
+
+7. **Transition to In Progress:**
+   - `GET ${JIRA_URL}/rest/api/3/issue/<TASK_KEY>/transitions` — find the entry where `to.name == "In Progress"` and extract its `id`
+   - `POST ${JIRA_URL}/rest/api/3/issue/<TASK_KEY>/transitions` with body `{"transition": {"id": "<id>"}}`
+   - On error: record in `errors` and continue to Step 8 without triggering the Jenkins job.
+
+8. **Trigger worker Jenkins job:**
+   ```bash
+   curl -X POST -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" \
+     "http://jenkins.${ROOT_DOMAIN}/job/majordomo-worker/job/${BASE_BRANCH}/buildWithParameters?JIRA_TASK_ID=<task_id>"
+   ```
+
+9. **Log result:**
+   ```json
+   {"step": "launch_worker", "status": "ok", "worker_launched": true, "task_id": "<task_id>"}
+   ```
 
 ---
 
@@ -183,7 +223,7 @@ At the end of each run, emit a single JSON object to stdout:
     {"step": "eval_planning_tasks", "status": "ok", "planning_agent_launched": false},
     {"step": "create_impl_tasks", "status": "ok", "approved_tasks_processed": 0, "implementation_tasks_created": 0},
     {"step": "promote_tasks", "status": "ok", "tasks_evaluated": 0, "tasks_promoted": 0, "tasks_skipped": 0},
-    {"step": "launch_worker", "status": "skipped", "message": "not yet implemented"},
+    {"step": "launch_worker", "status": "ok", "worker_launched": false, "message": "no Ready tasks found"},
     {"step": "check_story_completion", "status": "skipped", "message": "not yet implemented"}
   ],
   "errors": []
