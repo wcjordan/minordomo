@@ -212,7 +212,7 @@ For each project in config (repo + jira_key):
    d. **Skip — incomplete:** If any Implementation Task has status other than `Done`, increment `epics_skipped` (reason: `"impl_tasks_not_done"`) and continue to the next Epic.
    e. **Skip — PR exists:** Run:
       ```bash
-      gh pr list --repo wcjordan/<repo> --base main --head feature/<EPIC_KEY> --state open --json number
+      gh pr list --repo wcjordan/<repo> --base <base_branch> --head feature/<EPIC_KEY> --state open --json number
       ```
       If the returned JSON array is non-empty, increment `epics_skipped` (reason: `"pr_already_open"`) and continue to the next Epic.
    f. **Extract GH Issue URL:** Recursively traverse the Epic's ADF `description` field, collecting all `text` leaf values. Look for a segment matching `GitHub Issue: <url>` and extract the URL. If not found: append a per-Epic error to `epic_errors`, increment `epics_skipped`, and continue to the next Epic.
@@ -229,7 +229,7 @@ For each project in config (repo + jira_key):
       ```bash
       gh pr create \
         --repo wcjordan/<repo> \
-        --base main \
+        --base <base_branch> \
         --head feature/<EPIC_KEY> \
         --title "<PR title>" \
         --body "<PR body>"
