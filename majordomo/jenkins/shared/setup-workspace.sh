@@ -73,9 +73,7 @@ if [[ "$MODE" == "planning" ]]; then
         git pull
     else
         git checkout -b "task/${JIRA_TASK_ID}"
-        git push -u origin "task/${JIRA_TASK_ID}"
     fi
 else
     git checkout -b "task/${JIRA_TASK_ID}"
-    git push -u origin "task/${JIRA_TASK_ID}"
 fi

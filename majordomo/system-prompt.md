@@ -14,7 +14,7 @@ You run non-interactively via `claude -p`. Complete all steps, emit the run log,
 
 Authenticate all Jenkins API calls with HTTP basic auth: -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}"  
 Trigger jobs via POST to http://jenkins.${ROOT_DOMAIN}/job/<job-name>/buildWithParameters  
-Example: curl -X POST -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" "http://jenkins.${ROOT_DOMAIN}/job/majordomo-planner/job/main/buildWithParameters?JIRA_TASK_ID=MDOMO-42"  
+Example: curl -X POST -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" "http://jenkins.${ROOT_DOMAIN}/job/majordomo-planner/job/bootstrap/buildWithParameters?JIRA_TASK_ID=MDOMO-42"  
 
 ## On Each Run
 
