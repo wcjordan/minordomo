@@ -108,22 +108,33 @@ If a planning agent was launched, record `planning_agent_launched: true` in the 
 
 ### Step 6: Promote Implementation Tasks to Ready
 
-⚠️ **Stage 4 — NOT YET IMPLEMENTED**
+Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for all Jira REST API calls in this step.
 
-Will:
-1. Query Jira for Implementation Tasks in status `Open`
-2. For each task: check that all prior sibling tasks under the same Epic/Story are `Done`
-3. Check that no other task under the same Epic/Story is currently `In Progress` or `In Review`
-4. Promote eligible tasks to `Ready`
+1. Build the comma-separated list of Jira project keys from config. Query for all Open Implementation Tasks:
+   - JQL: `project in (<jira_keys>) AND issuetype = Task AND summary !~ "^Plan:" AND status = Open`
+   - `GET ${JIRA_URL}/rest/api/3/search?jql=<encoded_jql>&fields=summary,status,parent,customfield_10019&maxResults=100`
+   - Initialize: `tasks_evaluated = 0`, `tasks_promoted = 0`, `tasks_skipped = 0`, `task_errors = []`
 
-Prioritization order for promotion:
-1. Tasks whose Epic/Story already has stages in flight
-2. Priority label of the Epic: `P0` > `P1` > `P2`
-3. Jira rank of the Epic (manual ordering)
+2. For each Open Implementation Task returned:
+   a. Increment `tasks_evaluated`
+   b. Extract the parent Epic key from `fields.parent.key`. On missing parent: record per-task error and continue.
+   c. Fetch all Implementation Task siblings under the same Epic:
+      - JQL: `parent = <EPIC_KEY> AND issuetype = Task AND summary !~ "^Plan:"`
+      - Fields: `summary`, `status`, `customfield_10019`
+   d. Sort siblings by `customfield_10019` ascending (lexicographic; lower value = earlier stage = prior).
+   e. Find the current task's position in the sorted list. All siblings appearing **before** it are "prior siblings".
+   f. **Check 1 — prior siblings all Done:** If any prior sibling has status other than `Done`, increment `tasks_skipped` (reason: `"prior_not_done"`) and continue to the next task.
+   g. **Check 2 — no sibling in flight:** If any sibling at any rank has status `In Progress` or `In Review`, increment `tasks_skipped` (reason: `"sibling_in_flight"`) and continue to the next task.
+   h. **Promote to Ready:**
+      - `GET ${JIRA_URL}/rest/api/3/issue/<TASK_KEY>/transitions` — find the entry where `to.name == "Ready"` and extract its `id`
+      - `POST ${JIRA_URL}/rest/api/3/issue/<TASK_KEY>/transitions` with body `{"transition": {"id": "<id>"}}`
+      - On success: increment `tasks_promoted`
+      - On any per-task error: append to `task_errors` and continue (do not abort the step)
 
-Target: at least one `Ready` task per repo when eligible tasks exist.
-
-For now: log `{"step": "promote_tasks", "status": "skipped", "message": "not yet implemented"}` and continue.
+3. Log the step result:
+   ```json
+   {"step": "promote_tasks", "status": "ok", "tasks_evaluated": <N>, "tasks_promoted": <N>, "tasks_skipped": <N>}
+   ```
 
 ---
 
@@ -171,7 +182,7 @@ At the end of each run, emit a single JSON object to stdout:
     {"step": "poll_gh_issues", "status": "ok", "issues_processed": 0},
     {"step": "eval_planning_tasks", "status": "ok", "planning_agent_launched": false},
     {"step": "create_impl_tasks", "status": "ok", "approved_tasks_processed": 0, "implementation_tasks_created": 0},
-    {"step": "promote_tasks", "status": "skipped", "message": "not yet implemented"},
+    {"step": "promote_tasks", "status": "ok", "tasks_evaluated": 0, "tasks_promoted": 0, "tasks_skipped": 0},
     {"step": "launch_worker", "status": "skipped", "message": "not yet implemented"},
     {"step": "check_story_completion", "status": "skipped", "message": "not yet implemented"}
   ],
