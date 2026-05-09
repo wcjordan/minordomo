@@ -3,7 +3,7 @@ allowed_gh_users:
   - wcjordan
 
 # Branch that new feature branches are created from
-base_branch: bootstrap_stage4
+base_branch: bootstrap
 
 # Repos tracked by Majordomo and their Jira project keys
 projects:
