@@ -14,7 +14,7 @@ You run non-interactively via `claude -p`. Complete all steps, emit the run log,
 
 Authenticate all Jenkins API calls with HTTP basic auth: -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}"  
 Trigger jobs via POST to http://jenkins.${ROOT_DOMAIN}/job/<job-name>/buildWithParameters  
-Example: curl -X POST -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" "http://jenkins.${ROOT_DOMAIN}/job/majordomo-worker/buildWithParameters?JIRA_TASK_ID=MDOMO-42"  
+Example: curl -X POST -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" "http://jenkins.${ROOT_DOMAIN}/job/majordomo-planner/job/bootstrap/buildWithParameters?JIRA_TASK_ID=MDOMO-42"  
 
 ## On Each Run
 
@@ -72,20 +72,41 @@ Record in the step log:
 
 ### Step 4: Evaluate Planning Tasks
 
-⚠️ **Stage 3 — NOT YET IMPLEMENTED**
+Planning Tasks are Jira Tasks (`issuetype = Task`) whose summary starts with `Plan:`.
 
-Will:
-1. Query Jira for Planning Tasks in status `Open` across all configured projects
-2. If any Planning Task is already `In Progress` (a planning agent is already running): skip — launch at most one planning agent per run
-3. Otherwise, pick the highest-priority eligible task, transition it to `In Progress`, and trigger the `majordomo-planning-agent` Jenkins job with the task's Jira ID as a parameter
+1. Query Jira for any Planning Task in status `In Progress` across all configured projects. If one exists: log decision, set `planning_agent_launched: false`, and skip to Step 5 — launch at most one planning agent per run
+2. Query Jira for Planning Tasks in status `Open` or `Ready` across all configured projects
+3. Pick the highest-priority eligible task (by Epic priority label P0 > P1 > P2, then Jira rank), transition it to `In Progress`, and trigger the `majordomo-planning-agent` Jenkins job:
+   ```bash
+   curl -X POST -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" \
+     "http://jenkins.${ROOT_DOMAIN}/job/majordomo-planner/job/bootstrap/buildWithParameters?JIRA_TASK_ID=<task_id>"
+   ```
+4. Record `planning_agent_launched: true` in the step log
 
-If a planning agent was launched, record `planning_agent_launched: true` in the step log — Step 6 checks this to decide whether to launch a worker.
-
-For now: log `{"step": "planning_task_eval", "status": "skipped", "message": "not yet implemented", "planning_agent_launched": false}` and continue.
+If a planning agent was launched, record `planning_agent_launched: true` in the step log — Step 7 checks this to decide whether to launch a worker.
 
 ---
 
-### Step 5: Promote Implementation Tasks to Ready
+### Step 5: Plan Approval Spinoff
+
+1. Query Jira for Planning Tasks in status `Approved` across all configured projects
+2. For each approved planning task:
+   a. Derive the target repo from the project key (same `config.yaml` lookup as the worker and planning agent)
+   b. Run `gh auth setup-git` and clone the repo into a temp directory: `gh repo clone wcjordan/$REPO /tmp/spinoff-$EPIC_KEY`
+   c. Check out `$FEATURE_BRANCH`
+   d. Read `docs/planning/$EPIC_KEY-spec.md` from the feature branch
+   e. Parse the stages — each `## Stage N:` section yields one Implementation Task
+   f. Create one Jira Implementation Task per stage under the same Epic, in status `Open`, with:
+      - Title: the stage title (text after `## Stage N:`)
+      - Description: the stage description (from `### Description` subsection)
+      - Acceptance criteria: from the `### Acceptance Criteria` subsection
+      - In the description, also include: `spec_doc_path: docs/planning/$EPIC_KEY-spec.md` and `feature_branch: $FEATURE_BRANCH`
+   g. Transition the Planning Task to `Done`
+3. Record in the step log: number of approved tasks processed and total implementation tasks created
+
+---
+
+### Step 6: Promote Implementation Tasks to Ready
 
 ⚠️ **Stage 4 — NOT YET IMPLEMENTED**
 
@@ -102,23 +123,23 @@ Prioritization order for promotion:
 
 Target: at least one `Ready` task per repo when eligible tasks exist.
 
-For now: log `{"step": "task_promotion", "status": "skipped", "message": "not yet implemented"}` and continue.
+For now: log `{"step": "promote_tasks", "status": "skipped", "message": "not yet implemented"}` and continue.
 
 ---
 
-### Step 6: Launch Worker Agent
+### Step 7: Launch Worker Agent
 
 ⚠️ **Stage 2 (basic) / Stage 4 (full) — NOT YET IMPLEMENTED**
 
 Will:
 1. If a planning agent was launched in Step 4 (`planning_agent_launched: true`): skip — do not launch a worker in the same run
-2. Otherwise: select one `Ready` implementation task (using prioritization from Step 5), transition it to `In Progress`, and trigger the `majordomo-worker` Jenkins job with the task's Jira ID as a parameter
+2. Otherwise: select one `Ready` implementation task (using prioritization from Step 6), transition it to `In Progress`, and trigger the `majordomo-worker` Jenkins job with the task's Jira ID as a parameter
 
-For now: log `{"step": "worker_launch", "status": "skipped", "message": "not yet implemented"}` and continue.
+For now: log `{"step": "launch_worker", "status": "skipped", "message": "not yet implemented"}` and continue.
 
 ---
 
-### Step 7: Open Feature → Main PRs for Completed Stories
+### Step 8: Open Feature → Main PRs for Completed Stories
 
 ⚠️ **Stage 4 — NOT YET IMPLEMENTED**
 
@@ -127,7 +148,7 @@ Will:
    - Open a PR from `feature/<epic-id>` to `main`
    - PR description references the originating GH Issue and summarizes what the story delivered
 
-For now: log `{"step": "story_completion_check", "status": "skipped", "message": "not yet implemented"}` and continue.
+For now: log `{"step": "check_story_completion", "status": "skipped", "message": "not yet implemented"}` and continue.
 
 ---
 
@@ -147,11 +168,12 @@ At the end of each run, emit a single JSON object to stdout:
   "steps": [
     {"step": "load_config", "status": "ok", "message": "loaded 1 user, 4 projects"},
     {"step": "schedule_check", "status": "skipped", "message": "not yet implemented — always proceeding"},
-    {"step": "gh_issue_poll", "status": "skipped", "message": "not yet implemented"},
-    {"step": "planning_task_eval", "status": "skipped", "message": "not yet implemented", "planning_agent_launched": false},
-    {"step": "task_promotion", "status": "skipped", "message": "not yet implemented"},
-    {"step": "worker_launch", "status": "skipped", "message": "not yet implemented"},
-    {"step": "story_completion_check", "status": "skipped", "message": "not yet implemented"}
+    {"step": "poll_gh_issues", "status": "ok", "issues_processed": 0},
+    {"step": "eval_planning_tasks", "status": "ok", "planning_agent_launched": false},
+    {"step": "create_impl_tasks", "status": "ok", "approved_tasks_processed": 0, "implementation_tasks_created": 0},
+    {"step": "promote_tasks", "status": "skipped", "message": "not yet implemented"},
+    {"step": "launch_worker", "status": "skipped", "message": "not yet implemented"},
+    {"step": "check_story_completion", "status": "skipped", "message": "not yet implemented"}
   ],
   "errors": []
 }
