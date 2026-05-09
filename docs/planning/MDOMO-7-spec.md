@@ -62,21 +62,22 @@ Replace the Step 7 stub in `majordomo/system-prompt.md` with full worker-launch 
 2. Otherwise:
    a. Query Jira for all Implementation Tasks in status `Ready` across all configured projects.
    b. For each Ready task, fetch its parent Epic to collect:
-      - Whether any sibling is `In Progress` or `In Review` (continuity signal — though in practice a Ready task should not exist if a sibling is in flight; this is for safety)
+      - All sibling Implementation Tasks and their statuses
       - Epic priority labels (`P0`, `P1`, `P2`)
       - Epic Jira rank (`customfield_10019`)
-   c. Rank candidates:
-      1. Tasks whose parent Epic has other stages currently `In Progress` or `In Review` come first (continuity)
+   c. Exclude any task whose parent Epic has a sibling currently `In Progress` or `In Review` — launching a second worker on the same Epic would cause conflicts.
+   d. Rank the remaining candidates:
+      1. Tasks whose parent Epic has other Implementation Tasks already `Done` come first (continuity — the Epic is making progress)
       2. Among ties: Epic with highest priority label (`P0` > `P1` > `P2` > unlabelled)
       3. Among ties: Epic with lowest Jira rank value (ascending lexicographic = manual ordering)
-   d. Select the top-ranked task.
-   e. Transition it to `In Progress` via Jira transitions API.
-   f. Trigger the worker Jenkins job:
+   e. Select the top-ranked task.
+   f. Transition it to `In Progress` via Jira transitions API.
+   g. Trigger the worker Jenkins job:
       ```
       curl -X POST -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" \
         "http://jenkins.${ROOT_DOMAIN}/job/majordomo-worker/job/${BASE_BRANCH}/buildWithParameters?JIRA_TASK_ID=<task_id>"
       ```
-   g. Log: `{"step": "launch_worker", "status": "ok", "task_id": "<id>", "worker_launched": true}`
+   h. Log: `{"step": "launch_worker", "status": "ok", "task_id": "<id>", "worker_launched": true}`
 
 3. If no Ready tasks exist:
    - Log: `{"step": "launch_worker", "status": "ok", "worker_launched": false, "message": "no Ready tasks found"}`
@@ -85,11 +86,12 @@ Replace the Step 7 stub in `majordomo/system-prompt.md` with full worker-launch 
 
 - Step 7 no longer emits `"status": "skipped"` (unless a planning agent was launched this run).
 - When `planning_agent_launched` is true, Step 7 logs a skip with the reason.
-- When Ready tasks exist, Majordomo selects one using the prioritization order and transitions it to `In Progress`.
+- Ready tasks whose Epic has a sibling `In Progress` or `In Review` are excluded from selection.
+- When Ready tasks exist after exclusions, Majordomo selects one using the prioritization order and transitions it to `In Progress`.
 - The worker Jenkins job is triggered via HTTP POST with the selected task ID.
 - The run log includes `worker_launched: true/false` and `task_id` when a task is selected.
-- When no Ready tasks exist, the step completes with `worker_launched: false`.
-- Prioritization is applied correctly: continuity > priority label > Epic rank.
+- When no Ready tasks remain after exclusions, the step completes with `worker_launched: false`.
+- Prioritization is applied correctly: epics with Done siblings first, then priority label, then Epic rank.
 
 ---
 
@@ -117,6 +119,7 @@ Replace the Step 8 stub in `majordomo/system-prompt.md` with full feature→main
       - Build a PR body: a summary of what was delivered, referencing the GH Issue URL. Include a bullet list of the implementation task titles.
       - Open the PR: `gh pr create --repo wcjordan/<repo> --base main --head feature/<EPIC_KEY> --title "..." --body "..."`
       - Log the PR URL.
+      - Transition the Epic to `In Review` via Jira transitions API.
 
 2. Log in the step result:
    - `epics_checked`: total Epics evaluated
@@ -136,4 +139,5 @@ Replace the Step 8 stub in `majordomo/system-prompt.md` with full feature→main
 - Epics with an existing open feature→main PR are skipped (idempotent).
 - Epics with no Implementation Tasks are skipped.
 - The run log includes `epics_checked`, `prs_opened`, and `epics_skipped`.
+- After opening the PR, the Epic is transitioned to `In Review` in Jira.
 - Majordomo never merges the PR — only opens it for human review.
