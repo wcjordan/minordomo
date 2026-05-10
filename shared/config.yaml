@@ -1,0 +1,27 @@
+# GitHub users whose issues Majordomo will process
+allowed_gh_users:
+  - wcjordan
+
+# Branch that new feature branches are created from
+base_branch: main
+
+# Repos tracked by Majordomo and their Jira project keys
+projects:
+  - repo: minordomo
+    jira_key: MDOMO
+  - repo: chalk
+    jira_key: CHALK
+  - repo: gcp-setup
+    jira_key: INFRA
+  - repo: forester
+    jira_key: FSTR
+
+# Stage 5: Schedule gating (not yet enforced)
+schedule:
+  allowed_days: [Mon, Tue, Wed, Thu, Fri]
+  allowed_hours: ["00:00-08:00", "18:00-23:59"]
+  weekend_override: false
+
+# Stage 5: Usage limits (not yet enforced)
+usage:
+  weekly_threshold_pct: 50
