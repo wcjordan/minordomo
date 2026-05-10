@@ -6,7 +6,7 @@ A multi-agent system for autonomously picking up, planning, and implementing dev
 
 The stages are ordered so that the system can take over building itself as early as possible. After Stage 3, a GH Issue can be filed for the remaining stages and the system will plan and implement them autonomously.
 
-For system design, Jira workflows, branching model, and repo structure, see [`docs/GETTING_AROUND.md`](GETTING_AROUND.md).
+For repo structure and stage overview, see [`GETTING_AROUND.md`](GETTING_AROUND.md). For Jira status flows, branching model, and task prioritization, see [`WORKFLOWS.md`](WORKFLOWS.md).
 
 ---
 

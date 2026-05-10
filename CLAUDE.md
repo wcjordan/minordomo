@@ -8,7 +8,7 @@ Guidelines and context for Claude agents and contributors working in this repo.
 
 **minordomo** is the automated development pipeline itself. Majordomo and its sub-agents live here. This repo is also one of the repos Majordomo manages (Jira project: `MDOMO`).
 
-See [`docs/GETTING_AROUND.md`](docs/GETTING_AROUND.md) for repo structure, Jira workflows, and stage overview.
+See [`docs/GETTING_AROUND.md`](docs/GETTING_AROUND.md) for repo structure and stage overview. See [`docs/WORKFLOWS.md`](docs/WORKFLOWS.md) for Jira status flows, branching model, and task prioritization.
 
 ---
 

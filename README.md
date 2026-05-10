@@ -2,7 +2,7 @@
 
 Automated development pipeline. A scheduled **Majordomo** agent ingests GitHub Issues, drives them through planning (via a Planning Agent) and implementation (via Worker agents), and keeps Jira tickets accurate at every step.
 
-See [`docs/GETTING_AROUND.md`](docs/GETTING_AROUND.md) for the system design, Jira workflows, and branching model. See [`CLAUDE.md`](CLAUDE.md) for agent trust model and implementation patterns.
+See [`docs/GETTING_AROUND.md`](docs/GETTING_AROUND.md) for repo structure and stage overview, [`docs/WORKFLOWS.md`](docs/WORKFLOWS.md) for Jira status flows and branching model, and [`CLAUDE.md`](CLAUDE.md) for agent trust model and implementation patterns.
 
 ---
 
