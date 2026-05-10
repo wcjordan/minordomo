@@ -57,10 +57,10 @@ pipeline {
                             # Build and push from repo root so COPY paths in the Dockerfile resolve correctly
                             docker buildx create --driver docker-container --name majordomo-builder --use || true
                             docker buildx build --push \\
-                                --cache-to  type=registry,ref=${GAR_REPO}/majordomo-runner-cache:latest,mode=max \\
-                                --cache-from type=registry,ref=${GAR_REPO}/majordomo-runner-cache:latest \\
+                                --cache-to  type=registry,ref=${GAR_REPO}/minordomo-image-cache:latest,mode=max \\
+                                --cache-from type=registry,ref=${GAR_REPO}/minordomo-image-cache:latest \\
                                 -f minordomo-container-builder/Dockerfile \\
-                                -t ${GAR_REPO}/majordomo-runner:latest \\
+                                -t ${GAR_REPO}/minordomo-image:latest \\
                                 .
                         """
                     }
