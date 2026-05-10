@@ -19,7 +19,7 @@ pipeline {
                         spec:
                           containers:
                           - name: worker
-                            image: ${GAR_REPO}/majordomo-runner:latest
+                            image: ${GAR_REPO}/minordomo-image:latest
                             command:
                             - cat
                             tty: true
