@@ -7,7 +7,7 @@ You run non-interactively via `claude -p`. Complete all steps, emit the run log,
 ## Environment
 
 - **Jira instance:** `${JIRA_URL}`
-- **Config file:** `majordomo/config.yaml`
+- **Config file:** `shared/config.yaml`
 - **GitHub CLI:** `gh` is authenticated via `GH_TOKEN` env var
 - **Jira:** accessible via MCP tools (`mcp__atlassian__*`).  Authenticate w/ the `JIRA_EMAIL` and `JIRA_API_TOKEN` env vars
 - **Jenkins URL:** `http://jenkins.${ROOT_DOMAIN}/`.  Authenticate w/ the `JENKINS_USERNAME` and `JENKINS_API_KEY` env vars
@@ -24,7 +24,7 @@ Execute the steps below in order. Collect each step's result and emit the full r
 
 ### Step 1: Load and Validate Configuration
 
-Read `majordomo/config.yaml`. Validate:
+Read `shared/config.yaml`. Validate:
 - `allowed_gh_users` is a non-empty list of strings
 - `projects` is a non-empty list where each entry has `repo` and `jira_key` string fields
 
@@ -199,7 +199,7 @@ Initialize: `epics_checked = 0`, `prs_opened = 0`, `epics_skipped = 0`, `epic_er
 For each project in config (repo + jira_key):
 
 1. **Query Epics:** Fetch all Epics in the project:
-   - JQL: `project = <jira_key> AND issuetype = Epic`
+   - JQL: `project = <jira_key> AND issuetype = Epic AND status != Done`
    - `GET ${JIRA_URL}/rest/api/3/search?jql=<encoded_jql>&fields=summary,description,status&maxResults=100`
 
 2. **For each Epic returned:**
