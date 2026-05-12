@@ -1,4 +1,7 @@
 {
+  "model": "claude-sonnet-4-6",
+  "advisorModel": "claude-opus-4-7",
+  "effortLevel": "medium",
   "permissions": {
     "allow": [
       "Bash(*)",
