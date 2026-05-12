@@ -74,8 +74,8 @@ docker push ${GAR_REPO}/minordomo-image:latest
 |---|---|---|
 | `majordomo` | `majordomo/Jenkinsfile` | Manual (for now); cron after Stage 5 |
 | `majordomo-build-runner` | `minordomo-container-builder/Jenkinsfile` | Weekly cron (Sundays ~2 AM); manual as needed |
-| `majordomo-planner` | `minordomo-plan/Jenkinsfile` | Triggered by Majordomo |
-| `majordomo-worker` | `minordomo-step/Jenkinsfile` | Triggered by Majordomo |
+| `minordomo-plan` | `minordomo-plan/Jenkinsfile` | Triggered by Majordomo |
+| `minordomo-step` | `minordomo-step/Jenkinsfile` | Triggered by Majordomo |
 
 For each: New Item → Pipeline → "Pipeline script from SCM" → point to this repo and the Jenkinsfile path above.
 For each Jenkins pipeline:
