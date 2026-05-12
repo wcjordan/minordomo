@@ -19,8 +19,6 @@ REPO_DIRS = (
 # Current Jenkins job names; flag anything else found in /job/<name>/ patterns
 VALID_JOB_NAMES = {
     "majordomo",
-    "majordomo-planner",
-    "majordomo-worker",
     "minordomo-plan",
     "minordomo-step",
     "minordomo-container-builder",
