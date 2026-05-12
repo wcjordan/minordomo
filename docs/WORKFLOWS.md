@@ -36,12 +36,12 @@ Open → In Progress → Needs Input → Open → ... → In Progress → In Rev
 | In Progress | Planning agent is actively working |
 | Needs Input | Agent posted questions on the ticket; Majordomo will not re-queue until human resets to Open |
 | In Review | Agent opened a PR (spec doc branch → feature branch); human reviews and merges |
-| Approved | Human merged the spec PR; Majordomo will spin off Implementation Tasks on next run |
+| Approved | Majordomo auto-detected merged spec PR; will spin off Implementation Tasks on next run |
 | Done | Implementation Tasks created; planning ticket closed |
 
 **Human actions required:**
 - Answer questions → set ticket back to **Open**
-- Approve spec → merge PR → set ticket to **Approved**
+- Approve spec → merge PR (Majordomo auto-transitions to **Approved**)
 
 ### Implementation Task
 
@@ -56,7 +56,7 @@ Open → Ready → In Progress → In Review → Done
 | In Progress | Worker agent is actively implementing |
 | In Review | Worker opened PR; awaiting human review and merge |
 | Needs Input | Worker encountered a blocker requiring human input |
-| Done | Human merged PR and marked ticket complete |
+| Done | Human merged PR; Majordomo auto-transitions on next run |
 
 ---
 
