@@ -20,7 +20,6 @@ INIT="$WORK/init"
 git clone "$REMOTE" "$INIT" -q
 git -C "$INIT" -c user.email="t@t.com" -c user.name="T" \
     commit --allow-empty -m "Initial commit" -q
-git -C "$INIT" push origin HEAD:bootstrap -q
 git -C "$INIT" push origin HEAD:main -q
 
 # ---------------------------------------------------------------------------

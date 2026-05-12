@@ -236,7 +236,7 @@ Initialize: `epics_checked = 0`, `prs_opened = 0`, `epics_skipped = 0`, `epic_er
 For each project in config (repo + jira_key):
 
 1. **Query Epics:** Fetch all Epics in the project:
-   - JQL: `project = <jira_key> AND issuetype = Epic`
+   - JQL: `project = <jira_key> AND issuetype = Epic AND status != Done`
    - `GET ${JIRA_URL}/rest/api/3/search?jql=<encoded_jql>&fields=summary,description,status&maxResults=100`
 
 2. **For each Epic returned:**
