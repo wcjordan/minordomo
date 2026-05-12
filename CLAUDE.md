@@ -84,11 +84,11 @@ Majordomo triggers sub-agents via Jenkins HTTP API:
 ```bash
 # Planning agent
 curl -X POST -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" \
-  "http://jenkins.${ROOT_DOMAIN}/job/majordomo-planner/job/${BASE_BRANCH}/buildWithParameters?JIRA_TASK_ID=<id>"
+  "http://jenkins.${ROOT_DOMAIN}/job/minordomo-plan/job/${BASE_BRANCH}/buildWithParameters?JIRA_TASK_ID=<id>"
 
 # Worker
 curl -X POST -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" \
-  "http://jenkins.${ROOT_DOMAIN}/job/majordomo-worker/job/${BASE_BRANCH}/buildWithParameters?JIRA_TASK_ID=<id>"
+  "http://jenkins.${ROOT_DOMAIN}/job/minordomo-step/job/${BASE_BRANCH}/buildWithParameters?JIRA_TASK_ID=<id>"
 ```
 
 ---
