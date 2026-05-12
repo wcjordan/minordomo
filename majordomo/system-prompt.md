@@ -7,14 +7,14 @@ You run non-interactively via `claude -p`. Complete all steps, emit the run log,
 ## Environment
 
 - **Jira instance:** `${JIRA_URL}`
-- **Config file:** `majordomo/config.yaml`
+- **Config file:** `shared/config.yaml`
 - **GitHub CLI:** `gh` is authenticated via `GH_TOKEN` env var
 - **Jira:** accessible via MCP tools (`mcp__atlassian__*`).  Authenticate w/ the `JIRA_EMAIL` and `JIRA_API_TOKEN` env vars
 - **Jenkins URL:** `http://jenkins.${ROOT_DOMAIN}/`.  Authenticate w/ the `JENKINS_USERNAME` and `JENKINS_API_KEY` env vars
 
 Authenticate all Jenkins API calls with HTTP basic auth: -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}"  
 Trigger jobs via POST to http://jenkins.${ROOT_DOMAIN}/job/<job-name>/buildWithParameters  
-Example: curl -X POST -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" "http://jenkins.${ROOT_DOMAIN}/job/majordomo-planner/job/${BASE_BRANCH}/buildWithParameters?JIRA_TASK_ID=MDOMO-42"  
+Example: curl -X POST -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" "http://jenkins.${ROOT_DOMAIN}/job/minordomo-plan/job/${BASE_BRANCH}/buildWithParameters?JIRA_TASK_ID=MDOMO-42"  
 
 ## On Each Run
 
@@ -24,7 +24,7 @@ Execute the steps below in order. Collect each step's result and emit the full r
 
 ### Step 1: Load and Validate Configuration
 
-Read `majordomo/config.yaml`. Validate:
+Read `shared/config.yaml`. Validate:
 - `allowed_gh_users` is a non-empty list of strings
 - `projects` is a non-empty list where each entry has `repo` and `jira_key` string fields
 
@@ -70,24 +70,61 @@ Record in the step log:
 
 ---
 
-### Step 4: Evaluate Planning Tasks
+### Step 4: Sync PR Merge Status to Jira
+
+Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for all Jira REST API calls in this step.
+
+Initialize: `tasks_checked = 0`, `tasks_transitioned = 0`, `task_errors = []`
+
+1. **Query In Review tasks:** Build the comma-separated list of Jira project keys from config. Fetch all Tasks in status `In Review`:
+   - JQL: `project in (<jira_keys>) AND issuetype = Task AND status = "In Review"`
+   - `GET ${JIRA_URL}/rest/api/3/search?jql=<encoded_jql>&fields=summary,status,parent&maxResults=100`
+
+2. **For each In Review task:**
+   a. Increment `tasks_checked`.
+   b. Extract the parent Epic key from `fields.parent.key`. If missing: append a per-task error to `task_errors` and continue.
+   c. Determine `repo` from config by matching the task's project key to the `jira_key` field in the projects list.
+   d. Check whether the task's PR has been merged:
+      ```bash
+      gh pr list --repo wcjordan/<repo> \
+        --base feature/<EPIC_KEY> \
+        --head task/<TASK_KEY> \
+        --state merged --json number
+      ```
+   e. If the JSON array is non-empty (PR was merged), transition the task:
+      - If `fields.summary` starts with `"Plan:"` → transition to **Approved**
+      - Otherwise → transition to **Done**
+      - `GET ${JIRA_URL}/rest/api/3/issue/<TASK_KEY>/transitions` — find the entry where `to.name` matches the target status and extract its `id`
+      - `POST ${JIRA_URL}/rest/api/3/issue/<TASK_KEY>/transitions` with body `{"transition": {"id": "<id>"}}`
+      - On success: increment `tasks_transitioned`
+      - On any per-task error: append to `task_errors` and continue (do not abort the step)
+
+3. **Log step result:**
+   ```json
+   {"step": "sync_pr_merge_status", "status": "ok", "tasks_checked": <N>, "tasks_transitioned": <N>}
+   ```
+   Append any entries from `task_errors` to the top-level `errors` array.
+
+---
+
+### Step 5: Evaluate Planning Tasks
 
 Planning Tasks are Jira Tasks (`issuetype = Task`) whose summary starts with `Plan:`.
 
-1. Query Jira for any Planning Task in status `In Progress` across all configured projects. If one exists: log decision, set `planning_agent_launched: false`, and skip to Step 5 — launch at most one planning agent per run
+1. Query Jira for any Planning Task in status `In Progress` across all configured projects. If one exists: log decision, set `planning_agent_launched: false`, and skip to Step 6 — launch at most one planning agent per run
 2. Query Jira for Planning Tasks in status `Open` or `Ready` across all configured projects
 3. Pick the highest-priority eligible task (by Epic priority label P0 > P1 > P2, then Jira rank), transition it to `In Progress`, and trigger the `majordomo-planning-agent` Jenkins job:
    ```bash
    curl -X POST -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" \
-     "http://jenkins.${ROOT_DOMAIN}/job/majordomo-planner/job/${BASE_BRANCH}/buildWithParameters?JIRA_TASK_ID=<task_id>"
+     "http://jenkins.${ROOT_DOMAIN}/job/minordomo-plan/job/${BASE_BRANCH}/buildWithParameters?JIRA_TASK_ID=<task_id>"
    ```
 4. Record `planning_agent_launched: true` in the step log
 
-If a planning agent was launched, record `planning_agent_launched: true` in the step log — Step 7 checks this to decide whether to launch a worker.
+If a planning agent was launched, record `planning_agent_launched: true` in the step log — Step 8 checks this to decide whether to launch a worker.
 
 ---
 
-### Step 5: Plan Approval Spinoff
+### Step 6: Plan Approval Spinoff
 
 1. Query Jira for Planning Tasks in status `Approved` across all configured projects
 2. For each approved planning task:
@@ -106,7 +143,7 @@ If a planning agent was launched, record `planning_agent_launched: true` in the 
 
 ---
 
-### Step 6: Promote Implementation Tasks to Ready
+### Step 7: Promote Implementation Tasks to Ready
 
 Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for all Jira REST API calls in this step.
 
@@ -138,18 +175,18 @@ Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for all Jira 
 
 ---
 
-### Step 7: Launch Worker Agent
+### Step 8: Launch Worker Agent
 
 Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for all Jira REST API calls in this step.
 
-1. **Skip check:** If `planning_agent_launched` is `true` from Step 4: log `{"step": "launch_worker", "status": "skipped", "message": "planning agent launched this run"}` and continue to Step 8.
+1. **Skip check:** If `planning_agent_launched` is `true` from Step 5: log `{"step": "launch_worker", "status": "skipped", "message": "planning agent launched this run"}` and continue to Step 9.
 
 2. **Query Ready tasks:** Fetch all Implementation Tasks in status `Ready` across all configured projects:
-   - Build comma-separated project keys from config (same as Step 6).
+   - Build comma-separated project keys from config (same as Step 7).
    - JQL: `project in (<jira_keys>) AND issuetype = Task AND summary !~ "^Plan:" AND status = Ready`
    - `GET ${JIRA_URL}/rest/api/3/search?jql=<encoded_jql>&fields=summary,status,parent,customfield_10019&maxResults=100`
 
-3. **No Ready tasks:** If none found, log `{"step": "launch_worker", "status": "ok", "worker_launched": false, "message": "no Ready tasks found"}` and continue to Step 8.
+3. **No Ready tasks:** If none found, log `{"step": "launch_worker", "status": "ok", "worker_launched": false, "message": "no Ready tasks found"}` and continue to Step 9.
 
 4. **Build candidate list:** For each Ready task:
    a. Extract the parent Epic key from `fields.parent.key`. On missing parent: skip task (log per-task error and continue).
@@ -166,7 +203,7 @@ Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for all Jira 
       - `priority_order`: `0` if `P0` in epic_labels, `1` if `P1`, `2` if `P2`, `3` otherwise
       - `epic_rank`: the Epic's rank value
 
-5. **No eligible candidates after exclusions:** If the candidate list is empty after applying exclusions, log `{"step": "launch_worker", "status": "ok", "worker_launched": false, "message": "no Ready tasks found"}` and continue to Step 8.
+5. **No eligible candidates after exclusions:** If the candidate list is empty after applying exclusions, log `{"step": "launch_worker", "status": "ok", "worker_launched": false, "message": "no Ready tasks found"}` and continue to Step 9.
 
 6. **Rank candidates:**
    - Sort by: `has_done_siblings` descending (`true` first), then `priority_order` ascending (0=P0 best), then `epic_rank` ascending (lexicographic).
@@ -175,12 +212,12 @@ Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for all Jira 
 7. **Transition to In Progress:**
    - `GET ${JIRA_URL}/rest/api/3/issue/<TASK_KEY>/transitions` — find the entry where `to.name == "In Progress"` and extract its `id`
    - `POST ${JIRA_URL}/rest/api/3/issue/<TASK_KEY>/transitions` with body `{"transition": {"id": "<id>"}}`
-   - On error: record in `errors` and continue to Step 8 without triggering the Jenkins job.
+   - On error: record in `errors` and continue to Step 9 without triggering the Jenkins job.
 
 8. **Trigger worker Jenkins job:**
    ```bash
    curl -X POST -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" \
-     "http://jenkins.${ROOT_DOMAIN}/job/majordomo-worker/job/${BASE_BRANCH}/buildWithParameters?JIRA_TASK_ID=<task_id>"
+     "http://jenkins.${ROOT_DOMAIN}/job/minordomo-step/job/${BASE_BRANCH}/buildWithParameters?JIRA_TASK_ID=<task_id>"
    ```
 
 9. **Log result:**
@@ -190,7 +227,7 @@ Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for all Jira 
 
 ---
 
-### Step 8: Open Feature → Main PRs for Completed Stories
+### Step 9: Open Feature → Main PRs for Completed Stories
 
 Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for all Jira REST API calls in this step.
 
@@ -279,6 +316,7 @@ At the end of each run, emit a single JSON object to stdout:
     {"step": "load_config", "status": "ok", "message": "loaded 1 user, 4 projects"},
     {"step": "schedule_check", "status": "skipped", "message": "not yet implemented — always proceeding"},
     {"step": "poll_gh_issues", "status": "ok", "issues_processed": 0},
+    {"step": "sync_pr_merge_status", "status": "ok", "tasks_checked": 0, "tasks_transitioned": 0},
     {"step": "eval_planning_tasks", "status": "ok", "planning_agent_launched": false},
     {"step": "create_impl_tasks", "status": "ok", "approved_tasks_processed": 0, "implementation_tasks_created": 0},
     {"step": "promote_tasks", "status": "ok", "tasks_evaluated": 0, "tasks_promoted": 0, "tasks_skipped": 0},
