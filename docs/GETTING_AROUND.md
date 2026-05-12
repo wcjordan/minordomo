@@ -10,7 +10,7 @@ Reference for the repo structure and stage overview. For Jira status flows, bran
 minordomo/
 ├── majordomo/
 │   ├── Jenkinsfile          — Majordomo main job (disableConcurrentBuilds, 60 min timeout)
-│   └── system-prompt.md     — Majordomo agent instructions (Steps 1–8)
+│   └── system-prompt.md     — Majordomo agent instructions (Steps 1–9)
 ├── minordomo-plan/
 │   ├── Jenkinsfile          — Planning agent job (parameterized: JIRA_TASK_ID)
 │   └── system-prompt.md     — Planning agent instructions

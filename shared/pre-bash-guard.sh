@@ -81,4 +81,29 @@ if matches '\beval\s+.*\$'; then
     block "dynamic eval not allowed"
 fi
 
+# Disk manipulation commands
+if matches '(^|[;&|[:space:]])(mkfs|fdisk|diskutil)([.[:space:]]|$)'; then
+    block "disk manipulation command not allowed"
+fi
+
+# System power and reset commands
+if matches '(^|[;&|[:space:]])(shutdown|reboot)([[:space:]]|$)'; then
+    block "shutdown/reboot not allowed"
+fi
+
+# macOS system management commands
+if matches '(^|[;&|[:space:]])(nvram|csrutil|launchctl|systemsetup|networksetup)([[:space:]]|$)'; then
+    block "macOS system management command not allowed"
+fi
+
+# Homebrew package installation (brew install and brew i shorthand)
+if matches '\bbrew[[:space:]]+(install|i)\b'; then
+    block "brew install not allowed"
+fi
+
+# npm global package installation
+if matches '\bnpm[[:space:]]+(install|i)\b' && matches '(^|[[:space:]])(-g|--global)([[:space:]]|$)'; then
+    block "npm global install not allowed"
+fi
+
 exit 0
