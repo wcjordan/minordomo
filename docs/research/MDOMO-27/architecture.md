@@ -57,17 +57,19 @@ To read `/tmp/prompt-output.txt` (written by the shell step in the same K8s cont
 use `sh(returnStdout: true, ...)` within the `script` block. The file lives in the
 container's ephemeral filesystem and is accessible across steps within the same stage.
 
-Pattern:
+Pattern (from Stage 1 implementation in majordomo/Jenkinsfile):
 ```groovy
 post {
     always {
-        script {
-            def output = sh(
-                returnStdout: true,
-                script: 'cat /tmp/prompt-output.txt 2>/dev/null || true'
-            ).trim()
-            if (output) {
-                currentBuild.description = output
+        container('worker') {
+            script {
+                def output = sh(
+                    script: 'cat /tmp/prompt-output.txt 2>/dev/null || true',
+                    returnStdout: true
+                ).trim()
+                if (output) {
+                    currentBuild.description = output
+                }
             }
         }
     }
@@ -76,6 +78,16 @@ post {
 
 `|| true` prevents the `sh` step from failing if the file doesn't exist (e.g., if
 `claude` crashed before producing any output).
+
+Note: the `container('worker')` wrapper is required for plan and step Jenkinsfiles
+because the agent uses `agent none` at the pipeline level; the container context must
+be re-specified in the `post` block. In majordomo, the container is named `majordomo`.
+
+## Stage Completion Status
+
+- **Stage 1 (majordomo/Jenkinsfile):** Complete. Merged via PR #48 (commit 977116d).
+- **Stage 2 (minordomo-plan/Jenkinsfile, minordomo-step/Jenkinsfile):** Spec confirmed,
+  ready for worker implementation.
 
 ## Test Impact
 
