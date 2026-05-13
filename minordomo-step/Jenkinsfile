@@ -51,8 +51,23 @@ pipeline {
 
                         source shared/setup-workspace.sh worker
 
-                        claude -p "$(cat ../minordomo-step/system-prompt.md)"
+                        claude -p "$(cat ../minordomo-step/system-prompt.md)" | tee /tmp/prompt-output.txt
                     '''
+                }
+            }
+            post {
+                always {
+                    container('worker') {
+                        script {
+                            def output = sh(
+                                script: 'cat /tmp/prompt-output.txt 2>/dev/null || true',
+                                returnStdout: true
+                            ).trim()
+                            if (output) {
+                                currentBuild.description = output
+                            }
+                        }
+                    }
                 }
             }
         }
