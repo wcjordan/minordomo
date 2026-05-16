@@ -1,12 +1,12 @@
 # Replacing Jira with GitHub Issues + Beads
 
-This document captures the plan for replacing Atlassian Jira with a combination of
+This document is the implementation spec for replacing Atlassian Jira with a combination of
 GitHub Issues (human-facing tracking) and [Beads](https://github.com/gastownhall/beads)
 (agent-facing task coordination).
 
 ---
 
-## Concept Mapping
+## Concept Mapping (Reference)
 
 | Jira concept | Replacement |
 |---|---|
@@ -24,170 +24,342 @@ GitHub Issues (human-facing tracking) and [Beads](https://github.com/gastownhall
 
 ---
 
-## Infrastructure Changes
+## Needs Input Flow (Reference)
 
-### Add: Dolt sql-server on Kubernetes
+This is new behavior with no Jira equivalent. When an agent hits a blocker it cannot resolve:
 
-Beads requires a persistent `dolt sql-server` because agents run in ephemeral Jenkins
-containers (the embedded `.beads/` DB is gitignored and not present after a fresh clone).
+1. Agent applies the `needs-input` GH label to the linked Issue via `gh issue edit`
+2. Agent posts a comment on the Issue explaining what's needed
+3. Majordomo steps 5 and 8 skip any task whose linked GH Issue carries `needs-input`
+4. A human removes the label to unblock — no status reset required
 
-Deploy one StatefulSet + PVC + Service per repo, or a single shared instance with one
-database per repo. The Bitnami MySQL Helm chart with a `dolthub/dolt-sql-server` image
-override is a practical starting point. Expected resource footprint for this workload:
-~64Mi memory, minimal CPU.
-
-### Add: Jenkins env vars
-
-| Variable | Purpose |
-|---|---|
-| `BEADS_SERVER_HOST` | Hostname of the dolt sql-server service |
-| `BEADS_SERVER_PORT` | Port (default 3306) |
-
-These replace `JIRA_CLOUD_ID`, `JIRA_EMAIL`, and `JIRA_API_TOKEN`.
-
-### Remove
-
-- Atlassian Cloud subscription
-- `mcp-atlassian` MCP server registration in `shared/setup-claude.sh`
+The agent-side behavior is added to `minordomo-plan/system-prompt.md` in Stage 6 and
+`minordomo-step/system-prompt.md` in Stage 7.
 
 ---
 
-## Code Changes by Component
+## Stage 1: Write Dolt sql-server Helm chart
 
-### `shared/config.yaml`
+### Description
 
-Drop `jira_key` from each project entry; keep `repo` only.
+Create a Helm chart at `helm/dolt-server/` in this repo that deploys a persistent Dolt
+sql-server. Beads agents connect to this server because they run in ephemeral Jenkins
+containers where the embedded `.beads/` DB is not available after a fresh clone.
 
-### `shared/setup-env.sh`
+The chart should include:
 
-Replace Jira credential derivation with passthrough of `BEADS_SERVER_HOST` and
-`BEADS_SERVER_PORT`.
+- `StatefulSet` with one replica using the `dolthub/dolt-sql-server` image
+- `PersistentVolumeClaim` attached to the pod for durable storage
+- `Service` (ClusterIP) exposing port 3306
+- `ConfigMap` or `values.yaml` for image tag, storage size, and resource limits
 
-### `shared/setup-claude.sh`
+Use the existing Helm chart at `https://github.com/wcjordan/chalk/tree/main/helm` as a
+structural reference. Expected resource footprint: ~64Mi memory, minimal CPU.
 
-Remove `claude mcp add atlassian`. Add `bd config set server ...` so agents connect
-to the shared dolt server.
+A single shared Dolt instance with one database per managed repo is preferred over one
+StatefulSet per repo.
 
-### `shared/setup-workspace.sh`
+This stage does not deploy anything — it produces the chart only.
 
-Replace the Jira REST lookup used to derive `EPIC_KEY` and `FEATURE_BRANCH`:
+### Acceptance Criteria
+
+- `helm lint helm/dolt-server/` passes with no errors or warnings
+- `helm template helm/dolt-server/ | kubectl apply --dry-run=client -f -` exits 0
+- The rendered manifest includes a StatefulSet, PVC, and Service
+
+---
+
+## Stage 2: Deploy Dolt server and verify Jenkins connectivity
+
+### Description
+
+Deploy the `helm/dolt-server/` chart to the Kubernetes cluster and confirm that Jenkins
+build agents can reach it.
+
+Steps:
+
+1. Add a `helm/dolt-server/` release to the cluster deployment configuration (follow the
+   pattern in `https://github.com/wcjordan/gcp-setup/blob/main/terraform/jenkins.tf` for
+   how Helm releases are managed alongside Jenkins)
+2. Deploy and confirm the pod reaches `Running` state with the PVC bound
+3. From a Jenkins agent pod, verify connectivity:
+   ```bash
+   mysql -h "$BEADS_SERVER_HOST" -P "$BEADS_SERVER_PORT" -u root \
+     --execute "SHOW DATABASES;" 2>&1
+   ```
+4. Add `BEADS_SERVER_HOST` and `BEADS_SERVER_PORT` to the Jenkins credential/environment
+   configuration so they are available to build jobs
+
+### Acceptance Criteria
+
+- `kubectl get pods -l app=dolt-server` shows a pod in `Running` state with `PVC` bound
+- The `mysql` connectivity check above exits 0 from within a Jenkins agent container
+- `BEADS_SERVER_HOST` and `BEADS_SERVER_PORT` are available as env vars in a Jenkins build
+
+---
+
+## Stage 3: Install beads CLI and configure agent setup scripts
+
+### Description
+
+Install the `bd` CLI into the Jenkins agent container image and wire it into the shared
+setup scripts. After this stage, beads is available and configured in every agent run,
+but no Majordomo logic reads from or writes to it yet.
+
+Changes:
+
+- **Container image** — add `bd` installation to the Jenkins agent Dockerfile (or equivalent
+  build config); pin to a specific version
+- **`shared/setup-env.sh`** — pass through `BEADS_SERVER_HOST` and `BEADS_SERVER_PORT` as
+  exported env vars alongside existing Jira credential derivation (no Jira changes)
+- **`shared/setup-claude.sh`** — add `bd config set server "$BEADS_SERVER_HOST:$BEADS_SERVER_PORT"`
+  after existing setup; keep `claude mcp add atlassian` untouched
+
+### Acceptance Criteria
+
+- `bd --version` succeeds inside a Jenkins agent container
+- `bd config show` returns the correct server host and port
+- Existing Jira-based pipeline runs complete without regression
+
+---
+
+## Stage 4: Dual-ingest — Majordomo step 3
+
+### Description
+
+Extend Majordomo step 3 (GH Issues → Jira) to also create a beads planning task for each
+ingested issue. Jira epic creation is unchanged; beads runs alongside it.
+
+Changes to Majordomo step 3:
 
 ```bash
-# Before
-curl ... "${JIRA_URL}/rest/api/3/issue/${JIRA_TASK_ID}?fields=parent"
-
-# After
-bd show "${BEADS_TASK_ID}" --json | jq -r '.parent'
+# After existing Jira epic creation — also create a beads task
+bd create "Plan: <issue title>" --priority <N> \
+  --description "GH Issue: <issue url>"
 ```
 
-### `shared/agent-settings.json`
+- Apply `beads-ingested` GH label to the issue in addition to `jira-epic-created`
+- Store the GH Issue URL in the beads task description (for agent cross-reference)
+- Do not remove or modify `jira-epic-created` label behavior
 
-Remove `mcp__atlassian__*` from the allow list. No new MCP entry needed.
+### Acceptance Criteria
 
-### Majordomo step 3 — GH Issues → ingest
+- After ingesting a new GH Issue: `bd list --json | jq '[.[] | select(.title | startswith("Plan:"))] | length'`
+  equals the count of Jira epics for newly ingested issues
+- Each new beads task's description contains the GH Issue URL:
+  `bd show <id> --json | jq '.description'` includes `github.com`
+- The `beads-ingested` GH label is applied to the issue
+- Existing Jira ingestion is unaffected; `jira-epic-created` label still applied
 
-Replace Jira Epic creation with:
+---
 
-```bash
-bd create "Plan: <issue title>" --priority <N>
-```
+## Stage 5: Dual subtask creation — Majordomo step 6
 
-Apply `beads-ingested` GH label instead of `jira-epic-created`. Store the GH Issue URL
-in the beads task description.
+### Description
 
-### Majordomo step 4 — sync PR merge status
+Extend Majordomo step 6 (spinoff implementation tasks on spec PR merge) to also create
+beads subtasks with an explicit dependency chain. Jira task creation is unchanged.
 
-Replace the Jira `In Review` JQL query with:
-
-```bash
-bd list --status in_review --json
-```
-
-Replace the transition REST call with:
-
-```bash
-bd update <id> --status done
-```
-
-### Majordomo step 5 — pick planning task
+After parsing the spec doc stages, for each stage N create a beads subtask and add a
+blocking dependency on stage N−1:
 
 ```bash
-# Before: JQL search + REST transition
-# After:
-bd ready --json | jq 'select(.title | startswith("Plan:"))'
-bd update <id> --claim
-```
-
-### Majordomo step 6 — spinoff implementation tasks
-
-On spec PR merge, parse spec doc stages and create beads subtasks with explicit
-dependencies so stage ordering is enforced by the dependency graph:
-
-```bash
-bd create "Stage 1: ..." --parent <planning-task-id>
-bd create "Stage 2: ..." --parent <planning-task-id>
+bd create "Stage 1: <title>" --parent <planning-task-id>
+bd create "Stage 2: <title>" --parent <planning-task-id>
 bd dep add bd-x.3 bd-x.2   # stage 3 blocked by stage 2
 bd dep add bd-x.2 bd-x.1   # stage 2 blocked by stage 1
 ```
 
-Because `bd ready` surfaces tasks with no open blocking dependencies, **step 7
-(promote Implementation Tasks) is eliminated** — beads handles promotion automatically.
+Because `bd ready` surfaces only tasks with no open blocking dependencies, Majordomo step 7
+(promote Implementation Tasks) becomes a no-op and can be removed in this stage.
 
-### Majordomo step 8 — launch worker
+### Acceptance Criteria
+
+- After a spec PR merge: `bd list --parent <id> --json | jq '[.[].title]'` lists all stages
+- `bd list --parent <id> --json | jq '[.[].dependencies] | flatten | length'` equals
+  `(stage_count - 1)`
+- `bd ready --json | jq '[.[] | select(.title | startswith("Stage 1:"))] | length'` equals 1
+  (only stage 1 is unblocked)
+- Jira implementation task creation is unaffected
+
+---
+
+## Stage 6: Dual-write planning task lifecycle — Majordomo steps 4 and 5
+
+### Description
+
+Extend the planning task pick (step 5) and PR-merge sync (step 4) to also update beads
+task state alongside the existing Jira transitions. Add the Needs Input flow to the
+planning agent.
+
+**Majordomo step 5 changes:**
 
 ```bash
-# Surface eligible tasks
-bd ready --json | jq 'select(.title | startswith("Plan:") | not)'
-
-# Sort candidates by GH Issue priority label (P0 > P1 > P2) via GH API
-# Claim atomically
+# After existing Jira claim
 bd update <id> --claim
 
-# Pass to Jenkins
-curl ... "buildWithParameters?BEADS_TASK_ID=<id>"
+# Skip tasks whose linked GH Issue has needs-input label
+gh issue view <issue-number> --json labels \
+  | jq '.labels[].name' | grep -q needs-input && continue
 ```
 
-### Majordomo step 9 — feature → base PRs
-
-Replace Jira Epic query with GH Issues filtered by `beads-ingested` label. Check all
-subtasks done before opening PR:
+**Majordomo step 4 changes:**
 
 ```bash
+# After detecting a merged spec PR
+bd update <id> --status done
+```
+
+**`minordomo-plan/system-prompt.md` changes:**
+
+In the Questions Path, replace the Jira `Needs Input` transition with:
+
+```bash
+gh issue edit <issue-number> --add-label needs-input
+gh issue comment <issue-number> --body "<numbered question list>"
+```
+
+Keep the Jira `Needs Input` transition alongside this for now.
+
+### Acceptance Criteria
+
+- After Majordomo picks a planning task: `bd show <id> --json | jq '.status'` equals `"in_progress"`
+- After a spec PR merges: `bd show <id> --json | jq '.status'` equals `"done"`
+- A GH Issue with the `needs-input` label is skipped by step 5 (verify with a test issue)
+- When the planning agent enters the Questions Path, the `needs-input` label is applied to
+  the linked GH Issue
+
+---
+
+## Stage 7: Dual-write worker lifecycle — Majordomo steps 8 and 9
+
+### Description
+
+Extend worker launch (step 8) and epic completion (step 9) to also update beads state.
+Add the Needs Input flow to the worker agent.
+
+**Majordomo step 8 changes:**
+
+```bash
+# Surface eligible tasks from beads (for validation, still use Jira for actual dispatch)
+bd ready --json | jq '[.[] | select(.title | startswith("Plan:") | not)]'
+
+# Sort by GH Issue priority label (P0 > P1 > P2)
+# After existing Jira claim
+bd update <id> --claim
+
+# Skip tasks whose linked GH Issue has needs-input label (same pattern as step 5)
+```
+
+**Majordomo step 9 changes:**
+
+```bash
+# Alongside existing Jira epic check
 bd list --parent <id> --json | jq 'all(.status == "done")'
 ```
 
----
+**`minordomo-step/system-prompt.md` changes:**
 
-## "Needs Input" Flow (new)
+When the worker hits an unresolvable blocker, replace (or supplement) the Jira
+`Needs Input` transition with:
 
-Agents hitting a blocker apply the `needs-input` GH label to the linked Issue and post
-a comment explaining what's needed. Majordomo steps 5 and 8 skip tasks whose linked
-GH Issue carries `needs-input`. A human removes the label to unblock — no Jira status
-reset required.
+```bash
+gh issue edit <issue-number> --add-label needs-input
+gh issue comment <issue-number> --body "<explanation of blocker>"
+```
 
----
+### Acceptance Criteria
 
-## Migration / Cutover
-
-No data migration is needed. Existing in-flight Jira work can finish naturally. For new
-work, strip the `jira-epic-created` label from GH Issues (or ignore it in step 3) so
-Majordomo re-ingests them into beads.
-
----
-
-## Phased Rollout
-
-1. **Stand up Dolt server on k8s** — deploy, verify connectivity from a Jenkins agent
-2. **Replace step 3** — ingest GH Issues into beads; run alongside Jira briefly to validate
-3. **Replace setup scripts** — `setup-env.sh`, `setup-claude.sh`, `setup-workspace.sh`
-4. **Replace steps 4–9** — swap Jira API calls one step at a time; each is independently testable
-5. **Strip `jira-epic-created` labels** — triggers re-ingestion of open GH Issues into beads
-6. **Decommission Atlassian Cloud subscription**
+- After a worker is launched: `bd show <id> --json | jq '.status'` equals `"in_progress"`
+- After a worker's PR merges: `bd show <id> --json | jq '.status'` equals `"done"`
+- When all subtasks are done: `bd list --parent <epic-id> --json | jq 'all(.status == "done")'`
+  returns `true`
+- A GH Issue with `needs-input` is skipped by step 8
+- When the worker applies `needs-input`, the GH label appears on the linked Issue
 
 ---
 
-## Risks and Open Questions
+## Stage 8: Switch to beads-only reads
 
-- **Beads maturity** — newer project; run step 3 in parallel with Jira briefly before full cutover to catch edge cases
-- **Cross-repo priority sorting** — Majordomo must fetch GH Issue labels for each candidate task's parent to compare P0/P1/P2 across repos; slightly more GH API calls than a single JQL query today
-- **Dolt server availability** — a single pod is a single point of failure; configure a liveness probe and PVC-backed restart policy from day one
+### Description
+
+This is the human-gated cutover PR. Merge when the dual-write stages have been validated
+across at least one full planning+worker cycle. This stage switches all reads and dispatch
+to beads while keeping Jira write calls in place as a safety net.
+
+**Jenkins:**
+
+- Change `buildWithParameters` calls in Majordomo steps 5 and 8 from
+  `JIRA_TASK_ID=<id>` to `BEADS_TASK_ID=<id>`
+
+**`shared/setup-workspace.sh`:**
+
+```bash
+# Replace Jira REST lookup
+# Before:
+curl ... "${JIRA_URL}/rest/api/3/issue/${JIRA_TASK_ID}?fields=parent"
+
+# After:
+bd show "${BEADS_TASK_ID}" --json | jq -r '.parent'
+```
+
+**Majordomo steps 4–9:** Remove Jira JQL queries and REST reads; keep Jira status
+transitions and comment writes. Beads becomes the sole source of truth for task state.
+
+**`minordomo-plan/system-prompt.md`:** Replace Jira MCP reads (steps 1–2) with:
+
+```bash
+bd show "${BEADS_TASK_ID}" --json   # task metadata + GH Issue URL
+gh issue view <number>              # full requirements context
+```
+
+Keep the Jira `Needs Input` transition write for now.
+
+**`minordomo-step/system-prompt.md`:** Same — remove any Jira reads; keep Jira writes.
+
+### Acceptance Criteria
+
+- A full planning cycle completes end-to-end using `BEADS_TASK_ID` with no Jira API reads
+- A full worker cycle completes end-to-end using `BEADS_TASK_ID` with no Jira API reads
+- Jira status transitions are still being written (verify a task reaches `In Review` in Jira
+  after a spec PR opens)
+
+---
+
+## Stage 9: Remove Jira writes and all remaining Jira code
+
+### Description
+
+With beads confirmed as the read source of truth, remove all Jira write calls and tear
+down the Jira integration entirely.
+
+**Majordomo steps 3–9:** Remove remaining Jira status transitions, comment writes, and
+epic creation. Remove dual-write scaffolding.
+
+**`shared/setup-env.sh`:** Remove Jira credential derivation; keep only
+`BEADS_SERVER_HOST` / `BEADS_SERVER_PORT` passthrough.
+
+**`shared/setup-claude.sh`:** Remove `claude mcp add atlassian`.
+
+**`shared/agent-settings.json`:** Remove `mcp__atlassian__*` from the allow list.
+
+**`shared/config.yaml`:** Drop `jira_key` from each project entry.
+
+**`minordomo-plan/system-prompt.md`** and **`minordomo-step/system-prompt.md`:** Remove
+Jira `Needs Input` transition calls; keep only the GH label + comment flow.
+
+**Ops (performed as part of merging this PR):**
+
+1. Strip the `jira-epic-created` label from all open GH Issues so Majordomo re-ingests
+   them into beads on the next run
+2. Cancel any in-flight Jira-dispatched Jenkins jobs and let them complete or fail naturally
+3. Remove `JIRA_CLOUD_ID`, `JIRA_EMAIL`, `JIRA_API_TOKEN` from Jenkins credentials
+4. Decommission the Atlassian Cloud subscription after confirming no open Jira work remains
+
+### Acceptance Criteria
+
+- `grep -r 'JIRA_' shared/ majordomo/ minordomo-plan/ minordomo-step/` returns no matches
+- `grep -r 'mcp__atlassian__' . --include='*.json' --include='*.sh' --include='*.md' \
+  --exclude-dir=docs` returns no matches
+- A full planning cycle completes end-to-end with no Jira calls of any kind
+- A full worker cycle completes end-to-end with no Jira calls of any kind
