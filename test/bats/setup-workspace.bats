@@ -6,10 +6,12 @@
 REPO_ROOT=""
 REMOTE=""
 FIXTURE_JSON=""
+SIBLINGS_FIXTURE_JSON=""
 
 setup() {
     REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
     FIXTURE_JSON="$REPO_ROOT/test/fixtures/jira-task-response.json"
+    SIBLINGS_FIXTURE_JSON="$REPO_ROOT/test/fixtures/jira-siblings-not-first.json"
 
     # Create a local bare git repo to act as the GitHub remote.
     # Setting HEAD → bootstrap before the first clone ensures all subsequent
@@ -31,7 +33,7 @@ setup() {
     # Mock binaries in a temp dir prepended to PATH
     local mocks="$BATS_TEST_TMPDIR/mocks"
     mkdir -p "$mocks"
-    export REMOTE FIXTURE_JSON
+    export REMOTE FIXTURE_JSON SIBLINGS_FIXTURE_JSON
 
     cat > "$mocks/gh" << 'MOCK'
 #!/usr/bin/env bash
@@ -48,6 +50,12 @@ MOCK
 
     cat > "$mocks/curl" << 'MOCK'
 #!/usr/bin/env bash
+for arg in "$@"; do
+    if [[ "$arg" == *"/rest/api/3/issue/search"* ]]; then
+        cat "$SIBLINGS_FIXTURE_JSON"
+        exit 0
+    fi
+done
 cat "$FIXTURE_JSON"
 MOCK
     chmod +x "$mocks/curl"
@@ -107,4 +115,57 @@ MOCK
     cd "$BATS_TEST_TMPDIR"
     source "$REPO_ROOT/shared/setup-workspace.sh" worker
     [ "$(git branch --show-current)" = "task/MDOMO-44" ]
+}
+
+@test "worker mode: first task triggers merge of base branch into feature branch" {
+    local work="$BATS_TEST_TMPDIR/pre"
+    git clone "$REMOTE" "$work" -q
+    git -C "$work" checkout -b "feature/MDOMO-1" -q
+    git -C "$work" push origin feature/MDOMO-1 -q
+
+    # Advance the base branch with a new commit after feature branch was created
+    git -C "$work" checkout bootstrap -q
+    git -C "$work" -c user.email="t@t.com" -c user.name="T" \
+        commit --allow-empty -m "base branch advance" -q
+    git -C "$work" push origin bootstrap -q
+
+    SIBLINGS_FIXTURE_JSON="$REPO_ROOT/test/fixtures/jira-siblings-first.json"
+    cd "$BATS_TEST_TMPDIR"
+    source "$REPO_ROOT/shared/setup-workspace.sh" worker
+
+    # Verify the feature branch on the remote now matches the bootstrap tip (merge was pushed)
+    local bootstrap_sha after_sha
+    bootstrap_sha=$(git ls-remote "$REMOTE" refs/heads/bootstrap | awk '{print $1}')
+    after_sha=$(git ls-remote "$REMOTE" refs/heads/feature/MDOMO-1 | awk '{print $1}')
+    [ "$after_sha" = "$bootstrap_sha" ]
+}
+
+@test "worker mode: non-first task skips base branch merge" {
+    local work="$BATS_TEST_TMPDIR/pre"
+    git clone "$REMOTE" "$work" -q
+    git -C "$work" checkout -b "feature/MDOMO-1" -q
+    git -C "$work" push origin feature/MDOMO-1 -q
+    local before_sha
+    before_sha=$(git ls-remote "$REMOTE" refs/heads/feature/MDOMO-1 | awk '{print $1}')
+
+    # SIBLINGS_FIXTURE_JSON defaults to jira-siblings-not-first.json (set in setup)
+    cd "$BATS_TEST_TMPDIR"
+    source "$REPO_ROOT/shared/setup-workspace.sh" worker
+
+    local after_sha
+    after_sha=$(git ls-remote "$REMOTE" refs/heads/feature/MDOMO-1 | awk '{print $1}')
+    [ "$before_sha" = "$after_sha" ]
+}
+
+@test "worker mode: merge that is already up to date succeeds without error" {
+    local work="$BATS_TEST_TMPDIR/pre"
+    git clone "$REMOTE" "$work" -q
+    git -C "$work" checkout -b "feature/MDOMO-1" -q
+    git -C "$work" push origin feature/MDOMO-1 -q
+    # feature/MDOMO-1 and bootstrap are at the same commit — already up to date
+
+    SIBLINGS_FIXTURE_JSON="$REPO_ROOT/test/fixtures/jira-siblings-first.json"
+    cd "$BATS_TEST_TMPDIR"
+    source "$REPO_ROOT/shared/setup-workspace.sh" worker
+    # Test passes if the script exits cleanly (exit 0 with "Already up to date.")
 }
