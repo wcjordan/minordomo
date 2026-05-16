@@ -21,5 +21,5 @@ resources:
 service:
   port: 3306
 
-# Root password for Dolt. Override in production via --set or a Secret.
-rootPassword: "dolt"
+# Root password for Dolt. Must be set via --set or a Secret — left empty to avoid insecure defaults.
+rootPassword: ""
