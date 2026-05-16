@@ -148,7 +148,7 @@ If a planning agent was launched, record `planning_agent_launched: true` in the 
 Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for all Jira REST API calls in this step.
 
 1. Build the comma-separated list of Jira project keys from config. Query for all Open Implementation Tasks:
-   - JQL: `project in (<jira_keys>) AND issuetype = Task AND summary !~ "^Plan:" AND status = Open`
+   - JQL: `project in (<jira_keys>) AND issuetype = Task AND summary !~ "Plan:" AND status = Open`
    - `GET ${JIRA_URL}/rest/api/3/search?jql=<encoded_jql>&fields=summary,status,parent,customfield_10019&maxResults=100`
    - Initialize: `tasks_evaluated = 0`, `tasks_promoted = 0`, `tasks_skipped = 0`, `task_errors = []`
 
@@ -156,7 +156,7 @@ Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for all Jira 
    a. Increment `tasks_evaluated`
    b. Extract the parent Epic key from `fields.parent.key`. On missing parent: record per-task error and continue.
    c. Fetch all Implementation Task siblings under the same Epic:
-      - JQL: `parent = <EPIC_KEY> AND issuetype = Task AND summary !~ "^Plan:"`
+      - JQL: `parent = <EPIC_KEY> AND issuetype = Task AND summary !~ "Plan:"`
       - Fields: `summary`, `status`, `customfield_10019`
    d. Sort siblings by `customfield_10019` ascending (lexicographic; lower value = earlier stage = prior).
    e. Find the current task's position in the sorted list. All siblings appearing **before** it are "prior siblings".
@@ -183,7 +183,7 @@ Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for all Jira 
 
 2. **Query Ready tasks:** Fetch all Implementation Tasks in status `Ready` across all configured projects:
    - Build comma-separated project keys from config (same as Step 7).
-   - JQL: `project in (<jira_keys>) AND issuetype = Task AND summary !~ "^Plan:" AND status = Ready`
+   - JQL: `project in (<jira_keys>) AND issuetype = Task AND summary !~ "Plan:" AND status = Ready`
    - `GET ${JIRA_URL}/rest/api/3/search?jql=<encoded_jql>&fields=summary,status,parent,customfield_10019&maxResults=100`
 
 3. **No Ready tasks:** If none found, log `{"step": "launch_worker", "status": "ok", "worker_launched": false, "message": "no Ready tasks found"}` and continue to Step 9.
@@ -195,7 +195,7 @@ Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for all Jira 
       - `epic_labels`: the `labels` array from the Epic
       - `epic_rank`: `customfield_10019` from the Epic
    d. Fetch all Implementation Task siblings under the same Epic:
-      - JQL: `parent = <EPIC_KEY> AND issuetype = Task AND summary !~ "^Plan:"`
+      - JQL: `parent = <EPIC_KEY> AND issuetype = Task AND summary !~ "Plan:"`
       - Fields: `summary`, `status`, `customfield_10019`
    e. **Exclusion check:** If any sibling has status `In Progress` or `In Review`, exclude this task from selection and continue to the next Ready task.
    f. Otherwise, record for this candidate:
