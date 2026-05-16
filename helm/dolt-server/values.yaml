@@ -1,0 +1,25 @@
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  repository: dolthub/dolt-sql-server
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+
+storage:
+  size: 1Gi
+  storageClassName: ""
+
+resources:
+  limits:
+    memory: 64Mi
+    cpu: 100m
+  requests:
+    memory: 32Mi
+    cpu: 10m
+
+service:
+  port: 3306
+
+# Root password for Dolt. Must be set via --set or a Secret — left empty to avoid insecure defaults.
+rootPassword: ""
