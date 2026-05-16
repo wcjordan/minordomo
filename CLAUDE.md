@@ -67,9 +67,19 @@ Comment:      POST ${JIRA_URL}/rest/api/3/issue/{key}/comment
 
 ## Task Identity & Ordering
 
-**Planning Tasks:** `issuetype = Task AND summary ~ "^Plan:"` — title starts with `Plan:`
+**Planning Tasks:** A task is a Planning Task if and only if its summary **starts with** the literal prefix `Plan:` (case-sensitive, no leading whitespace). A task with "plan" elsewhere in the title (e.g. "Implement deployment plan") is an Implementation Task.
 
-**Implementation Tasks:** `issuetype = Task AND summary !~ "^Plan:"` — all other Tasks
+**Implementation Tasks:** Every Task that does not start with `Plan:`.
+
+JQL `~` / `!~` is a text-contains operator — it cannot enforce "starts with". Always apply a second, client-side filter after any Jira query that distinguishes Planning from Implementation Tasks:
+
+```python
+# After fetching tasks from Jira, re-filter in code before acting
+planning = [t for t in tasks if t["fields"]["summary"].startswith("Plan:")]
+implementation = [t for t in tasks if not t["fields"]["summary"].startswith("Plan:")]
+```
+
+Use `summary ~ "Plan:"` / `summary !~ "Plan:"` in JQL only as a coarse pre-filter to reduce result size. Never rely on JQL alone to make this distinction.
 
 Implementation task titles are the text after `## Stage N:` from the spec doc — the stage number itself is not stored in the Jira title.
 

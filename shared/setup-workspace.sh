@@ -63,7 +63,7 @@ else
 
     # Detect if this is the first implementation task of the Epic.
     # If so, merge origin/${BASE_BRANCH} into the feature branch before creating the task branch.
-    JQL="parent = ${EPIC_KEY} AND issuetype = Task AND summary !~ \"^Plan:\""
+    JQL="parent = ${EPIC_KEY} AND issuetype = Task AND summary !~ \"Plan:\""
     JQL_ENCODED=$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]))" "$JQL")
     SIBLINGS_JSON=$(curl -s -f \
         -u "${JIRA_EMAIL}:${JIRA_API_TOKEN}" \
