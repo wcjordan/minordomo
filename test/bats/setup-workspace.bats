@@ -6,10 +6,12 @@
 REPO_ROOT=""
 REMOTE=""
 FIXTURE_JSON=""
+SIBLINGS_FIXTURE_JSON=""
 
 setup() {
     REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
     FIXTURE_JSON="$REPO_ROOT/test/fixtures/jira-task-response.json"
+    SIBLINGS_FIXTURE_JSON="$REPO_ROOT/test/fixtures/jira-siblings-not-first.json"
 
     # Create a local bare git repo to act as the GitHub remote.
     # Setting HEAD → bootstrap before the first clone ensures all subsequent
@@ -31,7 +33,7 @@ setup() {
     # Mock binaries in a temp dir prepended to PATH
     local mocks="$BATS_TEST_TMPDIR/mocks"
     mkdir -p "$mocks"
-    export REMOTE FIXTURE_JSON
+    export REMOTE FIXTURE_JSON SIBLINGS_FIXTURE_JSON
 
     cat > "$mocks/gh" << 'MOCK'
 #!/usr/bin/env bash
@@ -48,6 +50,12 @@ MOCK
 
     cat > "$mocks/curl" << 'MOCK'
 #!/usr/bin/env bash
+for arg in "$@"; do
+    if [[ "$arg" == *"/rest/api/3/issue/search"* ]]; then
+        cat "$SIBLINGS_FIXTURE_JSON"
+        exit 0
+    fi
+done
 cat "$FIXTURE_JSON"
 MOCK
     chmod +x "$mocks/curl"
