@@ -50,7 +50,6 @@ pipeline {
                         source shared/setup-env.sh
                         source shared/setup-claude.sh
                         source shared/setup-workspace.sh worker
-                        bd dolt show
 
                         // claude -p "$(cat ../minordomo-step/system-prompt.md)" | tee /tmp/prompt-output.txt
                     '''
