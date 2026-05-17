@@ -29,11 +29,23 @@ spec:
                 secretKeyRef:
                   name: dolt-root-password
                   key: text
+            - name: DOLT_MINORDOMO_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: dolt-minordomo-password
+                  key: text
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
             - name: data
               mountPath: /var/lib/dolt
+            - name: init-scripts
+              mountPath: /docker-entrypoint-initdb.d
+      volumes:
+        - name: init-scripts
+          configMap:
+            name: {{ include "dolt-server.fullname" . }}-init
+            defaultMode: 0755
   volumeClaimTemplates:
     - metadata:
         name: data

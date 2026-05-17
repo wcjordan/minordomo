@@ -128,14 +128,30 @@ Changes:
 
 - **Container image** — add `bd` installation to the Jenkins agent Dockerfile (or equivalent
   build config); pin to a specific version
-- **`shared/setup-claude.sh`** — add `bd config set server "dolt-server.minordomo.svc.cluster.local:3306"`
-  after existing setup; keep `claude mcp add atlassian` untouched. The host and port are
-  hardcoded from the k8s Service DNS name — no env var passthrough needed.
+- **`shared/setup-claude.sh`** — write the beads central server config to
+  `~/.config/beads/server.json` after existing setup; keep `claude mcp add atlassian` untouched.
+  The host and port are hardcoded from the k8s Service DNS name — no env var passthrough needed.
+  `bd config set server` is not used because it requires an initialised beads workspace;
+  the central config file at `~/.config/beads/server.json` is the correct global mechanism
+  (see `internal/configfile/central_config.go` in the beads repo).
+
+  ```bash
+  mkdir -p ~/.config/beads
+  cat > ~/.config/beads/server.json <<'EOF'
+  {
+    "dolt_mode": "server",
+    "dolt_server_host": "dolt-server.minordomo.svc.cluster.local",
+    "dolt_server_port": 3306
+  }
+  EOF
+  ```
 
 ### Acceptance Criteria
 
 - `bd --version` succeeds inside a Jenkins agent container
-- `bd config show` returns `dolt-server.minordomo.svc.cluster.local:3306`
+- `cat ~/.config/beads/server.json` shows `dolt-server.minordomo.svc.cluster.local` and port `3306`
+- After `bd init --server` inside a cloned repo: `bd dolt show` reports server mode with the
+  correct host and port
 - Existing Jira-based pipeline runs complete without regression
 
 ---

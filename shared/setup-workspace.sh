@@ -109,3 +109,8 @@ if [[ "$MODE" == "planning" ]]; then
 else
     git checkout -b "task/${JIRA_TASK_ID}"
 fi
+
+# Initialize the beads workspace against the central Dolt server.
+# metadata.json is committed but the Dolt DB is not — bd init --server connects and pulls it.
+bd init --server --server-user "${BEADS_DOLT_SERVER_USER}"
+bd dolt show
