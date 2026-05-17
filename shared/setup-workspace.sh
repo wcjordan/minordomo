@@ -50,11 +50,6 @@ gh auth setup-git
 gh repo clone "wcjordan/${REPO}" "${REPO}"
 cd "${REPO}"
 
-# Initialize the beads workspace against the central Dolt server.
-# metadata.json is committed but the Dolt DB is not — bd init --server connects and pulls it.
-bd init --server --server-user "${BEADS_DOLT_SERVER_USER}"
-bd dolt show
-
 # Feature branch: planning creates it from main if missing; worker assumes it exists.
 if [[ "$MODE" == "planning" ]]; then
     if git ls-remote --exit-code origin "${FEATURE_BRANCH}" > /dev/null 2>&1; then
@@ -114,3 +109,8 @@ if [[ "$MODE" == "planning" ]]; then
 else
     git checkout -b "task/${JIRA_TASK_ID}"
 fi
+
+# Initialize the beads workspace against the central Dolt server.
+# metadata.json is committed but the Dolt DB is not — bd init --server connects and pulls it.
+bd init --server --server-user "${BEADS_DOLT_SERVER_USER}"
+bd dolt show
