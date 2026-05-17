@@ -49,7 +49,6 @@ pipeline {
 
                         source shared/setup-env.sh
                         source shared/setup-claude.sh
-
                         source shared/setup-workspace.sh planning
 
                         claude -p "$(cat ../minordomo-plan/system-prompt.md)" | tee /tmp/prompt-output.txt
