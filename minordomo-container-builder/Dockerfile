@@ -5,9 +5,11 @@ RUN ln -sf /bin/bash /bin/sh
 
 # System deps: git, curl, gettext (for envsubst), Node.js 22, gh CLI
 RUN apt-get update && apt-get install -y --no-install-recommends \
+        bats \
         curl \
         git \
         gnupg \
+        shellcheck \
     && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
