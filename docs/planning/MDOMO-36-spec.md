@@ -78,23 +78,42 @@ build agents can reach it.
 
 Steps:
 
-1. Add a `helm/dolt-server/` release to the cluster deployment configuration (follow the
-   pattern in `https://github.com/wcjordan/gcp-setup/blob/main/terraform/jenkins.tf` for
-   how Helm releases are managed alongside Jenkins)
-2. Deploy and confirm the pod reaches `Running` state with the PVC bound
-3. From a Jenkins agent pod, verify connectivity:
+1. Create `helm/minordomo-cd-setup/` — a one-time local Helm chart that seeds k8s Secrets
+   with Jenkins credential annotations (mirrors chalk's `continuous_delivery_setup/`). Deploy
+   once locally to create the `dolt-root-password` k8s Secret before the Jenkins job runs:
+   ```bash
+   helm install minordomo-cd-setup helm/minordomo-cd-setup/ --set doltRootPassword=<value>
+   ```
+2. Add a `Build and Push Helm Image` stage to `minordomo-container-builder/Jenkinsfile` that
+   builds and pushes `jenkins-helm:latest` to GAR. The image (`Dockerfile.helm`) contains
+   gcloud-cli, kubectl, and helm.
+3. Add a `Deploy Dolt Server` stage to `minordomo-container-builder/Jenkinsfile` that runs
+   `helm upgrade --install dolt-server helm/dolt-server/` against the GKE cluster using the
+   `jenkins-helm` image. Runs on every build (idempotent).
+4. Deploy and confirm the pod reaches `Running` state with the PVC bound.
+5. From a Jenkins agent pod, verify connectivity:
    ```bash
    mysql -h "$BEADS_SERVER_HOST" -P "$BEADS_SERVER_PORT" -u root \
      --execute "SHOW DATABASES;" 2>&1
    ```
-4. Add `BEADS_SERVER_HOST` and `BEADS_SERVER_PORT` to the Jenkins credential/environment
-   configuration so they are available to build jobs
+6. Add `BEADS_SERVER_HOST` (`dolt-server.default.svc.cluster.local`) and `BEADS_SERVER_PORT`
+   (`3306`) to Jenkins global environment variables via the JCasC block in
+   `gcp-setup/terraform/jenkins.tf` (separate gcp-setup PR).
 
 ### Acceptance Criteria
 
-- `kubectl get pods -l app=dolt-server` shows a pod in `Running` state with `PVC` bound
+- `kubectl get pods -l app.kubernetes.io/name=dolt-server` shows a pod in `Running` state with `PVC` bound
 - The `mysql` connectivity check above exits 0 from within a Jenkins agent container
 - `BEADS_SERVER_HOST` and `BEADS_SERVER_PORT` are available as env vars in a Jenkins build
+
+### Implementation Notes
+
+- Steps 4 and 5 (actual pod deployment and connectivity verification) are operational steps
+  that require the `minordomo-container-builder` Jenkins job to run successfully after this
+  PR merges.
+- The `dolt-root-password` k8s Secret (created by `helm/minordomo-cd-setup/`) must exist
+  before the Jenkins job's `Deploy Dolt Server` stage runs, as the dolt-server StatefulSet
+  reads the password from it via `secretKeyRef`.
 
 ---
 

@@ -25,7 +25,10 @@ spec:
               protocol: TCP
           env:
             - name: DOLT_ROOT_PASSWORD
-              value: {{ .Values.rootPassword | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: dolt-root-password
+                  key: text
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
