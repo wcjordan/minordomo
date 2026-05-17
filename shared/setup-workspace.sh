@@ -113,5 +113,5 @@ fi
 # Initialize the beads workspace against the central Dolt server.
 # metadata.json is committed but the Dolt DB is not — bd init --server connects and pulls it.
 chmod 700 .beads
-bd list
 bd dolt show
+bd list
