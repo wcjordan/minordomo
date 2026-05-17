@@ -20,6 +20,3 @@ resources:
 
 service:
   port: 3306
-
-# Root password for Dolt. Must be set via --set or a Secret — left empty to avoid insecure defaults.
-rootPassword: ""
