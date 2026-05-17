@@ -68,15 +68,15 @@ else
     SIBLINGS_RESPONSE=$(curl -s -w "\n%{http_code}" \
         -u "${JIRA_EMAIL}:${JIRA_API_TOKEN}" \
         -H "Accept: application/json" \
-        "${JIRA_URL}/rest/api/3/issue/search?jql=${JQL_ENCODED}&fields=customfield_10019&maxResults=100")
+        "${JIRA_URL}/rest/api/3/search/jql?jql=${JQL_ENCODED}&fields=customfield_10019&maxResults=100")
     SIBLINGS_HTTP_CODE=$(echo "$SIBLINGS_RESPONSE" | tail -1)
     SIBLINGS_JSON=$(echo "$SIBLINGS_RESPONSE" | sed '$d')
     if [[ "$SIBLINGS_HTTP_CODE" != "200" ]]; then
-        echo "Jira sibling query failed (HTTP ${SIBLINGS_HTTP_CODE}): ${SIBLINGS_JSON}" >&2
-        exit 1
-    fi
-
-    IS_FIRST_TASK=$(echo "$SIBLINGS_JSON" | python3 -c "
+        echo "WARNING: Jira sibling query failed (HTTP ${SIBLINGS_HTTP_CODE}): ${SIBLINGS_JSON}" >&2
+        echo "Skipping base-branch merge — grant the service account Browse Projects permission to enable this." >&2
+        IS_FIRST_TASK="unknown"
+    else
+        IS_FIRST_TASK=$(echo "$SIBLINGS_JSON" | python3 -c "
 import json, sys
 data = json.load(sys.stdin)
 issues = data.get('issues', [])
@@ -85,6 +85,7 @@ if not issues:
 sorted_issues = sorted(issues, key=lambda x: x['fields'].get('customfield_10019', ''))
 print('yes' if sorted_issues[0]['key'] == '${JIRA_TASK_ID}' else 'no')
 ")
+    fi
 
     if [[ "$IS_FIRST_TASK" == "yes" ]]; then
         git fetch origin "${BASE_BRANCH}"

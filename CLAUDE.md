@@ -55,7 +55,7 @@ Two access paths, depending on the operation:
 
 Key REST patterns:
 ```
-JQL search:   GET  ${JIRA_URL}/rest/api/3/issue/search?jql=<encoded>&fields=...&maxResults=100
+JQL search:   GET  ${JIRA_URL}/rest/api/3/search/jql?jql=<encoded>&fields=...&maxResults=100
 Issue fetch:  GET  ${JIRA_URL}/rest/api/3/issue/{key}?fields=...
 Transitions:  GET  ${JIRA_URL}/rest/api/3/issue/{key}/transitions
               POST ${JIRA_URL}/rest/api/3/issue/{key}/transitions  body: {"transition":{"id":"<id>"}}

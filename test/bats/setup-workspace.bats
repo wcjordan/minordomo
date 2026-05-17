@@ -59,7 +59,7 @@ for arg in "$@"; do
 done
 append_status() { if [[ "$WITH_STATUS" == "true" ]]; then printf '\n200'; fi; }
 for arg in "$@"; do
-    if [[ "$arg" == *"/rest/api/3/issue/search"* ]]; then
+    if [[ "$arg" == *"/rest/api/3/search/jql"* ]]; then
         cat "$SIBLINGS_FIXTURE_JSON"
         append_status
         exit 0
