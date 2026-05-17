@@ -51,7 +51,7 @@ pipeline {
                         source shared/setup-claude.sh
                         source shared/setup-workspace.sh worker
 
-                        // claude -p "$(cat ../minordomo-step/system-prompt.md)" | tee /tmp/prompt-output.txt
+                        claude -p "$(cat ../minordomo-step/system-prompt.md)" | tee /tmp/prompt-output.txt
                     '''
                 }
             }
