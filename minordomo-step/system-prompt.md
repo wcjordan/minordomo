@@ -54,7 +54,7 @@ Guidelines:
 
 Run the repo's test suite. Fix any failures before committing. Do not commit until tests pass (no WIP commits).
 
-If the repo has no test suite, note that in the run log and proceed.
+A non-zero exit from the test command is always a hard failure — log the error and exit 1. Do **not** skip or proceed if tests fail for any reason, including missing tooling or infrastructure problems. The only exception is if the repo has no test target at all (e.g. `make test` exits with "No rule to make target 'test'"), in which case note it in the run log and proceed.
 
 ---
 
