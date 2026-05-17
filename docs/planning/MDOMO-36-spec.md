@@ -91,23 +91,22 @@ Steps:
    `helm upgrade --install dolt-server helm/dolt-server/` against the GKE cluster using the
    `jenkins-helm` image. Runs on every build (idempotent).
 4. Deploy and confirm the pod reaches `Running` state with the PVC bound.
-5. From a Jenkins agent pod, verify connectivity:
+5. From a Jenkins agent pod, verify connectivity using the k8s DNS name and hardcoded port:
    ```bash
-   mysql -h "$BEADS_SERVER_HOST" -P "$BEADS_SERVER_PORT" -u root \
+   mysql -h dolt-server.minordomo.svc.cluster.local -P 3306 -u root \
      --execute "SHOW DATABASES;" 2>&1
    ```
-6. Add `BEADS_SERVER_HOST` (`dolt-server.default.svc.cluster.local`) and `BEADS_SERVER_PORT`
-   (`3306`) to Jenkins global environment variables via the JCasC block in
-   `gcp-setup/terraform/jenkins.tf` (separate gcp-setup PR).
 
 ### Acceptance Criteria
 
 - `kubectl get pods -l app.kubernetes.io/name=dolt-server` shows a pod in `Running` state with `PVC` bound
 - The `mysql` connectivity check above exits 0 from within a Jenkins agent container
-- `BEADS_SERVER_HOST` and `BEADS_SERVER_PORT` are available as env vars in a Jenkins build
 
 ### Implementation Notes
 
+- The Dolt server is reachable at `dolt-server.minordomo.svc.cluster.local:3306` — this is
+  derived directly from the k8s Service name and namespace and does not need to be stored as
+  a Jenkins env var or in gcp-setup.
 - Steps 4 and 5 (actual pod deployment and connectivity verification) are operational steps
   that require the `minordomo-container-builder` Jenkins job to run successfully after this
   PR merges.
@@ -129,15 +128,14 @@ Changes:
 
 - **Container image** — add `bd` installation to the Jenkins agent Dockerfile (or equivalent
   build config); pin to a specific version
-- **`shared/setup-env.sh`** — pass through `BEADS_SERVER_HOST` and `BEADS_SERVER_PORT` as
-  exported env vars alongside existing Jira credential derivation (no Jira changes)
-- **`shared/setup-claude.sh`** — add `bd config set server "$BEADS_SERVER_HOST:$BEADS_SERVER_PORT"`
-  after existing setup; keep `claude mcp add atlassian` untouched
+- **`shared/setup-claude.sh`** — add `bd config set server "dolt-server.minordomo.svc.cluster.local:3306"`
+  after existing setup; keep `claude mcp add atlassian` untouched. The host and port are
+  hardcoded from the k8s Service DNS name — no env var passthrough needed.
 
 ### Acceptance Criteria
 
 - `bd --version` succeeds inside a Jenkins agent container
-- `bd config show` returns the correct server host and port
+- `bd config show` returns `dolt-server.minordomo.svc.cluster.local:3306`
 - Existing Jira-based pipeline runs complete without regression
 
 ---
@@ -355,8 +353,7 @@ down the Jira integration entirely.
 **Majordomo steps 3–9:** Remove remaining Jira status transitions, comment writes, and
 epic creation. Remove dual-write scaffolding.
 
-**`shared/setup-env.sh`:** Remove Jira credential derivation; keep only
-`BEADS_SERVER_HOST` / `BEADS_SERVER_PORT` passthrough.
+**`shared/setup-env.sh`:** Remove Jira credential derivation entirely.
 
 **`shared/setup-claude.sh`:** Remove `claude mcp add atlassian`.
 
