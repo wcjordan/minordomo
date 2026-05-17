@@ -16,3 +16,12 @@ claude mcp add atlassian \
     --env JIRA_API_TOKEN="${JIRA_API_TOKEN}" \
     -- uvx mcp-atlassian
 claude mcp list
+
+mkdir -p ~/.config/beads
+cat > ~/.config/beads/server.json <<'EOF'
+{
+  "dolt_mode": "server",
+  "dolt_server_host": "dolt-server.minordomo.svc.cluster.local",
+  "dolt_server_port": 3306
+}
+EOF

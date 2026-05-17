@@ -51,3 +51,11 @@ MOCK
     source shared/setup-claude.sh
     grep -q "mcp list" "$CLAUDE_CALLS_LOG"
 }
+
+@test "writes beads server config to ~/.config/beads/server.json" {
+    source shared/setup-claude.sh
+    [ -f "$HOME/.config/beads/server.json" ]
+    grep -q "dolt-server.minordomo.svc.cluster.local" "$HOME/.config/beads/server.json"
+    grep -q "3306" "$HOME/.config/beads/server.json"
+    grep -q "server" "$HOME/.config/beads/server.json"
+}

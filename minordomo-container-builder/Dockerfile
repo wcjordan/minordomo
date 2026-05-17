@@ -26,6 +26,12 @@ RUN curl -fsSL https://claude.ai/install.sh | bash
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="/root/.local/bin:$PATH"
 
+# beads CLI (bd) — agent task coordination; pin to a specific version
+RUN BEADS_VERSION=1.0.4 \
+    && curl -fsSL "https://github.com/gastownhall/beads/releases/download/v${BEADS_VERSION}/beads_${BEADS_VERSION}_linux_amd64.tar.gz" \
+        | tar -xz -C /usr/local/bin bd \
+    && bd --version
+
 # Python dependencies
 COPY minordomo-container-builder/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
