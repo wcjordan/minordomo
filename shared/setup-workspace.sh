@@ -65,10 +65,16 @@ else
     # If so, merge origin/${BASE_BRANCH} into the feature branch before creating the task branch.
     JQL="parent = ${EPIC_KEY} AND issuetype = Task AND summary !~ \"Plan:\""
     JQL_ENCODED=$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]))" "$JQL")
-    SIBLINGS_JSON=$(curl -s -f \
+    SIBLINGS_RESPONSE=$(curl -s -w "\n%{http_code}" \
         -u "${JIRA_EMAIL}:${JIRA_API_TOKEN}" \
         -H "Accept: application/json" \
         "${JIRA_URL}/rest/api/3/issue/search?jql=${JQL_ENCODED}&fields=customfield_10019&maxResults=100")
+    SIBLINGS_HTTP_CODE=$(echo "$SIBLINGS_RESPONSE" | tail -1)
+    SIBLINGS_JSON=$(echo "$SIBLINGS_RESPONSE" | sed '$d')
+    if [[ "$SIBLINGS_HTTP_CODE" != "200" ]]; then
+        echo "Jira sibling query failed (HTTP ${SIBLINGS_HTTP_CODE}): ${SIBLINGS_JSON}" >&2
+        exit 1
+    fi
 
     IS_FIRST_TASK=$(echo "$SIBLINGS_JSON" | python3 -c "
 import json, sys

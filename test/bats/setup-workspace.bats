@@ -50,13 +50,23 @@ MOCK
 
     cat > "$mocks/curl" << 'MOCK'
 #!/usr/bin/env bash
+# Detect -w flag so we can append the status code the same way real curl does
+WITH_STATUS=false
+for arg in "$@"; do
+    if [[ "$arg" == *"%{http_code}"* ]]; then
+        WITH_STATUS=true
+    fi
+done
+append_status() { if [[ "$WITH_STATUS" == "true" ]]; then printf '\n200'; fi; }
 for arg in "$@"; do
     if [[ "$arg" == *"/rest/api/3/issue/search"* ]]; then
         cat "$SIBLINGS_FIXTURE_JSON"
+        append_status
         exit 0
     fi
 done
 cat "$FIXTURE_JSON"
+append_status
 MOCK
     chmod +x "$mocks/curl"
 
