@@ -78,23 +78,32 @@ build agents can reach it.
 
 Steps:
 
-1. Add a `helm/dolt-server/` release to the cluster deployment configuration (follow the
-   pattern in `https://github.com/wcjordan/gcp-setup/blob/main/terraform/jenkins.tf` for
-   how Helm releases are managed alongside Jenkins)
+1. Add a `helm/dolt-server/` release to the cluster deployment configuration via Terraform
+   in `gcp-setup` (following the pattern in `terraform/jenkins.tf`). The chart is copied to
+   `gcp-setup/terraform/charts/dolt-server/` and deployed via a new `helm_release` resource
+   in `terraform/dolt_server.tf`. See gcp-setup PR #15.
 2. Deploy and confirm the pod reaches `Running` state with the PVC bound
 3. From a Jenkins agent pod, verify connectivity:
    ```bash
    mysql -h "$BEADS_SERVER_HOST" -P "$BEADS_SERVER_PORT" -u root \
      --execute "SHOW DATABASES;" 2>&1
    ```
-4. Add `BEADS_SERVER_HOST` and `BEADS_SERVER_PORT` to the Jenkins credential/environment
-   configuration so they are available to build jobs
+4. Add `BEADS_SERVER_HOST` (`dolt-server.default.svc.cluster.local`) and `BEADS_SERVER_PORT`
+   (`3306`) to Jenkins global environment variables via the JCasC block in
+   `gcp-setup/terraform/jenkins.tf`. See gcp-setup PR #15.
 
 ### Acceptance Criteria
 
-- `kubectl get pods -l app=dolt-server` shows a pod in `Running` state with `PVC` bound
+- `kubectl get pods -l app.kubernetes.io/name=dolt-server` shows a pod in `Running` state with `PVC` bound
 - The `mysql` connectivity check above exits 0 from within a Jenkins agent container
 - `BEADS_SERVER_HOST` and `BEADS_SERVER_PORT` are available as env vars in a Jenkins build
+
+### Implementation Notes
+
+- Steps 2 and 3 (actual pod deployment and connectivity verification) require merging and
+  applying the gcp-setup Terraform changes — these are operational steps that cannot be
+  automated by a worker agent running in the minordomo repo.
+- The `dolt_root_password` Terraform variable must be set in `terraform.tfvars` before applying.
 
 ---
 
