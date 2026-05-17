@@ -60,6 +60,38 @@ if [[ "$MODE" == "planning" ]]; then
     fi
 else
     git checkout "${FEATURE_BRANCH}"
+
+    # Detect if this is the first implementation task of the Epic.
+    # If so, merge origin/${BASE_BRANCH} into the feature branch before creating the task branch.
+    JQL="parent = ${EPIC_KEY} AND issuetype = Task AND summary !~ \"Plan:\""
+    JQL_ENCODED=$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]))" "$JQL")
+    SIBLINGS_RESPONSE=$(curl -s -w "\n%{http_code}" \
+        -u "${JIRA_EMAIL}:${JIRA_API_TOKEN}" \
+        -H "Accept: application/json" \
+        "${JIRA_URL}/rest/api/3/search/jql?jql=${JQL_ENCODED}&fields=customfield_10019&maxResults=100")
+    SIBLINGS_HTTP_CODE=$(echo "$SIBLINGS_RESPONSE" | tail -1)
+    SIBLINGS_JSON=$(echo "$SIBLINGS_RESPONSE" | sed '$d')
+    if [[ "$SIBLINGS_HTTP_CODE" != "200" ]]; then
+        echo "WARNING: Jira sibling query failed (HTTP ${SIBLINGS_HTTP_CODE}): ${SIBLINGS_JSON}" >&2
+        echo "Skipping base-branch merge — grant the service account Browse Projects permission to enable this." >&2
+        IS_FIRST_TASK="unknown"
+    else
+        IS_FIRST_TASK=$(echo "$SIBLINGS_JSON" | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+issues = data.get('issues', [])
+if not issues:
+    sys.exit('No implementation siblings found for Epic ${EPIC_KEY}')
+sorted_issues = sorted(issues, key=lambda x: x['fields'].get('customfield_10019', ''))
+print('yes' if sorted_issues[0]['key'] == '${JIRA_TASK_ID}' else 'no')
+")
+    fi
+
+    if [[ "$IS_FIRST_TASK" == "yes" ]]; then
+        git fetch origin "${BASE_BRANCH}"
+        git merge "origin/${BASE_BRANCH}" -m "chore: merge ${BASE_BRANCH} into ${FEATURE_BRANCH} before first implementation stage"
+        git push origin "${FEATURE_BRANCH}"
+    fi
 fi
 
 # Task branch: planning resumes an existing branch because the Needs Input cycle re-triggers
