@@ -11,5 +11,8 @@ test:
 .PHONY: setup-cd
 setup-cd: .env
 	@set -a && . ./.env && set +a && \
-	helm upgrade --install minordomo-cd-setup helm/minordomo-cd-setup/ \
+	helm upgrade --install \
+		--namespace minordomo \
+		--create-namespace \
+		minordomo-cd-setup helm/minordomo-cd-setup/ \
 		--set doltRootPassword=$$DOLT_ROOT_PASSWORD

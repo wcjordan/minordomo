@@ -154,7 +154,9 @@ pipeline {
                             gcloud auth activate-service-account --key-file "\$GKE_SA_FILE"
                             gcloud container clusters get-credentials ${env.GCP_PROJECT_NAME}-gke \\
                                 --project ${env.GCP_PROJECT} --zone us-east4-c
-                            helm upgrade --install dolt-server helm/dolt-server/
+                            helm upgrade --install \
+                                --namespace minordomo \
+                                dolt-server helm/dolt-server/
                         """
                     }
                 }
