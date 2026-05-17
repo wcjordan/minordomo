@@ -19,4 +19,6 @@ resources:
     cpu: 10m
 
 service:
-  port: 3306
+  type: LoadBalancer
+  port: 80
+  loadBalancerSourceRanges: []

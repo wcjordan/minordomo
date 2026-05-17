@@ -5,7 +5,7 @@ metadata:
   labels:
     {{- include "dolt-server.labels" . | nindent 4 }}
 spec:
-  type: ClusterIP
+  type: {{ .Values.service.type }}
   ports:
     - port: {{ .Values.service.port }}
       targetPort: mysql
@@ -13,3 +13,7 @@ spec:
       name: mysql
   selector:
     {{- include "dolt-server.selectorLabels" . | nindent 4 }}
+  {{- if .Values.service.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+    {{- toYaml .Values.service.loadBalancerSourceRanges | nindent 4 }}
+  {{- end }}

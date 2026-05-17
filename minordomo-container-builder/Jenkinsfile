@@ -148,7 +148,10 @@ pipeline {
             }
             steps {
                 container('jenkins-helm') {
-                    withCredentials([file(credentialsId: 'jenkins-gke-sa', variable: 'GKE_SA_FILE')]) {
+                    withCredentials([
+                        file(credentialsId: 'jenkins-gke-sa', variable: 'GKE_SA_FILE'),
+                        string(credentialsId: 'dolt-lb-source-cidr', variable: 'DOLT_LB_SOURCE_CIDR'),
+                    ]) {
                         sh """
                             set -euo pipefail
                             gcloud auth activate-service-account --key-file "\$GKE_SA_FILE"
@@ -156,6 +159,7 @@ pipeline {
                                 --project ${env.GCP_PROJECT} --zone us-east4-c
                             helm upgrade --install \
                                 --namespace minordomo \
+                                --set "service.loadBalancerSourceRanges={\$DOLT_LB_SOURCE_CIDR}" \
                                 dolt-server helm/dolt-server/
                         """
                     }
