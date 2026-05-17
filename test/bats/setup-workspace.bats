@@ -48,6 +48,12 @@ esac
 MOCK
     chmod +x "$mocks/gh"
 
+    cat > "$mocks/bd" << 'MOCK'
+#!/usr/bin/env bash
+exit 0
+MOCK
+    chmod +x "$mocks/bd"
+
     cat > "$mocks/curl" << 'MOCK'
 #!/usr/bin/env bash
 # Detect -w flag so we can append the status code the same way real curl does
@@ -79,6 +85,7 @@ MOCK
     export JIRA_API_TOKEN="fake-token"
     export GH_TOKEN="fake-gh-token"
     export BASE_BRANCH="bootstrap"
+    export BEADS_DOLT_SERVER_USER="minordomo"
     unset REPO EPIC_KEY FEATURE_BRANCH
 }
 

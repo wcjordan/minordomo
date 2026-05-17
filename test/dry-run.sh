@@ -53,6 +53,12 @@ exit 0
 MOCK
 chmod +x "$MOCKS/claude"
 
+cat > "$MOCKS/bd" << 'MOCK'
+#!/usr/bin/env bash
+exit 0
+MOCK
+chmod +x "$MOCKS/bd"
+
 export PATH="$MOCKS:$PATH"
 
 # ---------------------------------------------------------------------------
@@ -64,6 +70,7 @@ export JIRA_ACCT_PSW="jira-fake-token"
 export JIRA_ACCT_USR="test@example.com"
 export JIRA_CLOUD_ID="test-cloud-id"
 export JIRA_TASK_ID="MDOMO-44"
+export BEADS_DOLT_SERVER_USER="minordomo"
 export HOME="$WORK/home"
 mkdir -p "$HOME"
 
