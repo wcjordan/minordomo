@@ -103,8 +103,8 @@ pipeline {
                 container('majordomo') {
                     sh '''
                         set -euo pipefail
-                        chmod 700 .beads
                         source shared/setup-env.sh
+                        [ -d .beads ] && chmod 700 .beads
                         { bd stats && echo "---" && bd list --status=open; } | tee /tmp/beads-output.txt
                     '''
                 }
