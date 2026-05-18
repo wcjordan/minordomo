@@ -38,6 +38,28 @@
     ]
   },
   "hooks": {
-    "PreBashCommand": "~/.claude/hooks/pre-bash-guard.sh"
+    "PreBashCommand": "~/.claude/hooks/pre-bash-guard.sh",
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "command": "bd prime",
+            "type": "command"
+          }
+        ],
+        "matcher": ""
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "bd prime",
+            "type": "command"
+          }
+        ],
+        "matcher": ""
+      }
+    ]
   }
 }
