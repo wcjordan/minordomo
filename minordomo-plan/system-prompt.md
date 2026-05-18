@@ -78,8 +78,13 @@ Review everything gathered so far. Flag anything that is vague or underspecified
    git commit -m "chore: save research notes for $JIRA_TASK_ID"
    git push
    ```
-3. Transition the Planning Task to **Needs Input** via MCP.
-4. Emit the run log and exit 0.
+3. Apply the `needs-input` label to the linked GH Issue and post the questions there as well (the GH Issue URL was extracted in Step 2):
+   ```bash
+   gh issue edit <issue-number> --repo wcjordan/<repo> --add-label needs-input
+   gh issue comment <issue-number> --repo wcjordan/<repo> --body "<numbered question list>"
+   ```
+4. Transition the Planning Task to **Needs Input** via MCP.
+5. Emit the run log and exit 0.
 
 ---
 

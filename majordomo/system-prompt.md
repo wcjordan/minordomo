@@ -49,11 +49,11 @@ For now: log `{"step": "schedule_check", "status": "skipped", "message": "not ye
 
 ---
 
-### Step 3: Poll GitHub Issues → Create Jira Epics
+### Step 3: Poll GitHub Issues → Create Jira Epics + Beads Tasks
 
 For each project in config:
 
-1. Fetch open GH Issues: `gh issue list --repo wcjordan/<repo> --state open --json number,title,body,author,labels`
+1. Fetch open GH Issues: `gh issue list --repo wcjordan/<repo> --state open --json number,title,body,author,labels,url`
 2. Filter to issues where `author.login` is in `allowed_gh_users`
 3. Skip issues that already have the `jira-epic-created` label (idempotency gate)
 4. For each new issue:
@@ -61,12 +61,18 @@ For each project in config:
    b. Create a Planning Task linked as a child of the Epic. Set status to **Open**. Title: "Plan: <issue title>".
    c. Post a comment on the GH Issue with the Jira Epic key: `gh issue comment <number> --repo wcjordan/<repo> --body "Jira Epic: <EPIC_KEY>"`
    d. Apply the `jira-epic-created` label: `gh issue edit <number> --repo wcjordan/<repo> --add-label jira-epic-created`
+   e. Determine priority from the issue's labels: look for a label whose name matches `P0`, `P1`, `P2`, `P3`, or `P4` (exact match). Use the first match as the priority; default to `P2` if none found.
+   f. Create a beads planning task — shell-quote the title to handle spaces and special characters:
+      `bd create "Plan: <issue title>" --priority <priority> --description "GH Issue: <issue url>"`
+      If this call fails, log the per-issue error and continue; do not abort processing of other issues.
+   g. Apply the `beads-ingested` label: `gh issue edit <number> --repo wcjordan/<repo> --add-label beads-ingested`
 
 Record in the step log:
 - Total issues fetched per repo
 - Issues skipped (already labelled)
-- Issues processed (Epic + Planning Task created)
-- Any per-issue errors (log and continue; do not abort the whole step)
+- Issues processed (Jira Epic + Planning Task + beads task created)
+- Beads task creation errors (per-issue; do not abort the whole step)
+- Any other per-issue errors (log and continue; do not abort the whole step)
 
 ---
 
@@ -97,6 +103,25 @@ Initialize: `tasks_checked = 0`, `tasks_transitioned = 0`, `task_errors = []`
       - `GET ${JIRA_URL}/rest/api/3/issue/<TASK_KEY>/transitions` — find the entry where `to.name` matches the target status and extract its `id`
       - `POST ${JIRA_URL}/rest/api/3/issue/<TASK_KEY>/transitions` with body `{"transition": {"id": "<id>"}}`
       - On success: increment `tasks_transitioned`
+      - If the task was a Planning Task (summary starts with `"Plan:"`), also mark the corresponding beads task done:
+        ```bash
+        BEADS_PLAN_ID=$(bd list --json | jq -r --arg title "<fields.summary>" '[.[] | select(.title == $title)] | first | .id // empty')
+        if [ -n "$BEADS_PLAN_ID" ]; then
+          bd update "$BEADS_PLAN_ID" --status done
+        else
+          # log per-task error: beads_plan_task_not_found; do not abort
+        fi
+        ```
+      - If the task was an Implementation Task (summary does NOT start with `"Plan:"`), also mark the corresponding beads subtask done — beads subtask titles have the form `"Stage N: <jira_summary>"`, so find it by stripping the prefix and matching against the Jira summary:
+        ```bash
+        BEADS_IMPL_ID=$(bd list --json | jq -r --arg title "<fields.summary>" \
+          '[.[] | select(.title | gsub("^Stage [0-9]+: "; "") == $title)] | first | .id // empty')
+        if [ -n "$BEADS_IMPL_ID" ]; then
+          bd update "$BEADS_IMPL_ID" --status done
+        else
+          # log per-task error: beads_impl_task_not_found; do not abort
+        fi
+        ```
       - On any per-task error: append to `task_errors` and continue (do not abort the step)
 
 3. **Log step result:**
@@ -112,13 +137,31 @@ Initialize: `tasks_checked = 0`, `tasks_transitioned = 0`, `task_errors = []`
 Planning Tasks are Jira Tasks (`issuetype = Task`) whose summary starts with `Plan:`.
 
 1. Query Jira for any Planning Task in status `In Progress` across all configured projects. If one exists: log decision, set `planning_agent_launched: false`, and skip to Step 6 — launch at most one planning agent per run
-2. Query Jira for Planning Tasks in status `Open` or `Ready` across all configured projects
+2. Query Jira for Planning Tasks in status `Open` or `Ready` across all configured projects. For each candidate task:
+   a. Fetch the parent Epic: `GET ${JIRA_URL}/rest/api/3/issue/<EPIC_KEY>?fields=description,labels,customfield_10019`
+   b. Extract the GH Issue URL from the Epic's ADF `description` field (recursively collect all `text` leaf values; look for a segment matching `GitHub Issue: <url>`). Extract the issue number from the URL.
+   c. If the GH Issue number was found, check whether the issue carries the `needs-input` label:
+      ```bash
+      gh issue view <issue-number> --repo wcjordan/<repo> --json labels \
+        | jq '.labels[].name' | grep -q needs-input && skip_task=true
+      ```
+      If `needs-input` is present: log a per-task skip (reason: `"needs_input"`) and exclude this task from selection.
+   d. Otherwise include the task in the candidate list with its `epic_labels` and `epic_rank`.
 3. Pick the highest-priority eligible task (by Epic priority label P0 > P1 > P2, then Jira rank), transition it to `In Progress`, and trigger the `majordomo-planning-agent` Jenkins job:
    ```bash
    curl -X POST -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" \
      "http://jenkins.${ROOT_DOMAIN}/job/minordomo-plan/job/${BASE_BRANCH}/buildWithParameters?JIRA_TASK_ID=<task_id>"
    ```
-4. Record `planning_agent_launched: true` in the step log
+4. After the Jira transition and Jenkins trigger, also claim the corresponding beads planning task:
+   ```bash
+   BEADS_PLAN_ID=$(bd list --json | jq -r --arg title "<fields.summary>" '[.[] | select(.title == $title)] | first | .id // empty')
+   if [ -n "$BEADS_PLAN_ID" ]; then
+     bd update "$BEADS_PLAN_ID" --claim
+   else
+     # log per-task error: beads_plan_task_not_found; do not abort — Jira transition already succeeded
+   fi
+   ```
+5. Record `planning_agent_launched: true` in the step log
 
 If a planning agent was launched, record `planning_agent_launched: true` in the step log — Step 8 checks this to decide whether to launch a worker.
 
@@ -139,39 +182,30 @@ If a planning agent was launched, record `planning_agent_launched: true` in the 
       - Acceptance criteria: from the `### Acceptance Criteria` subsection
       - In the description, also include: `spec_doc_path: docs/planning/$EPIC_KEY-spec.md` and `feature_branch: $FEATURE_BRANCH`
    g. Transition the Planning Task to `Done`
-3. Record in the step log: number of approved tasks processed and total implementation tasks created
+   h. **Find the beads planning task** for this epic by searching for a task whose title exactly matches `"Plan: <issue title>"`:
+      ```bash
+      BEADS_PLAN_ID=$(bd list --json | jq -r '[.[] | select(.title == "Plan: <issue title>")] | first | .id // empty')
+      ```
+      If not found or the command fails, log a per-epic error (`"beads_plan_task_not_found"`) and skip steps i–j for this epic. Do not abort; Jira tasks were already created.
+   i. **Create beads subtasks** — for each stage N (in order), capture the returned ID:
+      ```bash
+      BEADS_STAGE_N_ID=$(bd create "Stage N: <title>" --parent "$BEADS_PLAN_ID" --json | jq -r '.id')
+      ```
+      If any `bd create` fails, log a per-epic error and skip dependency wiring (step j) for this epic; continue to the next epic.
+   j. **Wire blocking dependencies** — for each consecutive stage pair (N ≥ 2), make stage N depend on stage N−1:
+      ```bash
+      bd dep add "$BEADS_STAGE_N_ID" "$BEADS_STAGE_N_MINUS_1_ID"
+      ```
+      If any `bd dep add` fails, log a per-epic error and continue (partial chains are better than none).
+3. Record in the step log: number of approved tasks processed, total implementation tasks created, and total beads subtasks created
 
 ---
 
 ### Step 7: Promote Implementation Tasks to Ready
 
-Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for all Jira REST API calls in this step.
+⚠️ **Removed in Stage 5 of the Jira→beads migration.** The beads dependency graph created in Step 6 means `bd ready` surfaces only tasks with no open blockers — no explicit promotion step is needed. Jira's `Ready` status is populated by the worker agent itself when it picks up a task.
 
-1. Build the comma-separated list of Jira project keys from config. Query for all Open Implementation Tasks:
-   - JQL: `project in (<jira_keys>) AND issuetype = Task AND summary !~ "Plan:" AND status = Open`
-   - `GET ${JIRA_URL}/rest/api/3/search/jql?jql=<encoded_jql>&fields=summary,status,parent,customfield_10019&maxResults=100`
-   - Initialize: `tasks_evaluated = 0`, `tasks_promoted = 0`, `tasks_skipped = 0`, `task_errors = []`
-
-2. For each Open Implementation Task returned:
-   a. Increment `tasks_evaluated`
-   b. Extract the parent Epic key from `fields.parent.key`. On missing parent: record per-task error and continue.
-   c. Fetch all Implementation Task siblings under the same Epic:
-      - JQL: `parent = <EPIC_KEY> AND issuetype = Task AND summary !~ "Plan:"`
-      - Fields: `summary`, `status`, `customfield_10019`
-   d. Sort siblings by `customfield_10019` ascending (lexicographic; lower value = earlier stage = prior).
-   e. Find the current task's position in the sorted list. All siblings appearing **before** it are "prior siblings".
-   f. **Check 1 — prior siblings all Done:** If any prior sibling has status other than `Done`, increment `tasks_skipped` (reason: `"prior_not_done"`) and continue to the next task.
-   g. **Check 2 — no sibling in flight:** If any sibling at any rank has status `In Progress` or `In Review`, increment `tasks_skipped` (reason: `"sibling_in_flight"`) and continue to the next task.
-   h. **Promote to Ready:**
-      - `GET ${JIRA_URL}/rest/api/3/issue/<TASK_KEY>/transitions` — find the entry where `to.name == "Ready"` and extract its `id`
-      - `POST ${JIRA_URL}/rest/api/3/issue/<TASK_KEY>/transitions` with body `{"transition": {"id": "<id>"}}`
-      - On success: increment `tasks_promoted`
-      - On any per-task error: append to `task_errors` and continue (do not abort the step)
-
-3. Log the step result:
-   ```json
-   {"step": "promote_tasks", "status": "ok", "tasks_evaluated": <N>, "tasks_promoted": <N>, "tasks_skipped": <N>}
-   ```
+Log `{"step": "promote_tasks", "status": "skipped", "message": "replaced by beads dependency graph"}` and continue to Step 8.
 
 ---
 
@@ -181,49 +215,73 @@ Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for all Jira 
 
 1. **Skip check:** If `planning_agent_launched` is `true` from Step 5: log `{"step": "launch_worker", "status": "skipped", "message": "planning agent launched this run"}` and continue to Step 9.
 
-2. **Query Ready tasks:** Fetch all Implementation Tasks in status `Ready` across all configured projects:
-   - Build comma-separated project keys from config (same as Step 7).
+2. **Surface beads eligible tasks (validation):** Run the following and log the result — this is informational only; Jira remains the source of truth for dispatch:
+   ```bash
+   bd ready --json | jq '[.[] | select(.title | startswith("Plan:") | not)]'
+   ```
+   Log the count of beads-eligible implementation tasks.
+
+3. **Query Ready tasks:** Fetch all Implementation Tasks in status `Ready` across all configured projects:
+   - Build comma-separated project keys from config (same as Step 6).
    - JQL: `project in (<jira_keys>) AND issuetype = Task AND summary !~ "Plan:" AND status = Ready`
    - `GET ${JIRA_URL}/rest/api/3/search/jql?jql=<encoded_jql>&fields=summary,status,parent,customfield_10019&maxResults=100`
 
-3. **No Ready tasks:** If none found, log `{"step": "launch_worker", "status": "ok", "worker_launched": false, "message": "no Ready tasks found"}` and continue to Step 9.
+4. **No Ready tasks:** If none found, log `{"step": "launch_worker", "status": "ok", "worker_launched": false, "message": "no Ready tasks found"}` and continue to Step 9.
 
-4. **Build candidate list:** For each Ready task:
+5. **Build candidate list:** For each Ready task:
    a. Extract the parent Epic key from `fields.parent.key`. On missing parent: skip task (log per-task error and continue).
-   b. Fetch the parent Epic: `GET ${JIRA_URL}/rest/api/3/issue/<EPIC_KEY>?fields=labels,customfield_10019`
+   b. Fetch the parent Epic: `GET ${JIRA_URL}/rest/api/3/issue/<EPIC_KEY>?fields=description,labels,customfield_10019`
    c. Extract:
       - `epic_labels`: the `labels` array from the Epic
       - `epic_rank`: `customfield_10019` from the Epic
-   d. Fetch all Implementation Task siblings under the same Epic:
+      - `gh_issue_url`: recursively traverse the Epic's ADF `description` field, collect all `text` leaf values, and look for a segment matching `GitHub Issue: <url>`. Extract the URL and parse the issue number from it.
+   d. **Needs-input check:** If a GH Issue number was found, check whether the issue carries the `needs-input` label:
+      ```bash
+      gh issue view <issue-number> --repo wcjordan/<repo> --json labels \
+        | jq '.labels[].name' | grep -q needs-input && skip_task=true
+      ```
+      If `needs-input` is present: log a per-task skip (reason: `"needs_input"`) and exclude this task from selection.
+   e. Fetch all Implementation Task siblings under the same Epic:
       - JQL: `parent = <EPIC_KEY> AND issuetype = Task AND summary !~ "Plan:"`
       - Fields: `summary`, `status`, `customfield_10019`
-   e. **Exclusion check:** If any sibling has status `In Progress` or `In Review`, exclude this task from selection and continue to the next Ready task.
-   f. Otherwise, record for this candidate:
+   f. **Exclusion check:** If any sibling has status `In Progress` or `In Review`, exclude this task from selection and continue to the next Ready task.
+   g. Otherwise, record for this candidate:
       - `has_done_siblings`: `true` if any sibling has status `Done`
       - `priority_order`: `0` if `P0` in epic_labels, `1` if `P1`, `2` if `P2`, `3` otherwise
       - `epic_rank`: the Epic's rank value
 
-5. **No eligible candidates after exclusions:** If the candidate list is empty after applying exclusions, log `{"step": "launch_worker", "status": "ok", "worker_launched": false, "message": "no Ready tasks found"}` and continue to Step 9.
+6. **No eligible candidates after exclusions:** If the candidate list is empty after applying exclusions, log `{"step": "launch_worker", "status": "ok", "worker_launched": false, "message": "no Ready tasks found"}` and continue to Step 9.
 
-6. **Rank candidates:**
+7. **Rank candidates:**
    - Sort by: `has_done_siblings` descending (`true` first), then `priority_order` ascending (0=P0 best), then `epic_rank` ascending (lexicographic).
    - Select the top-ranked candidate as the target task.
 
-7. **Transition to In Progress:**
+8. **Transition to In Progress:**
    - `GET ${JIRA_URL}/rest/api/3/issue/<TASK_KEY>/transitions` — find the entry where `to.name == "In Progress"` and extract its `id`
    - `POST ${JIRA_URL}/rest/api/3/issue/<TASK_KEY>/transitions` with body `{"transition": {"id": "<id>"}}`
    - On error: record in `errors` and continue to Step 9 without triggering the Jenkins job.
 
-8. **Trigger worker Jenkins job:**
+9. **Claim the corresponding beads subtask** — find it by stripping the `Stage N: ` prefix from beads titles and matching against the Jira summary:
    ```bash
-   curl -X POST -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" \
-     "http://jenkins.${ROOT_DOMAIN}/job/minordomo-step/job/${BASE_BRANCH}/buildWithParameters?JIRA_TASK_ID=<task_id>"
+   BEADS_IMPL_ID=$(bd list --json | jq -r --arg title "<task_summary>" \
+     '[.[] | select(.title | gsub("^Stage [0-9]+: "; "") == $title)] | first | .id // empty')
+   if [ -n "$BEADS_IMPL_ID" ]; then
+     bd update "$BEADS_IMPL_ID" --claim
+   else
+     # log per-task error: beads_impl_task_not_found; do not abort — Jira transition already succeeded
+   fi
    ```
 
-9. **Log result:**
-   ```json
-   {"step": "launch_worker", "status": "ok", "worker_launched": true, "task_id": "<task_id>"}
-   ```
+10. **Trigger worker Jenkins job:**
+    ```bash
+    curl -X POST -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" \
+      "http://jenkins.${ROOT_DOMAIN}/job/minordomo-step/job/${BASE_BRANCH}/buildWithParameters?JIRA_TASK_ID=<task_id>"
+    ```
+
+11. **Log result:**
+    ```json
+    {"step": "launch_worker", "status": "ok", "worker_launched": true, "task_id": "<task_id>"}
+    ```
 
 ---
 
@@ -246,7 +304,15 @@ For each project in config (repo + jira_key):
       - Fields: `summary`, `status`
       - Separate into Planning Tasks (summary starts with `Plan:`) and Implementation Tasks (all others).
    c. **Skip — no impl tasks:** If the Implementation Tasks list is empty, increment `epics_skipped` (reason: `"no_impl_tasks"`) and continue to the next Epic.
-   d. **Skip — incomplete:** If any Implementation Task has status other than `Done`, increment `epics_skipped` (reason: `"impl_tasks_not_done"`) and continue to the next Epic.
+   d. **Skip — incomplete:** If any Implementation Task has status other than `Done`, increment `epics_skipped` (reason: `"impl_tasks_not_done"`) and continue to the next Epic. Alongside this Jira check, also validate beads subtask state — find the beads planning task by matching its title against `"Plan: <epic_summary>"`, then check all its children:
+      ```bash
+      BEADS_PLAN_ID=$(bd list --json | jq -r --arg title "Plan: <epic_summary>" \
+        '[.[] | select(.title == $title)] | first | .id // empty')
+      if [ -n "$BEADS_PLAN_ID" ]; then
+        bd list --parent "$BEADS_PLAN_ID" --json | jq 'all(.status == "done")'
+        # Log the result for observability; use Jira task status as the authoritative gate
+      fi
+      ```
    e. **Skip — PR exists:** Run:
       ```bash
       gh pr list --repo wcjordan/<repo> --base <base_branch> --head feature/<EPIC_KEY> --state open --json number
@@ -318,8 +384,8 @@ At the end of each run, emit a single JSON object to stdout:
     {"step": "poll_gh_issues", "status": "ok", "issues_processed": 0},
     {"step": "sync_pr_merge_status", "status": "ok", "tasks_checked": 0, "tasks_transitioned": 0},
     {"step": "eval_planning_tasks", "status": "ok", "planning_agent_launched": false},
-    {"step": "create_impl_tasks", "status": "ok", "approved_tasks_processed": 0, "implementation_tasks_created": 0},
-    {"step": "promote_tasks", "status": "ok", "tasks_evaluated": 0, "tasks_promoted": 0, "tasks_skipped": 0},
+    {"step": "create_impl_tasks", "status": "ok", "approved_tasks_processed": 0, "implementation_tasks_created": 0, "beads_subtasks_created": 0},
+    {"step": "promote_tasks", "status": "skipped", "message": "replaced by beads dependency graph"},
     {"step": "launch_worker", "status": "ok", "worker_launched": false, "message": "no Ready tasks found"},
     {"step": "check_story_completion", "status": "ok", "epics_checked": 0, "prs_opened": 0, "epics_skipped": 0}
   ],
