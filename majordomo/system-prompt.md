@@ -145,39 +145,30 @@ If a planning agent was launched, record `planning_agent_launched: true` in the 
       - Acceptance criteria: from the `### Acceptance Criteria` subsection
       - In the description, also include: `spec_doc_path: docs/planning/$EPIC_KEY-spec.md` and `feature_branch: $FEATURE_BRANCH`
    g. Transition the Planning Task to `Done`
-3. Record in the step log: number of approved tasks processed and total implementation tasks created
+   h. **Find the beads planning task** for this epic by searching for a task whose title exactly matches `"Plan: <issue title>"`:
+      ```bash
+      BEADS_PLAN_ID=$(bd list --json | jq -r '[.[] | select(.title == "Plan: <issue title>")] | first | .id // empty')
+      ```
+      If not found or the command fails, log a per-epic error (`"beads_plan_task_not_found"`) and skip steps i–j for this epic. Do not abort; Jira tasks were already created.
+   i. **Create beads subtasks** — for each stage N (in order), capture the returned ID:
+      ```bash
+      BEADS_STAGE_N_ID=$(bd create "Stage N: <title>" --parent "$BEADS_PLAN_ID" --json | jq -r '.id')
+      ```
+      If any `bd create` fails, log a per-epic error and skip dependency wiring (step j) for this epic; continue to the next epic.
+   j. **Wire blocking dependencies** — for each consecutive stage pair (N ≥ 2), make stage N depend on stage N−1:
+      ```bash
+      bd dep add "$BEADS_STAGE_N_ID" "$BEADS_STAGE_N_MINUS_1_ID"
+      ```
+      If any `bd dep add` fails, log a per-epic error and continue (partial chains are better than none).
+3. Record in the step log: number of approved tasks processed, total implementation tasks created, and total beads subtasks created
 
 ---
 
 ### Step 7: Promote Implementation Tasks to Ready
 
-Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for all Jira REST API calls in this step.
+⚠️ **Removed in Stage 5 of the Jira→beads migration.** The beads dependency graph created in Step 6 means `bd ready` surfaces only tasks with no open blockers — no explicit promotion step is needed. Jira's `Ready` status is populated by the worker agent itself when it picks up a task.
 
-1. Build the comma-separated list of Jira project keys from config. Query for all Open Implementation Tasks:
-   - JQL: `project in (<jira_keys>) AND issuetype = Task AND summary !~ "Plan:" AND status = Open`
-   - `GET ${JIRA_URL}/rest/api/3/search/jql?jql=<encoded_jql>&fields=summary,status,parent,customfield_10019&maxResults=100`
-   - Initialize: `tasks_evaluated = 0`, `tasks_promoted = 0`, `tasks_skipped = 0`, `task_errors = []`
-
-2. For each Open Implementation Task returned:
-   a. Increment `tasks_evaluated`
-   b. Extract the parent Epic key from `fields.parent.key`. On missing parent: record per-task error and continue.
-   c. Fetch all Implementation Task siblings under the same Epic:
-      - JQL: `parent = <EPIC_KEY> AND issuetype = Task AND summary !~ "Plan:"`
-      - Fields: `summary`, `status`, `customfield_10019`
-   d. Sort siblings by `customfield_10019` ascending (lexicographic; lower value = earlier stage = prior).
-   e. Find the current task's position in the sorted list. All siblings appearing **before** it are "prior siblings".
-   f. **Check 1 — prior siblings all Done:** If any prior sibling has status other than `Done`, increment `tasks_skipped` (reason: `"prior_not_done"`) and continue to the next task.
-   g. **Check 2 — no sibling in flight:** If any sibling at any rank has status `In Progress` or `In Review`, increment `tasks_skipped` (reason: `"sibling_in_flight"`) and continue to the next task.
-   h. **Promote to Ready:**
-      - `GET ${JIRA_URL}/rest/api/3/issue/<TASK_KEY>/transitions` — find the entry where `to.name == "Ready"` and extract its `id`
-      - `POST ${JIRA_URL}/rest/api/3/issue/<TASK_KEY>/transitions` with body `{"transition": {"id": "<id>"}}`
-      - On success: increment `tasks_promoted`
-      - On any per-task error: append to `task_errors` and continue (do not abort the step)
-
-3. Log the step result:
-   ```json
-   {"step": "promote_tasks", "status": "ok", "tasks_evaluated": <N>, "tasks_promoted": <N>, "tasks_skipped": <N>}
-   ```
+Log `{"step": "promote_tasks", "status": "skipped", "message": "replaced by beads dependency graph"}` and continue to Step 8.
 
 ---
 
@@ -188,7 +179,7 @@ Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for all Jira 
 1. **Skip check:** If `planning_agent_launched` is `true` from Step 5: log `{"step": "launch_worker", "status": "skipped", "message": "planning agent launched this run"}` and continue to Step 9.
 
 2. **Query Ready tasks:** Fetch all Implementation Tasks in status `Ready` across all configured projects:
-   - Build comma-separated project keys from config (same as Step 7).
+   - Build comma-separated project keys from config (same as Step 6).
    - JQL: `project in (<jira_keys>) AND issuetype = Task AND summary !~ "Plan:" AND status = Ready`
    - `GET ${JIRA_URL}/rest/api/3/search/jql?jql=<encoded_jql>&fields=summary,status,parent,customfield_10019&maxResults=100`
 
@@ -324,8 +315,8 @@ At the end of each run, emit a single JSON object to stdout:
     {"step": "poll_gh_issues", "status": "ok", "issues_processed": 0},
     {"step": "sync_pr_merge_status", "status": "ok", "tasks_checked": 0, "tasks_transitioned": 0},
     {"step": "eval_planning_tasks", "status": "ok", "planning_agent_launched": false},
-    {"step": "create_impl_tasks", "status": "ok", "approved_tasks_processed": 0, "implementation_tasks_created": 0},
-    {"step": "promote_tasks", "status": "ok", "tasks_evaluated": 0, "tasks_promoted": 0, "tasks_skipped": 0},
+    {"step": "create_impl_tasks", "status": "ok", "approved_tasks_processed": 0, "implementation_tasks_created": 0, "beads_subtasks_created": 0},
+    {"step": "promote_tasks", "status": "skipped", "message": "replaced by beads dependency graph"},
     {"step": "launch_worker", "status": "ok", "worker_launched": false, "message": "no Ready tasks found"},
     {"step": "check_story_completion", "status": "ok", "epics_checked": 0, "prs_opened": 0, "epics_skipped": 0}
   ],
