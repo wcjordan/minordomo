@@ -31,5 +31,5 @@ if [[ $# -gt 0 ]]; then
 else
     echo "Dolt port-forward active on localhost:${LOCAL_PORT}"
     echo "Type 'exit' to stop."
-    exec "$SHELL"
+    "$SHELL"
 fi
