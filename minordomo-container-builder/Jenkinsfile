@@ -67,5 +67,100 @@ pipeline {
                 }
             }
         }
+        stage('Build and Push Helm Image') {
+            agent {
+                kubernetes {
+                    yaml """
+                        apiVersion: v1
+                        kind: Pod
+                        spec:
+                          containers:
+                          - name: dind
+                            image: docker:27-dind
+                            securityContext:
+                              privileged: true
+                            resources:
+                              requests:
+                                cpu: "500m"
+                                memory: "1Gi"
+                              limits:
+                                cpu: "1000m"
+                                memory: "2Gi"
+                    """
+                }
+            }
+            options {
+                timeout(time: 15, unit: 'MINUTES')
+            }
+            steps {
+                container('dind') {
+                    withCredentials([file(credentialsId: 'jenkins-gke-sa', variable: 'GKE_SA_FILE')]) {
+                        sh """
+                            set -euo pipefail
+
+                            apk add --no-cache bash curl python3
+                            curl -fsSL https://sdk.cloud.google.com | bash -s -- --disable-prompts
+                            export PATH="\$HOME/google-cloud-sdk/bin:\$PATH"
+                            gcloud auth activate-service-account --key-file "\$GKE_SA_FILE"
+                            gcloud auth configure-docker ${GAR_HOST} --quiet
+
+                            while ! docker stats --no-stream 2>/dev/null; do
+                                echo "Waiting for Docker to launch..."
+                                sleep 1
+                            done
+
+                            docker buildx create --driver docker-container --name helm-builder --use || true
+                            docker buildx build --push \\
+                                --cache-to  type=registry,ref=${GAR_REPO}/jenkins-helm-cache:latest,mode=max \\
+                                --cache-from type=registry,ref=${GAR_REPO}/jenkins-helm-cache:latest \\
+                                -f minordomo-container-builder/Dockerfile.helm \\
+                                -t ${GAR_REPO}/jenkins-helm:latest \\
+                                .
+                        """
+                    }
+                }
+            }
+        }
+        stage('Deploy Dolt Server') {
+            agent {
+                kubernetes {
+                    yaml """
+                        apiVersion: v1
+                        kind: Pod
+                        spec:
+                          containers:
+                          - name: jenkins-helm
+                            image: ${GAR_REPO}/jenkins-helm:latest
+                            command: [cat]
+                            tty: true
+                            resources:
+                              requests:
+                                cpu: "100m"
+                                memory: "256Mi"
+                              limits:
+                                cpu: "500m"
+                                memory: "512Mi"
+                    """
+                }
+            }
+            options {
+                timeout(time: 10, unit: 'MINUTES')
+            }
+            steps {
+                container('jenkins-helm') {
+                    withCredentials([file(credentialsId: 'jenkins-gke-sa', variable: 'GKE_SA_FILE')]) {
+                        sh """
+                            set -euo pipefail
+                            gcloud auth activate-service-account --key-file "\$GKE_SA_FILE"
+                            gcloud container clusters get-credentials ${env.GCP_PROJECT_NAME}-gke \\
+                                --project ${env.GCP_PROJECT} --zone us-east4-c
+                            helm upgrade --install \
+                                --namespace minordomo \
+                                dolt-server helm/dolt-server/
+                        """
+                    }
+                }
+            }
+        }
     }
 }

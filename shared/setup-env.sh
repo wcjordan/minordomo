@@ -13,6 +13,10 @@ export JIRA_EMAIL="${JIRA_ACCT_USR}"
 export JIRA_API_TOKEN="${JIRA_ACCT_PSW}"
 export GH_TOKEN="${GH_APP_PSW}"
 
+export BEADS_DOLT_SERVER_HOST="dolt-server.minordomo.svc.cluster.local"
+export BEADS_DOLT_SERVER_PORT=3306
+export BEADS_DOLT_SERVER_USER="minordomo"
+
 export BASE_BRANCH
 BASE_BRANCH=$(python3 -c "
 import yaml
