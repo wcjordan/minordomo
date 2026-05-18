@@ -103,6 +103,15 @@ Initialize: `tasks_checked = 0`, `tasks_transitioned = 0`, `task_errors = []`
       - `GET ${JIRA_URL}/rest/api/3/issue/<TASK_KEY>/transitions` — find the entry where `to.name` matches the target status and extract its `id`
       - `POST ${JIRA_URL}/rest/api/3/issue/<TASK_KEY>/transitions` with body `{"transition": {"id": "<id>"}}`
       - On success: increment `tasks_transitioned`
+      - If the task was a Planning Task (summary starts with `"Plan:"`), also mark the corresponding beads task done:
+        ```bash
+        BEADS_PLAN_ID=$(bd list --json | jq -r --arg title "<fields.summary>" '[.[] | select(.title == $title)] | first | .id // empty')
+        if [ -n "$BEADS_PLAN_ID" ]; then
+          bd update "$BEADS_PLAN_ID" --status done
+        else
+          # log per-task error: beads_plan_task_not_found; do not abort
+        fi
+        ```
       - On any per-task error: append to `task_errors` and continue (do not abort the step)
 
 3. **Log step result:**
@@ -118,13 +127,31 @@ Initialize: `tasks_checked = 0`, `tasks_transitioned = 0`, `task_errors = []`
 Planning Tasks are Jira Tasks (`issuetype = Task`) whose summary starts with `Plan:`.
 
 1. Query Jira for any Planning Task in status `In Progress` across all configured projects. If one exists: log decision, set `planning_agent_launched: false`, and skip to Step 6 — launch at most one planning agent per run
-2. Query Jira for Planning Tasks in status `Open` or `Ready` across all configured projects
+2. Query Jira for Planning Tasks in status `Open` or `Ready` across all configured projects. For each candidate task:
+   a. Fetch the parent Epic: `GET ${JIRA_URL}/rest/api/3/issue/<EPIC_KEY>?fields=description,labels,customfield_10019`
+   b. Extract the GH Issue URL from the Epic's ADF `description` field (recursively collect all `text` leaf values; look for a segment matching `GitHub Issue: <url>`). Extract the issue number from the URL.
+   c. If the GH Issue number was found, check whether the issue carries the `needs-input` label:
+      ```bash
+      gh issue view <issue-number> --repo wcjordan/<repo> --json labels \
+        | jq '.labels[].name' | grep -q needs-input && skip_task=true
+      ```
+      If `needs-input` is present: log a per-task skip (reason: `"needs_input"`) and exclude this task from selection.
+   d. Otherwise include the task in the candidate list with its `epic_labels` and `epic_rank`.
 3. Pick the highest-priority eligible task (by Epic priority label P0 > P1 > P2, then Jira rank), transition it to `In Progress`, and trigger the `majordomo-planning-agent` Jenkins job:
    ```bash
    curl -X POST -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" \
      "http://jenkins.${ROOT_DOMAIN}/job/minordomo-plan/job/${BASE_BRANCH}/buildWithParameters?JIRA_TASK_ID=<task_id>"
    ```
-4. Record `planning_agent_launched: true` in the step log
+4. After the Jira transition and Jenkins trigger, also claim the corresponding beads planning task:
+   ```bash
+   BEADS_PLAN_ID=$(bd list --json | jq -r --arg title "<fields.summary>" '[.[] | select(.title == $title)] | first | .id // empty')
+   if [ -n "$BEADS_PLAN_ID" ]; then
+     bd update "$BEADS_PLAN_ID" --claim
+   else
+     # log per-task error: beads_plan_task_not_found; do not abort — Jira transition already succeeded
+   fi
+   ```
+5. Record `planning_agent_launched: true` in the step log
 
 If a planning agent was launched, record `planning_agent_launched: true` in the step log — Step 8 checks this to decide whether to launch a worker.
 
