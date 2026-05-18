@@ -64,7 +64,8 @@ This stage does not deploy anything — it produces the chart only.
 ### Acceptance Criteria
 
 - `helm lint helm/dolt-server/` passes with no errors or warnings
-- `helm template helm/dolt-server/ | kubectl apply --dry-run=client -f -` exits 0
+- `helm template helm/dolt-server/ | kubectl create --dry-run=client -f -` exits 0
+  (`kubectl apply --dry-run=client` requires a live server for 3-way merge; `kubectl create --dry-run=client` is equivalent for structural validation)
 - The rendered manifest includes a StatefulSet, PVC, and Service
 
 ---
@@ -126,32 +127,48 @@ but no Majordomo logic reads from or writes to it yet.
 
 Changes:
 
-- **Container image** — add `bd` installation to the Jenkins agent Dockerfile (or equivalent
-  build config); pin to a specific version
-- **`shared/setup-claude.sh`** — write the beads central server config to
-  `~/.config/beads/server.json` after existing setup; keep `claude mcp add atlassian` untouched.
-  The host and port are hardcoded from the k8s Service DNS name — no env var passthrough needed.
-  `bd config set server` is not used because it requires an initialised beads workspace;
-  the central config file at `~/.config/beads/server.json` is the correct global mechanism
-  (see `internal/configfile/central_config.go` in the beads repo).
-
-  ```bash
-  mkdir -p ~/.config/beads
-  cat > ~/.config/beads/server.json <<'EOF'
-  {
-    "dolt_mode": "server",
-    "dolt_server_host": "dolt-server.minordomo.svc.cluster.local",
-    "dolt_server_port": 3306
-  }
-  EOF
+- **Container image** — add `bd` installation to the Jenkins agent Dockerfile; pin to a
+  specific version. Example (v1.0.4):
+  ```dockerfile
+  RUN BEADS_VERSION=1.0.4 \
+      && curl -fsSL "https://github.com/gastownhall/beads/releases/download/v${BEADS_VERSION}/beads_${BEADS_VERSION}_linux_amd64.tar.gz" \
+          | tar -xz -C /usr/local/bin bd \
+      && bd --version
   ```
+- **`shared/setup-env.sh`** — export the three beads env vars that `bd` reads natively.
+  The values are derived directly from the k8s Service DNS name; no Jenkins credential or
+  gcp-setup entry is required:
+  ```bash
+  export BEADS_DOLT_SERVER_HOST="dolt-server.minordomo.svc.cluster.local"
+  export BEADS_DOLT_SERVER_PORT=3306
+  export BEADS_DOLT_SERVER_USER="minordomo"
+  ```
+- **`.beads/` directory** — commit the beads workspace init for this repo: `metadata.json`
+  configured for server mode. The Dolt DB itself is not committed; `bd` connects to the
+  server at startup using the env vars above, so no `bd init` call is needed at runtime.
+- **`shared/setup-workspace.sh`** — after the git checkout, fix `.beads/` permissions and
+  verify the server connection:
+  ```bash
+  [ -d .beads ] && chmod 700 .beads
+  bd dolt show
+  bd list
+  ```
+- **Majordomo Jenkinsfile** — add a `Beads Status` stage that runs `bd stats` and
+  `bd list --status=open` after each orchestration pass and appends the output to the
+  Jenkins build description. This gives operators a live view of issue state without
+  needing direct Dolt access.
+- **`scripts/dolt-forward.sh`** — add a helper script for local operator access to the
+  in-cluster Dolt server via `kubectl port-forward`. Supports both one-shot commands
+  (`scripts/dolt-forward.sh bd list`) and an interactive subshell.
 
 ### Acceptance Criteria
 
 - `bd --version` succeeds inside a Jenkins agent container
-- `cat ~/.config/beads/server.json` shows `dolt-server.minordomo.svc.cluster.local` and port `3306`
-- After `bd init --server` inside a cloned repo: `bd dolt show` reports server mode with the
-  correct host and port
+- `bd dolt show` reports server mode with host `dolt-server.minordomo.svc.cluster.local`
+  and port `3306`
+- After a workspace checkout, `bd list` returns without error (confirming server connectivity)
+- A Majordomo run appends beads stats to the Jenkins build description
+- `scripts/dolt-forward.sh bd list --status=open` returns issues from a local machine
 - Existing Jira-based pipeline runs complete without regression
 
 ---
