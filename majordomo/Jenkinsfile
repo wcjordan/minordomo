@@ -94,6 +94,7 @@ pipeline {
             }
             environment {
                 BEADS_DOLT_PASSWORD = credentials('dolt-minordomo-password')
+                GH_APP                  = credentials('github-app')
                 JIRA_ACCT           = credentials('jira-api-key')
             }
             options {
