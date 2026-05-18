@@ -85,6 +85,35 @@ Transition `$JIRA_TASK_ID` to status **In Review** via MCP.
 
 ---
 
+## Needs Input Flow
+
+If at any point you hit an unresolvable blocker (missing context, contradictory requirements, external dependency you cannot satisfy), do the following instead of opening a PR:
+
+1. **Find the GH Issue number** — fetch the parent Epic for `$JIRA_TASK_ID`:
+   ```bash
+   curl -s -u "${JIRA_EMAIL}:${JIRA_API_TOKEN}" \
+     "${JIRA_URL}/rest/api/3/issue/${JIRA_TASK_ID}?fields=parent" \
+     | jq -r '.fields.parent.key'
+   ```
+   Then fetch the Epic and extract the GH Issue URL from its ADF description (recursively collect all `text` leaf values; look for a segment matching `GitHub Issue: <url>`). Parse the issue number from the URL.
+
+2. **Apply the `needs-input` label** to the linked GH Issue:
+   ```bash
+   gh issue edit <issue-number> --repo wcjordan/<repo> --add-label needs-input
+   ```
+
+3. **Post a comment** explaining what is needed:
+   ```bash
+   gh issue comment <issue-number> --repo wcjordan/<repo> \
+     --body "<clear explanation of what is blocking progress and what human input is required>"
+   ```
+
+4. **Transition the Jira task to `Needs Input`** via MCP (supplement, not replacement for the GH label).
+
+5. Emit the run log with `status: "failure"` and a clear `errors` entry describing the blocker.
+
+---
+
 ## Run Log Format
 
 At the end of each run, emit a single JSON object to stdout:
