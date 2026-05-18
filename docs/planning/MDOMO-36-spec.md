@@ -151,7 +151,7 @@ Changes:
   ```bash
   [ -d .beads ] && chmod 700 .beads
   bd dolt show
-  bd list
+  bd stats
   ```
 - **Majordomo Jenkinsfile** — add a `Beads Status` stage that runs `bd stats` and
   `bd list --status=open` after each orchestration pass and appends the output to the
