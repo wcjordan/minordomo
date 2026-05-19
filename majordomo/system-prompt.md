@@ -55,8 +55,9 @@ For each project in config:
 
 1. Fetch open GH Issues: `gh issue list --repo wcjordan/<repo> --state open --json number,title,body,author,labels,url`
 2. Filter to issues where `author.login` is in `allowed_gh_users`
-3. Skip issues that already have the `jira-epic-created` label (idempotency gate)
-4. For each new issue:
+3. Skip issues where any label name in `labels[].name` is exactly `backlog` or `skip`. Log a per-issue skip with reason `backlog_or_skip_label`. Do not create a Jira Epic, Planning Task, or beads task for these issues. Do not apply `jira-epic-created` or `beads-ingested` labels to them.
+4. Skip issues that already have the `jira-epic-created` label (idempotency gate)
+5. For each new issue:
    a. Create a Jira Epic under the project's `jira_key`. Set the Epic name to the issue title. Include the GH Issue URL in the description.
    b. Create a Planning Task linked as a child of the Epic. Set status to **Open**. Title: "Plan: <issue title>".
    c. Post a comment on the GH Issue with the Jira Epic key: `gh issue comment <number> --repo wcjordan/<repo> --body "Jira Epic: <EPIC_KEY>"`
@@ -69,7 +70,8 @@ For each project in config:
 
 Record in the step log:
 - Total issues fetched per repo
-- Issues skipped (already labelled)
+- Issues skipped with reason `backlog_or_skip_label` (backlog/skip label present)
+- Issues skipped (already labelled with `jira-epic-created`)
 - Issues processed (Jira Epic + Planning Task + beads task created)
 - Beads task creation errors (per-issue; do not abort the whole step)
 - Any other per-issue errors (log and continue; do not abort the whole step)
