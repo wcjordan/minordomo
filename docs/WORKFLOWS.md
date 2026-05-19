@@ -101,7 +101,7 @@ When a stage's implementation reveals necessary changes to the plan, the spec do
 At most one task per Epic can be promoted at a time (the second check ensures this).
 
 **Selecting a worker target (Step 7):** From all `Ready` tasks, Majordomo excludes tasks whose Epic has a sibling `In Progress` or `In Review`, then ranks the remainder:
-1. Tasks whose Epic has other Implementation Tasks already `Done` (continuity — Epic is making progress)
+1. Tasks whose Epic has at least one Implementation Task (non-`Plan:`) already `Done` (continuity — Planning Tasks completing do not count)
 2. Epic priority label: `P0` > `P1` > `P2` > unlabelled
 3. Epic Jira rank (`customfield_10019`, ascending lexicographic = manual ordering)
 
