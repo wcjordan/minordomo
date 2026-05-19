@@ -142,12 +142,19 @@ Planning Tasks are Jira Tasks (`issuetype = Task`) whose summary starts with `Pl
 2. Query Jira for Planning Tasks in status `Open` or `Ready` across all configured projects. For each candidate task:
    a. Fetch the parent Epic: `GET ${JIRA_URL}/rest/api/3/issue/<EPIC_KEY>?fields=description,labels,customfield_10019`
    b. Extract the GH Issue URL from the Epic's ADF `description` field (recursively collect all `text` leaf values; look for a segment matching `GitHub Issue: <url>`). Extract the issue number from the URL.
-   c. If the GH Issue number was found, check whether the issue carries the `needs-input` label:
-      ```bash
-      gh issue view <issue-number> --repo wcjordan/<repo> --json labels \
-        | jq '.labels[].name' | grep -q needs-input && skip_task=true
-      ```
-      If `needs-input` is present: log a per-task skip (reason: `"needs_input"`) and exclude this task from selection.
+   c. If the GH Issue number was found, check the issue's labels for skip conditions:
+      - Check for `needs-input`:
+        ```bash
+        gh issue view <issue-number> --repo wcjordan/<repo> --json labels \
+          | jq '.labels[].name' | grep -q needs-input && skip_task=true
+        ```
+        If `needs-input` is present: log a per-task skip (reason: `"needs_input"`) and exclude this task from selection.
+      - Check for `backlog` or `skip` (exact match):
+        ```bash
+        gh issue view <issue-number> --repo wcjordan/<repo> --json labels \
+          | jq '.labels[].name' | grep -qE '^(backlog|skip)$' && skip_task=true
+        ```
+        If `backlog` or `skip` is present: log a per-task skip (reason: `"backlog_or_skip_label"`) and exclude this task from selection.
    d. Otherwise include the task in the candidate list with its `epic_labels` and `epic_rank`.
 3. Pick the highest-priority eligible task (by Epic priority label P0 > P1 > P2, then Jira rank), transition it to `In Progress`, and trigger the `majordomo-planning-agent` Jenkins job:
    ```bash
@@ -174,32 +181,40 @@ If a planning agent was launched, record `planning_agent_launched: true` in the 
 1. Query Jira for Planning Tasks in status `Approved` across all configured projects
 2. For each approved planning task:
    a. Derive the target repo from the project key (same `config.yaml` lookup as the worker and planning agent)
-   b. Run `gh auth setup-git` and clone the repo into a temp directory: `gh repo clone wcjordan/$REPO /tmp/spinoff-$EPIC_KEY`
-   c. Check out `$FEATURE_BRANCH`
-   d. Read `docs/planning/$EPIC_KEY-spec.md` from the feature branch
-   e. Parse the stages — each `## Stage N:` section yields one Implementation Task
-   f. Create one Jira Implementation Task per stage under the same Epic, in status `Open`, with:
+   b. Fetch the parent Epic to check for skip labels: `GET ${JIRA_URL}/rest/api/3/issue/<EPIC_KEY>?fields=description,labels`
+      - Recursively traverse the Epic's ADF `description` field, collecting all `text` leaf values. Look for a segment matching `GitHub Issue: <url>` and parse the issue number from the URL.
+      - If the GH Issue number was found, check for `backlog` or `skip` labels (exact match):
+        ```bash
+        gh issue view <issue-number> --repo wcjordan/<repo> --json labels \
+          | jq '.labels[].name' | grep -qE '^(backlog|skip)$'
+        ```
+        If `backlog` or `skip` is present: log a per-epic skip (reason: `"backlog_or_skip_label"`), increment `epics_skipped`, and continue to the next approved planning task.
+   c. Run `gh auth setup-git` and clone the repo into a temp directory: `gh repo clone wcjordan/$REPO /tmp/spinoff-$EPIC_KEY`
+   d. Check out `$FEATURE_BRANCH`
+   e. Read `docs/planning/$EPIC_KEY-spec.md` from the feature branch
+   f. Parse the stages — each `## Stage N:` section yields one Implementation Task
+   g. Create one Jira Implementation Task per stage under the same Epic, in status `Open`, with:
       - Title: the stage title (text after `## Stage N:`)
       - Description: the stage description (from `### Description` subsection)
       - Acceptance criteria: from the `### Acceptance Criteria` subsection
       - In the description, also include: `spec_doc_path: docs/planning/$EPIC_KEY-spec.md` and `feature_branch: $FEATURE_BRANCH`
-   g. Transition the Planning Task to `Done`
-   h. **Find the beads planning task** for this epic by searching for a task whose title exactly matches `"Plan: <issue title>"`:
+   h. Transition the Planning Task to `Done`
+   i. **Find the beads planning task** for this epic by searching for a task whose title exactly matches `"Plan: <issue title>"`:
       ```bash
       BEADS_PLAN_ID=$(bd list --json | jq -r '[.[] | select(.title == "Plan: <issue title>")] | first | .id // empty')
       ```
-      If not found or the command fails, log a per-epic error (`"beads_plan_task_not_found"`) and skip steps i–j for this epic. Do not abort; Jira tasks were already created.
-   i. **Create beads subtasks** — for each stage N (in order), capture the returned ID:
+      If not found or the command fails, log a per-epic error (`"beads_plan_task_not_found"`) and skip steps j–k for this epic. Do not abort; Jira tasks were already created.
+   j. **Create beads subtasks** — for each stage N (in order), capture the returned ID:
       ```bash
       BEADS_STAGE_N_ID=$(bd create "Stage N: <title>" --parent "$BEADS_PLAN_ID" --json | jq -r '.id')
       ```
-      If any `bd create` fails, log a per-epic error and skip dependency wiring (step j) for this epic; continue to the next epic.
-   j. **Wire blocking dependencies** — for each consecutive stage pair (N ≥ 2), make stage N depend on stage N−1:
+      If any `bd create` fails, log a per-epic error and skip dependency wiring (step k) for this epic; continue to the next epic.
+   k. **Wire blocking dependencies** — for each consecutive stage pair (N ≥ 2), make stage N depend on stage N−1:
       ```bash
       bd dep add "$BEADS_STAGE_N_ID" "$BEADS_STAGE_N_MINUS_1_ID"
       ```
       If any `bd dep add` fails, log a per-epic error and continue (partial chains are better than none).
-3. Record in the step log: number of approved tasks processed, total implementation tasks created, and total beads subtasks created
+3. Record in the step log: number of approved tasks processed, total implementation tasks created, total beads subtasks created, and `epics_skipped` (count of epics skipped due to `backlog_or_skip_label`)
 
 ---
 
@@ -237,12 +252,19 @@ Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for all Jira 
       - `epic_labels`: the `labels` array from the Epic
       - `epic_rank`: `customfield_10019` from the Epic
       - `gh_issue_url`: recursively traverse the Epic's ADF `description` field, collect all `text` leaf values, and look for a segment matching `GitHub Issue: <url>`. Extract the URL and parse the issue number from it.
-   d. **Needs-input check:** If a GH Issue number was found, check whether the issue carries the `needs-input` label:
-      ```bash
-      gh issue view <issue-number> --repo wcjordan/<repo> --json labels \
-        | jq '.labels[].name' | grep -q needs-input && skip_task=true
-      ```
-      If `needs-input` is present: log a per-task skip (reason: `"needs_input"`) and exclude this task from selection.
+   d. **Skip label checks:** If a GH Issue number was found, check the issue's labels for skip conditions:
+      - Check for `needs-input`:
+        ```bash
+        gh issue view <issue-number> --repo wcjordan/<repo> --json labels \
+          | jq '.labels[].name' | grep -q needs-input && skip_task=true
+        ```
+        If `needs-input` is present: log a per-task skip (reason: `"needs_input"`) and exclude this task from selection.
+      - Check for `backlog` or `skip` (exact match):
+        ```bash
+        gh issue view <issue-number> --repo wcjordan/<repo> --json labels \
+          | jq '.labels[].name' | grep -qE '^(backlog|skip)$' && skip_task=true
+        ```
+        If `backlog` or `skip` is present: log a per-task skip (reason: `"backlog_or_skip_label"`) and exclude this task from selection.
    e. Fetch all Implementation Task siblings under the same Epic:
       - JQL: `parent = <EPIC_KEY> AND issuetype = Task AND summary !~ "Plan:"`
       - Fields: `summary`, `status`, `customfield_10019`
@@ -386,7 +408,7 @@ At the end of each run, emit a single JSON object to stdout:
     {"step": "poll_gh_issues", "status": "ok", "issues_processed": 0},
     {"step": "sync_pr_merge_status", "status": "ok", "tasks_checked": 0, "tasks_transitioned": 0},
     {"step": "eval_planning_tasks", "status": "ok", "planning_agent_launched": false},
-    {"step": "create_impl_tasks", "status": "ok", "approved_tasks_processed": 0, "implementation_tasks_created": 0, "beads_subtasks_created": 0},
+    {"step": "create_impl_tasks", "status": "ok", "approved_tasks_processed": 0, "implementation_tasks_created": 0, "beads_subtasks_created": 0, "epics_skipped": 0},
     {"step": "promote_tasks", "status": "skipped", "message": "replaced by beads dependency graph"},
     {"step": "launch_worker", "status": "ok", "worker_launched": false, "message": "no Ready tasks found"},
     {"step": "check_story_completion", "status": "ok", "epics_checked": 0, "prs_opened": 0, "epics_skipped": 0}
