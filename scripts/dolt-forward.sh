@@ -7,6 +7,11 @@
 
 set -euo pipefail
 
+# In Jenkins, Dolt is reachable directly via k8s DNS — no port-forward needed.
+if [[ -n "${BUILD_NUMBER:-}" ]]; then
+    exec "$@"
+fi
+
 NAMESPACE=minordomo
 LOCAL_PORT=3306
 

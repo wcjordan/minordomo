@@ -215,11 +215,21 @@ Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for all Jira 
 
 1. **Skip check:** If `planning_agent_launched` is `true` from Step 5: log `{"step": "launch_worker", "status": "skipped", "message": "planning agent launched this run"}` and continue to Step 9.
 
-2. **Surface beads eligible tasks (validation):** Run the following and log the result — this is informational only; Jira remains the source of truth for dispatch:
+2. **Promote beads-ready tasks to Jira `Ready`:** Run:
    ```bash
    bd ready --json | jq '[.[] | select(.title | startswith("Plan:") | not)]'
    ```
-   Log the count of beads-eligible implementation tasks.
+   For each beads-ready implementation task returned:
+   a. Strip the `Stage N: ` prefix from the beads title using `gsub("^Stage [0-9]+: "; "")` to obtain the Jira summary.
+   b. Query Jira for a matching Task in `Open` status:
+      - JQL: `project in (<jira_keys>) AND issuetype = Task AND summary = "<jira_summary>" AND status = Open`
+      - `GET ${JIRA_URL}/rest/api/3/search/jql?jql=<encoded_jql>&fields=summary,status&maxResults=5`
+   c. If a match is found, transition it to `Ready`:
+      - `GET ${JIRA_URL}/rest/api/3/issue/<TASK_KEY>/transitions` — find the entry where `to.name == "Ready"` and extract its `id`
+      - `POST ${JIRA_URL}/rest/api/3/issue/<TASK_KEY>/transitions` with body `{"transition": {"id": "<id>"}}`
+      - On error: log a per-task warning and continue (do not abort).
+   d. If no Jira match is found (task already promoted or not yet created), log a per-task warning and continue.
+   Log the count of beads-eligible tasks found and the count of Jira tasks promoted to `Ready`.
 
 3. **Query Ready tasks:** Fetch all Implementation Tasks in status `Ready` across all configured projects:
    - Build comma-separated project keys from config (same as Step 6).
