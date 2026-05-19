@@ -246,7 +246,7 @@ Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for all Jira 
       - Fields: `summary`, `status`, `customfield_10019`
    f. **Exclusion check:** If any sibling has status `In Progress` or `In Review`, exclude this task from selection and continue to the next Ready task.
    g. Otherwise, record for this candidate:
-      - `has_done_siblings`: `true` if any sibling has status `Done`
+      - `has_done_siblings`: `true` if any sibling Implementation Task (summary does NOT start with `"Plan:"`) has status `Done`
       - `priority_order`: `0` if `P0` in epic_labels, `1` if `P1`, `2` if `P2`, `3` otherwise
       - `epic_rank`: the Epic's rank value
 
