@@ -1,30 +1,36 @@
 # MDOMO-48: Task Selection Enhancement — Implementation Plan
 
-## Stage 1: Fix implementation task priority ordering in Step 8
+## Stage 1: Fix `has_done_siblings` to exclude planning tasks in Step 8
 
 ### Description
 
-The current ranking in Majordomo Step 8 ("Rank candidates") sorts by `has_done_siblings` first (continuity heuristic), then `priority_order`, then `epic_rank`. This causes P1 epics with some Done siblings to rank ahead of P0 epics with no Done siblings — a clear violation of intended priority ordering.
+The current ranking in Majordomo Step 8 ("Rank candidates") sorts by `has_done_siblings` first (continuity heuristic — prefer epics already in motion), then `priority_order`, then `epic_rank`. This ordering is correct and should be preserved.
 
-Fix the sort order so that epic priority is always the primary criterion. Continuity is only used as a tiebreaker within the same priority band. Also update `docs/WORKFLOWS.md` to document the corrected ordering.
+The bug is in how `has_done_siblings` is computed: it currently counts any sibling task in Done status, including Planning Tasks (`Plan:` prefix). A planning task completing should not be treated as the epic being "in progress" — only completed Implementation Tasks (tasks whose summary does **not** start with `Plan:`) should set this flag to `true`.
 
-Changes to `majordomo/system-prompt.md` Step 8, step 7 "Rank candidates":
+Fix the `has_done_siblings` computation so it filters to Implementation Tasks only. The sort order itself does not change. Also update `docs/WORKFLOWS.md` to clarify that continuity is the primary criterion and that it is based on completed implementation work only.
+
+Changes to `majordomo/system-prompt.md` Step 8, step 6 (or wherever `has_done_siblings` is computed):
 
 **Before:**
 ```
-Sort by: `has_done_siblings` descending (`true` first),
-then `priority_order` ascending (0=P0 best),
-then `epic_rank` ascending (lexicographic).
+has_done_siblings: true if any sibling task in the same Epic has status Done
 ```
 
 **After:**
 ```
-Sort by: `priority_order` ascending (0=P0 best),
-then `has_done_siblings` descending (`true` first — prefer continuing an epic already in motion),
+has_done_siblings: true if any sibling Implementation Task (summary does NOT start with "Plan:")
+                   in the same Epic has status Done
+```
+
+The sort order in step 7 remains unchanged:
+```
+Sort by: `has_done_siblings` descending (`true` first — prefer continuing an epic already in motion),
+then `priority_order` ascending (0=P0 best),
 then `epic_rank` ascending (lexicographic).
 ```
 
-Changes to `docs/WORKFLOWS.md`, Prioritization section, "Selecting a worker target" bullet list:
+Changes to `docs/WORKFLOWS.md`, Prioritization section, "Selecting a worker target" bullet list — clarify that continuity is first and is based on completed implementation tasks only:
 
 **Before (Step 7):**
 1. Tasks whose Epic has other Implementation Tasks already `Done` (continuity)
@@ -32,14 +38,15 @@ Changes to `docs/WORKFLOWS.md`, Prioritization section, "Selecting a worker targ
 3. Epic Jira rank (`customfield_10019`, ascending lexicographic)
 
 **After:**
-1. Epic priority label: `P0` > `P1` > `P2` > unlabelled
-2. Tasks whose Epic has other Implementation Tasks already `Done` (continuity — tiebreaker within same priority)
+1. Tasks whose Epic has at least one Implementation Task (non-`Plan:`) already `Done` (continuity — Planning Tasks completing do not count)
+2. Epic priority label: `P0` > `P1` > `P2` > unlabelled
 3. Epic Jira rank (`customfield_10019`, ascending lexicographic)
 
 ### Acceptance Criteria
 
-- In `majordomo/system-prompt.md` Step 8 step 7, the sort order is `priority_order` ascending → `has_done_siblings` descending → `epic_rank` ascending
-- In `docs/WORKFLOWS.md`, the Prioritization section "Selecting a worker target" lists epic priority as the first criterion, continuity as second, and Jira rank as third
+- In `majordomo/system-prompt.md` Step 8, `has_done_siblings` is computed using only Implementation Tasks (summaries not starting with `Plan:`) with status Done; Planning Tasks are excluded
+- The sort order in Step 8 step 7 remains `has_done_siblings` descending → `priority_order` ascending → `epic_rank` ascending
+- In `docs/WORKFLOWS.md`, the Prioritization section "Selecting a worker target" lists continuity as the first criterion (with explicit note that planning task completion does not count) and epic priority as second
 - `make test` passes
 
 ---
