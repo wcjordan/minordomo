@@ -107,7 +107,7 @@ Initialize: `tasks_checked = 0`, `tasks_transitioned = 0`, `task_errors = []`
         ```bash
         BEADS_PLAN_ID=$(bd list --json | jq -r --arg title "<fields.summary>" '[.[] | select(.title == $title)] | first | .id // empty')
         if [ -n "$BEADS_PLAN_ID" ]; then
-          bd update "$BEADS_PLAN_ID" --status done
+          bd close "$BEADS_PLAN_ID"
         else
           # log per-task error: beads_plan_task_not_found; do not abort
         fi
@@ -117,7 +117,7 @@ Initialize: `tasks_checked = 0`, `tasks_transitioned = 0`, `task_errors = []`
         BEADS_IMPL_ID=$(bd list --json | jq -r --arg title "<fields.summary>" \
           '[.[] | select(.title | gsub("^Stage [0-9]+: "; "") == $title)] | first | .id // empty')
         if [ -n "$BEADS_IMPL_ID" ]; then
-          bd update "$BEADS_IMPL_ID" --status done
+          bd close "$BEADS_IMPL_ID"
         else
           # log per-task error: beads_impl_task_not_found; do not abort
         fi
