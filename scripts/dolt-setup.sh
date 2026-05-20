@@ -37,14 +37,15 @@ dolt_setup() {
 
   kubectl port-forward svc/dolt-server "${local_port}:3306" -n "$namespace" \
     >/tmp/dolt-forward.log 2>&1 &
-  local pf_pid=$!
-  trap 'kill "$pf_pid" 2>/dev/null; wait "$pf_pid" 2>/dev/null || true' EXIT
+  # Use a non-local var so the EXIT trap can still reference it after the function returns.
+  _DOLT_PF_PID=$!
+  trap 'kill "$_DOLT_PF_PID" 2>/dev/null; wait "$_DOLT_PF_PID" 2>/dev/null || true' EXIT
 
   local deadline=$(( $(date +%s) + connect_timeout ))
   until (echo >/dev/tcp/127.0.0.1/"$local_port") 2>/dev/null; do
     if (( $(date +%s) >= deadline )); then
       echo >&2 "dolt-setup: port-forward did not become ready within ${connect_timeout}s — skipping"
-      kill "$pf_pid" 2>/dev/null || true
+      kill "$_DOLT_PF_PID" 2>/dev/null || true
       unset BEADS_DOLT_SERVER_HOST BEADS_DOLT_SERVER_PORT BEADS_DOLT_SERVER_USER BEADS_DOLT_PASSWORD
       return 0
     fi
