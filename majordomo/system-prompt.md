@@ -149,11 +149,31 @@ Planning Tasks are Jira Tasks (`issuetype = Task`) whose summary starts with `Pl
       ```
       If `needs-input` is present: log a per-task skip (reason: `"needs_input"`) and exclude this task from selection.
    d. Otherwise include the task in the candidate list with its `epic_labels` and `epic_rank`.
-3. Pick the highest-priority eligible task (by Epic priority label P0 > P1 > P2, then Jira rank), transition it to `In Progress`, and trigger the `majordomo-planning-agent` Jenkins job:
-   ```bash
-   curl -X POST -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" \
-     "http://jenkins.${ROOT_DOMAIN}/job/minordomo-plan/job/${BASE_BRANCH}/buildWithParameters?JIRA_TASK_ID=<task_id>"
-   ```
+3. Pick the highest-priority eligible task (by Epic priority label P0 > P1 > P2, then Jira rank). Do not transition or trigger yet.
+
+3a. **Priority guard — check for higher-priority implementation work in beads:**
+   a. Query beads for eligible implementation tasks:
+      ```bash
+      bd ready --json | jq '[.[] | select(.title | startswith("Plan:") | not)]'
+      ```
+   b. Compute `best_impl_priority`: the minimum `.priority` value across all returned tasks (beads priority is an integer, 0=P0 best). If no tasks returned, `best_impl_priority = 4`.
+   c. Compute `planning_priority`: the `.priority` value of the selected planning task's beads record. Retrieve it by title:
+      ```bash
+      bd list --json | jq -r --arg title "<fields.summary>" \
+        '[.[] | select(.title == $title)] | first | .priority // 2'
+      ```
+      If the beads planning task is not found, fall back to deriving priority from `epic_labels` (0 if "P0" in labels, 1 if "P1", 2 if "P2", 3 otherwise).
+   d. If `best_impl_priority < planning_priority`:
+      - Log: `{"decision": "skip_planning_agent", "reason": "higher_priority_impl_work_available", "planning_priority": <value>, "best_impl_priority": <value>}`
+      - Set `planning_agent_launched: false`
+      - Skip to Step 6 — do not transition the planning task, do not trigger Jenkins, do not claim the beads task
+   e. Otherwise (equal priorities, no eligible implementation tasks, or implementation priority is worse): proceed with planning agent launch.
+      Transition the selected task to `In Progress` and trigger the `majordomo-planning-agent` Jenkins job:
+      ```bash
+      curl -X POST -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" \
+        "http://jenkins.${ROOT_DOMAIN}/job/minordomo-plan/job/${BASE_BRANCH}/buildWithParameters?JIRA_TASK_ID=<task_id>"
+      ```
+
 4. After the Jira transition and Jenkins trigger, also claim the corresponding beads planning task:
    ```bash
    BEADS_PLAN_ID=$(bd list --json | jq -r --arg title "<fields.summary>" '[.[] | select(.title == $title)] | first | .id // empty')
@@ -188,13 +208,24 @@ If a planning agent was launched, record `planning_agent_launched: true` in the 
       ```bash
       BEADS_PLAN_ID=$(bd list --json | jq -r '[.[] | select(.title == "Plan: <issue title>")] | first | .id // empty')
       ```
-      If not found or the command fails, log a per-epic error (`"beads_plan_task_not_found"`) and skip steps i–j for this epic. Do not abort; Jira tasks were already created.
-   i. **Create beads subtasks** — for each stage N (in order), capture the returned ID:
+      If not found or the command fails, log a per-epic error (`"beads_plan_task_not_found"`) and skip steps i–k for this epic. Do not abort; Jira tasks were already created.
+   i. **Fetch Epic priority for beads tasks** — fetch the parent Epic's labels to determine priority:
       ```bash
-      BEADS_STAGE_N_ID=$(bd create "Stage N: <title>" --parent "$BEADS_PLAN_ID" --json | jq -r '.id')
+      EPIC_LABELS=$(curl -s -u "${JIRA_EMAIL}:${JIRA_API_TOKEN}" \
+        "${JIRA_URL}/rest/api/3/issue/<EPIC_KEY>?fields=labels" \
+        | jq -r '.fields.labels[]?' 2>/dev/null)
       ```
-      If any `bd create` fails, log a per-epic error and skip dependency wiring (step j) for this epic; continue to the next epic.
-   j. **Wire blocking dependencies** — for each consecutive stage pair (N ≥ 2), make stage N depend on stage N−1:
+      (The Epic key is the parent of the approved planning task — available from `fields.parent.key`.)
+      Look for the first label whose name exactly matches `P0`, `P1`, `P2`, `P3`, or `P4`.
+      Set `EPIC_PRIORITY` to the numeric value (0 for P0, 1 for P1, 2 for P2, 3 for P3, 4 for P4).
+      Default to `2` (P2) if no matching label found.
+      On fetch error: log a per-epic error (`"epic_label_fetch_error"`), set `EPIC_PRIORITY=2`, and continue.
+   j. **Create beads subtasks** — for each stage N (in order), capture the returned ID:
+      ```bash
+      BEADS_STAGE_N_ID=$(bd create "Stage N: <title>" --parent "$BEADS_PLAN_ID" --priority "$EPIC_PRIORITY" --json | jq -r '.id')
+      ```
+      If any `bd create` fails, log a per-epic error and skip dependency wiring (step k) for this epic; continue to the next epic.
+   k. **Wire blocking dependencies** — for each consecutive stage pair (N ≥ 2), make stage N depend on stage N−1:
       ```bash
       bd dep add "$BEADS_STAGE_N_ID" "$BEADS_STAGE_N_MINUS_1_ID"
       ```
@@ -248,7 +279,7 @@ Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for all Jira 
       - Fields: `summary`, `status`, `customfield_10019`
    f. **Exclusion check:** If any sibling has status `In Progress` or `In Review`, exclude this task from selection and continue to the next Ready task.
    g. Otherwise, record for this candidate:
-      - `has_done_siblings`: `true` if any sibling has status `Done`
+      - `has_done_siblings`: `true` if any sibling Implementation Task (summary does NOT start with `"Plan:"`) has status `Done`
       - `priority_order`: `0` if `P0` in epic_labels, `1` if `P1`, `2` if `P2`, `3` otherwise
       - `epic_rank`: the Epic's rank value
 

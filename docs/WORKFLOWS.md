@@ -101,11 +101,15 @@ When a stage's implementation reveals necessary changes to the plan, the spec do
 At most one task per Epic can be promoted at a time (the second check ensures this).
 
 **Selecting a worker target (Step 7):** From all `Ready` tasks, Majordomo excludes tasks whose Epic has a sibling `In Progress` or `In Review`, then ranks the remainder:
-1. Tasks whose Epic has other Implementation Tasks already `Done` (continuity — Epic is making progress)
+1. Tasks whose Epic has at least one Implementation Task (non-`Plan:`) already `Done` (continuity — Planning Tasks completing do not count)
 2. Epic priority label: `P0` > `P1` > `P2` > unlabelled
 3. Epic Jira rank (`customfield_10019`, ascending lexicographic = manual ordering)
 
 Majordomo launches at most one worker per run, and skips worker launch if a planning agent was launched that run.
+
+**Planning agent priority guard (Step 5):** Before launching a planning agent, Majordomo checks whether any higher-priority implementation tasks are available in beads (`bd ready`). If the best unblocked, unclaimed implementation task has a strictly lower numeric priority (0=P0 best) than the selected planning task, the planning agent launch is deferred and Step 8 handles implementation work instead. Equal priorities or no beads-eligible implementation tasks → planning agent proceeds as normal.
+
+Beads (`bd ready`) is used here rather than Jira `status = Ready` because Step 7 (Promote to Ready) is a no-op in the beads migration — Jira implementation tasks remain in `Open` status until a worker claims them. Querying Jira for `status = Ready` would almost always return zero results, making the guard ineffective. `bd ready` correctly surfaces all unblocked, unclaimed implementation tasks regardless of their Jira status.
 
 ---
 
