@@ -5,39 +5,64 @@
 #   worker   — feature branch must exist; always creates a fresh task branch
 #   planning — creates feature branch if missing; resumes task branch if it exists
 #
-# Requires: JIRA_TASK_ID, JIRA_URL, JIRA_EMAIL, JIRA_API_TOKEN, GH_TOKEN, BASE_BRANCH env vars
+# Requires: BEADS_TASK_ID, GH_TOKEN, BASE_BRANCH env vars
 # Exports:  REPO, EPIC_KEY, FEATURE_BRANCH
 
 set -euo pipefail
 
 MODE="${1:?Usage: source setup-workspace.sh <worker|planning>}"
 
-# Derive REPO from the Jira project key via config.yaml
-PROJECT_KEY="${JIRA_TASK_ID%%-*}"
+# Derive REPO from the beads task ID prefix via config.yaml.
+# Beads task IDs are <repo>-<hash>[.<subtask-num>], where the repo name comes first.
 export REPO
 REPO=$(python3 -c "
 import yaml, sys
 cfg = yaml.safe_load(open('shared/config.yaml'))
-matches = [p['repo'] for p in cfg['projects'] if p['jira_key'] == '$PROJECT_KEY']
-if not matches:
-    sys.exit('No repo found for project key $PROJECT_KEY')
-print(matches[0])
+repos = [p['repo'] for p in cfg['projects']]
+bid = '${BEADS_TASK_ID}'
+for repo in repos:
+    if bid.startswith(repo + '-'):
+        print(repo)
+        sys.exit()
+sys.exit('No repo found for BEADS_TASK_ID: ' + bid)
 ")
 
-# Derive EPIC_KEY and FEATURE_BRANCH from the task's parent Epic via Jira REST API
-JIRA_RESPONSE=$(curl -s -f \
-    -u "${JIRA_EMAIL}:${JIRA_API_TOKEN}" \
-    -H "Accept: application/json" \
-    "${JIRA_URL}/rest/api/3/issue/${JIRA_TASK_ID}?fields=parent")
-
-export EPIC_KEY
-EPIC_KEY=$(echo "$JIRA_RESPONSE" | python3 -c "
+# Derive EPIC_KEY by navigating: beads task → parent planning task → GH Issue URL
+# → GH Issue comments → "Jira Epic:" comment.
+#
+# First, find the beads planning task (parent for subtasks, self for planning tasks).
+BEADS_PARENT_ID=$(bd show "${BEADS_TASK_ID}" --json | python3 -c "
 import json, sys
 data = json.load(sys.stdin)
-parent = data.get('fields', {}).get('parent', {})
-if not parent:
-    sys.exit('No parent Epic found on task $JIRA_TASK_ID')
-print(parent['key'])
+task = data[0]
+parent = task.get('parent', '')
+print(parent if parent else task['id'])
+")
+
+# Get GH Issue URL from the planning task description.
+GH_ISSUE_URL=$(bd show "${BEADS_PARENT_ID}" --json | python3 -c "
+import json, sys, re
+data = json.load(sys.stdin)
+desc = data[0].get('description', '')
+m = re.search(r'GH Issue: (https://\S+)', desc)
+if not m:
+    sys.exit('No GH Issue URL in beads planning task description for ${BEADS_PARENT_ID}')
+print(m.group(1))
+")
+
+GH_ISSUE_NUM=$(echo "$GH_ISSUE_URL" | grep -oE '/issues/[0-9]+' | grep -oE '[0-9]+')
+
+# Find the Jira Epic key from GH Issue comments (Majordomo posts "Jira Epic: <KEY>" as comment).
+export EPIC_KEY
+EPIC_KEY=$(gh issue view "$GH_ISSUE_NUM" --repo "wcjordan/${REPO}" --comments --json comments | python3 -c "
+import json, sys, re
+data = json.load(sys.stdin)
+for comment in data.get('comments', []):
+    m = re.search(r'Jira Epic: (\w+-[0-9]+)', comment.get('body', ''))
+    if m:
+        print(m.group(1))
+        sys.exit()
+sys.exit('No Jira Epic key found in GH Issue ${GH_ISSUE_NUM} comments')
 ")
 export FEATURE_BRANCH="feature/${EPIC_KEY}"
 
@@ -61,31 +86,18 @@ if [[ "$MODE" == "planning" ]]; then
 else
     git checkout "${FEATURE_BRANCH}"
 
-    # Detect if this is the first implementation task of the Epic.
+    # Detect if this is the first (stage-1) implementation task of the Epic.
     # If so, merge origin/${BASE_BRANCH} into the feature branch before creating the task branch.
-    JQL="parent = ${EPIC_KEY} AND issuetype = Task AND summary !~ \"Plan:\""
-    JQL_ENCODED=$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]))" "$JQL")
-    SIBLINGS_RESPONSE=$(curl -s -w "\n%{http_code}" \
-        -u "${JIRA_EMAIL}:${JIRA_API_TOKEN}" \
-        -H "Accept: application/json" \
-        "${JIRA_URL}/rest/api/3/search/jql?jql=${JQL_ENCODED}&fields=customfield_10019&maxResults=100")
-    SIBLINGS_HTTP_CODE=$(echo "$SIBLINGS_RESPONSE" | tail -1)
-    SIBLINGS_JSON=$(echo "$SIBLINGS_RESPONSE" | sed '$d')
-    if [[ "$SIBLINGS_HTTP_CODE" != "200" ]]; then
-        echo "WARNING: Jira sibling query failed (HTTP ${SIBLINGS_HTTP_CODE}): ${SIBLINGS_JSON}" >&2
-        echo "Skipping base-branch merge — grant the service account Browse Projects permission to enable this." >&2
-        IS_FIRST_TASK="unknown"
-    else
-        IS_FIRST_TASK=$(echo "$SIBLINGS_JSON" | python3 -c "
+    # A task is Stage 1 if it has no "blocks"-type sibling dependencies (only parent-child).
+    IS_FIRST_TASK=$(bd show "${BEADS_TASK_ID}" --json | python3 -c "
 import json, sys
 data = json.load(sys.stdin)
-issues = data.get('issues', [])
-if not issues:
-    sys.exit('No implementation siblings found for Epic ${EPIC_KEY}')
-sorted_issues = sorted(issues, key=lambda x: x['fields'].get('customfield_10019', ''))
-print('yes' if sorted_issues[0]['key'] == '${JIRA_TASK_ID}' else 'no')
+task = data[0]
+deps = task.get('dependencies', [])
+blocks_deps = [d for d in deps if d.get('type') == 'blocks']
+# Stage 1 has no blocking sibling dependencies
+print('yes' if not blocks_deps else 'no')
 ")
-    fi
 
     if [[ "$IS_FIRST_TASK" == "yes" ]]; then
         git fetch origin "${BASE_BRANCH}"
@@ -97,17 +109,17 @@ fi
 # Task branch: planning resumes an existing branch because the Needs Input cycle re-triggers
 # it on the same task (research notes from the first run must survive). Workers have no
 # re-run cycle yet — each Implementation Task is expected to complete in one shot — so
-# always creating fresh keeps things simple. If worker re-runs are added later (Stage 6+),
-# resume logic will need to be introduced here.
+# always creating fresh keeps things simple. If worker re-runs are added later, resume
+# logic will need to be introduced here.
 if [[ "$MODE" == "planning" ]]; then
-    if git ls-remote --exit-code origin "task/${JIRA_TASK_ID}" > /dev/null 2>&1; then
-        git checkout "task/${JIRA_TASK_ID}"
+    if git ls-remote --exit-code origin "task/${BEADS_TASK_ID}" > /dev/null 2>&1; then
+        git checkout "task/${BEADS_TASK_ID}"
         git pull
     else
-        git checkout -b "task/${JIRA_TASK_ID}"
+        git checkout -b "task/${BEADS_TASK_ID}"
     fi
 else
-    git checkout -b "task/${JIRA_TASK_ID}"
+    git checkout -b "task/${BEADS_TASK_ID}"
 fi
 
 # Initialize the beads workspace against the central Dolt server.

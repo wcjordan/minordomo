@@ -21,6 +21,7 @@ git clone "$REMOTE" "$INIT" -q
 git -C "$INIT" -c user.email="t@t.com" -c user.name="T" \
     commit --allow-empty -m "Initial commit" -q
 git -C "$INIT" push origin HEAD:main -q
+git -C "$INIT" push origin HEAD:blocked_beads -q
 
 # ---------------------------------------------------------------------------
 # Mock binaries
@@ -34,16 +35,11 @@ cat > "$MOCKS/gh" << 'MOCK'
 case "$1 $2" in
   "auth setup-git") exit 0 ;;
   "repo clone") git clone "$REMOTE" "$4" -q ;;
+  "issue view") echo '{"comments":[{"body":"Jira Epic: MDOMO-1"}]}' ;;
   *) echo "mock gh: unhandled: $*" >&2; exit 1 ;;
 esac
 MOCK
 chmod +x "$MOCKS/gh"
-
-cat > "$MOCKS/curl" << 'MOCK'
-#!/usr/bin/env bash
-cat "$REPO_ROOT/test/fixtures/jira-task-response.json"
-MOCK
-chmod +x "$MOCKS/curl"
 
 CLAUDE_CALLS="$WORK/claude-calls.log"
 cat > "$MOCKS/claude" << MOCK
@@ -55,7 +51,20 @@ chmod +x "$MOCKS/claude"
 
 cat > "$MOCKS/bd" << 'MOCK'
 #!/usr/bin/env bash
-exit 0
+case "$1" in
+  "dolt") exit 0 ;;
+  "stats") exit 0 ;;
+  "show")
+    TASK_ID="$2"
+    case "$TASK_ID" in
+      "minordomo-abc")
+        echo '[{"id":"minordomo-abc","title":"Plan: Test Task","description":"GH Issue: https://github.com/wcjordan/minordomo/issues/54"}]'
+        ;;
+      *) echo "[]" ;;
+    esac
+    ;;
+  *) exit 0 ;;
+esac
 MOCK
 chmod +x "$MOCKS/bd"
 
@@ -69,7 +78,7 @@ export GH_APP_PSW="gh-fake-token"
 export JIRA_ACCT_PSW="jira-fake-token"
 export JIRA_ACCT_USR="test@example.com"
 export JIRA_CLOUD_ID="test-cloud-id"
-export JIRA_TASK_ID="MDOMO-44"
+export BEADS_TASK_ID="minordomo-abc"
 export BEADS_DOLT_SERVER_USER="minordomo"
 export HOME="$WORK/home"
 mkdir -p "$HOME"

@@ -7,7 +7,7 @@ pipeline {
         timestamps()
     }
     parameters {
-        string(name: 'JIRA_TASK_ID', description: 'Jira task ID to implement (e.g. MDOMO-44)', trim: true)
+        string(name: 'BEADS_TASK_ID', description: 'Beads task ID to implement (e.g. minordomo-856.2)', trim: true)
     }
     stages {
         stage('Worker') {
