@@ -147,11 +147,31 @@ Planning Tasks are Jira Tasks (`issuetype = Task`) whose summary starts with `Pl
       ```
       If `needs-input` is present: log a per-task skip (reason: `"needs_input"`) and exclude this task from selection.
    d. Otherwise include the task in the candidate list with its `epic_labels` and `epic_rank`.
-3. Pick the highest-priority eligible task (by Epic priority label P0 > P1 > P2, then Jira rank), transition it to `In Progress`, and trigger the `majordomo-planning-agent` Jenkins job:
-   ```bash
-   curl -X POST -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" \
-     "http://jenkins.${ROOT_DOMAIN}/job/minordomo-plan/job/${BASE_BRANCH}/buildWithParameters?JIRA_TASK_ID=<task_id>"
-   ```
+3. Pick the highest-priority eligible task (by Epic priority label P0 > P1 > P2, then Jira rank). Do not transition or trigger yet.
+
+3a. **Priority guard — check for higher-priority implementation work in beads:**
+   a. Query beads for eligible implementation tasks:
+      ```bash
+      bd ready --json | jq '[.[] | select(.title | startswith("Plan:") | not)]'
+      ```
+   b. Compute `best_impl_priority`: the minimum `.priority` value across all returned tasks (beads priority is an integer, 0=P0 best). If no tasks returned, `best_impl_priority = 4`.
+   c. Compute `planning_priority`: the `.priority` value of the selected planning task's beads record. Retrieve it by title:
+      ```bash
+      bd list --json | jq -r --arg title "<fields.summary>" \
+        '[.[] | select(.title == $title)] | first | .priority // 2'
+      ```
+      If the beads planning task is not found, fall back to deriving priority from `epic_labels` (0 if "P0" in labels, 1 if "P1", 2 if "P2", 3 otherwise).
+   d. If `best_impl_priority < planning_priority`:
+      - Log: `{"decision": "skip_planning_agent", "reason": "higher_priority_impl_work_available", "planning_priority": <value>, "best_impl_priority": <value>}`
+      - Set `planning_agent_launched: false`
+      - Skip to Step 6 — do not transition the planning task, do not trigger Jenkins, do not claim the beads task
+   e. Otherwise (equal priorities, no eligible implementation tasks, or implementation priority is worse): proceed with planning agent launch.
+      Transition the selected task to `In Progress` and trigger the `majordomo-planning-agent` Jenkins job:
+      ```bash
+      curl -X POST -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" \
+        "http://jenkins.${ROOT_DOMAIN}/job/minordomo-plan/job/${BASE_BRANCH}/buildWithParameters?JIRA_TASK_ID=<task_id>"
+      ```
+
 4. After the Jira transition and Jenkins trigger, also claim the corresponding beads planning task:
    ```bash
    BEADS_PLAN_ID=$(bd list --json | jq -r --arg title "<fields.summary>" '[.[] | select(.title == $title)] | first | .id // empty')
