@@ -62,15 +62,23 @@ For each project in config:
    c. Post a comment on the GH Issue with the Jira Epic key: `gh issue comment <number> --repo wcjordan/<repo> --body "Jira Epic: <EPIC_KEY>"`
    d. Apply the `jira-epic-created` label: `gh issue edit <number> --repo wcjordan/<repo> --add-label jira-epic-created`
    e. Determine priority from the issue's labels: look for a label whose name matches `P0`, `P1`, `P2`, `P3`, or `P4` (exact match). Use the first match as the priority; default to `P2` if none found.
-   f. Create a beads planning task — shell-quote the title to handle spaces and special characters:
-      `bd create "Plan: <issue title>" --priority <priority> --description "GH Issue: <issue url>"`
-      If this call fails, log the per-issue error and continue; do not abort processing of other issues.
+   f. Create beads tasks — shell-quote titles to handle spaces and special characters:
+      1. Create the Story bead and capture its ID:
+         ```bash
+         BEADS_STORY_ID=$(bd create "Story: <issue title>" --priority <priority> --description "GH Issue: <issue url>" --json | jq -r '.id')
+         ```
+         If this call fails or `BEADS_STORY_ID` is empty, log the per-issue error (`beads_story_task_creation_failed`) and continue to the next issue; do not abort processing of other issues.
+      2. Create the Plan bead as a child of the Story:
+         ```bash
+         bd create "Plan: <issue title>" --parent "$BEADS_STORY_ID" --priority <priority> --description "GH Issue: <issue url>"
+         ```
+         If this call fails, log the per-issue error (`beads_plan_task_creation_failed`) and continue; do not abort processing of other issues.
    g. Apply the `beads-ingested` label: `gh issue edit <number> --repo wcjordan/<repo> --add-label beads-ingested`
 
 Record in the step log:
 - Total issues fetched per repo
 - Issues skipped (already labelled)
-- Issues processed (Jira Epic + Planning Task + beads task created)
+- Issues processed (Jira Epic + Planning Task + beads tasks created)
 - Beads task creation errors (per-issue; do not abort the whole step)
 - Any other per-issue errors (log and continue; do not abort the whole step)
 
