@@ -196,9 +196,9 @@ If a planning agent was launched, record `planning_agent_launched: true` in the 
       - Acceptance criteria: from the `### Acceptance Criteria` subsection
       - In the description, also include: `spec_doc_path: docs/planning/$EPIC_KEY-spec.md` and `feature_branch: $FEATURE_BRANCH`
    g. Transition the Planning Task to `Done`
-   h. **Find the beads planning task** for this epic by searching for a task whose title exactly matches `"Plan: <issue title>"`:
+   h. **Find the beads planning task** for this epic by matching directly against the Jira planning task's `fields.summary` (e.g. `"Plan: Planning task should be a bead under the story"`). The beads title is set equal to the Jira summary at creation time, so use it as-is — do **not** prepend `"Plan:"` again:
       ```bash
-      BEADS_PLAN_ID=$(bd list --json | jq -r '[.[] | select(.title == "Plan: <issue title>")] | first | .id // empty')
+      BEADS_PLAN_ID=$(bd list --json | jq -r --arg title "<fields.summary>" '[.[] | select(.title == $title)] | first | .id // empty')
       ```
       If not found or the command fails, log a per-epic error (`"beads_plan_task_not_found"`) and skip steps i–l for this epic. Do not abort; Jira tasks were already created.
    i. **Fetch Epic priority for beads tasks** — fetch the parent Epic's labels to determine priority:
