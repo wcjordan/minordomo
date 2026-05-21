@@ -46,6 +46,10 @@ echo "Derived REPO=${REPO} EPIC_KEY=${EPIC_KEY} FEATURE_BRANCH=${FEATURE_BRANCH}
 # Wire up git credential helper so plain git commands can auth via GH_TOKEN.
 gh auth setup-git
 
+# Set git committer identity (required for merge commits).
+git config --global user.name "minordomo"
+git config --global user.email "$(echo "${ROOT_DOMAIN}" | cut -d. -f1)@gmail.com"
+
 # Clone the target repo and cd into it.
 gh repo clone "wcjordan/${REPO}" "${REPO}"
 cd "${REPO}"
