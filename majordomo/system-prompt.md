@@ -252,9 +252,10 @@ Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for all Jira 
    For each beads-ready implementation task returned:
    a. Strip the `Stage N: ` prefix from the beads title using `gsub("^Stage [0-9]+: "; "")` to obtain the Jira summary.
    b. Query Jira for a matching Task in `Open` status:
-      - JQL: `project in (<jira_keys>) AND issuetype = Task AND summary = "<jira_summary>" AND status = Open`
+      - JQL: `project in (<jira_keys>) AND issuetype = Task AND summary ~ "<jira_summary>" AND status = Open`
       - `GET ${JIRA_URL}/rest/api/3/search/jql?jql=<encoded_jql>&fields=summary,status&maxResults=5`
-   c. If a match is found, transition it to `Ready`:
+      - Jira text fields don't support `=` for exact match; use `~` as a pre-filter, then discard any result where `fields.summary` does not exactly equal `<jira_summary>` (case-sensitive).
+   c. If a match is found after the client-side exact filter, transition it to `Ready`:
       - `GET ${JIRA_URL}/rest/api/3/issue/<TASK_KEY>/transitions` — find the entry where `to.name == "Ready"` and extract its `id`
       - `POST ${JIRA_URL}/rest/api/3/issue/<TASK_KEY>/transitions` with body `{"transition": {"id": "<id>"}}`
       - On error: log a per-task warning and continue (do not abort).
