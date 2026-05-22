@@ -113,7 +113,7 @@ Initialize: `tasks_checked = 0`, `tasks_transitioned = 0`, `task_errors = []`
       - `GET ${JIRA_URL}/rest/api/3/issue/<TASK_KEY>/transitions` — find the entry where `to.name` matches the target status and extract its `id`
       - `POST ${JIRA_URL}/rest/api/3/issue/<TASK_KEY>/transitions` with body `{"transition": {"id": "<id>"}}`
       - On success: increment `tasks_transitioned`
-      - If the task was a Planning Task (summary starts with `"Plan:"`): do **not** close the beads planning task here. Step 6 needs it open to create subtasks under it; Step 6 will close it after the spinoff completes.
+      - If the task was a Planning Task (summary starts with `"Plan:"`): do **not** close the beads planning task here. The Plan bead remains open as a child of the Story bead after the spinoff.
       - If the task was an Implementation Task (summary does NOT start with `"Plan:"`), also mark the corresponding beads subtask done — beads subtask titles have the form `"Stage N: <jira_summary>"`, so find it by stripping the prefix and matching against the Jira summary:
         ```bash
         BEADS_IMPL_ID=$(bd list --json | jq -r --arg title "<fields.summary>" \
@@ -204,11 +204,11 @@ If a planning agent was launched, record `planning_agent_launched: true` in the 
       - Acceptance criteria: from the `### Acceptance Criteria` subsection
       - In the description, also include: `spec_doc_path: docs/planning/$EPIC_KEY-spec.md` and `feature_branch: $FEATURE_BRANCH`
    g. Transition the Planning Task to `Done`
-   h. **Find the beads planning task** for this epic by matching directly against the Jira planning task's `fields.summary` (e.g. `"Plan: Planning task should be a bead under the story"`). The beads title is set equal to the Jira summary at creation time, so use it as-is — do **not** prepend `"Plan:"` again:
+   h. **Find the beads story task** for this epic using the Epic's summary (fetch the Epic via `fields.parent.key` if not already retrieved):
       ```bash
-      BEADS_PLAN_ID=$(bd list --json | jq -r --arg title "<fields.summary>" '[.[] | select(.title == $title)] | first | .id // empty')
+      BEADS_STORY_ID=$(bd list --json | jq -r --arg title "Story: <epic_summary>" '[.[] | select(.title == $title)] | first | .id // empty')
       ```
-      If not found or the command fails, log a per-epic error (`"beads_plan_task_not_found"`) and skip steps i–l for this epic. Do not abort; Jira tasks were already created.
+      If not found or the command fails, log a per-epic error (`"beads_story_task_not_found"`) and skip steps i–k for this epic. Do not abort; Jira tasks were already created.
    i. **Fetch Epic priority for beads tasks** — fetch the parent Epic's labels to determine priority:
       ```bash
       EPIC_LABELS=$(curl -s -u "${JIRA_EMAIL}:${JIRA_API_TOKEN}" \
@@ -222,7 +222,7 @@ If a planning agent was launched, record `planning_agent_launched: true` in the 
       On fetch error: log a per-epic error (`"epic_label_fetch_error"`), set `EPIC_PRIORITY=2`, and continue.
    j. **Create beads subtasks** — for each stage N (in order), capture the returned ID:
       ```bash
-      BEADS_STAGE_N_ID=$(bd create "Stage N: <title>" --parent "$BEADS_PLAN_ID" --priority "$EPIC_PRIORITY" --json | jq -r '.id')
+      BEADS_STAGE_N_ID=$(bd create "Stage N: <title>" --parent "$BEADS_STORY_ID" --priority "$EPIC_PRIORITY" --json | jq -r '.id')
       ```
       If any `bd create` fails, log a per-epic error and skip dependency wiring (step k) for this epic; continue to the next epic.
    k. **Wire blocking dependencies** — for each consecutive stage pair (N ≥ 2), make stage N depend on stage N−1:
@@ -230,11 +230,6 @@ If a planning agent was launched, record `planning_agent_launched: true` in the 
       bd dep add "$BEADS_STAGE_N_ID" "$BEADS_STAGE_N_MINUS_1_ID"
       ```
       If any `bd dep add` fails, log a per-epic error and continue (partial chains are better than none).
-   l. **Close the beads planning task** — now that subtasks and dependencies are wired, close the parent planning task:
-      ```bash
-      bd close "$BEADS_PLAN_ID"
-      ```
-      If this fails, log a per-epic error and continue (subtasks are already created; this is non-fatal).
 3. Record in the step log: number of approved tasks processed, total implementation tasks created, and total beads subtasks created
 
 ---
@@ -352,12 +347,12 @@ For each project in config (repo + jira_key):
       - Fields: `summary`, `status`
       - Separate into Planning Tasks (summary starts with `Plan:`) and Implementation Tasks (all others).
    c. **Skip — no impl tasks:** If the Implementation Tasks list is empty, increment `epics_skipped` (reason: `"no_impl_tasks"`) and continue to the next Epic.
-   d. **Skip — incomplete:** If any Implementation Task has status other than `Done`, increment `epics_skipped` (reason: `"impl_tasks_not_done"`) and continue to the next Epic. Alongside this Jira check, also validate beads subtask state — find the beads planning task by matching its title against `"Plan: <epic_summary>"`, then check all its children:
+   d. **Skip — incomplete:** If any Implementation Task has status other than `Done`, increment `epics_skipped` (reason: `"impl_tasks_not_done"`) and continue to the next Epic. Alongside this Jira check, also validate beads subtask state — find the beads story task by matching its title against `"Story: <epic_summary>"`, then check all its children:
       ```bash
-      BEADS_PLAN_ID=$(bd list --json | jq -r --arg title "Plan: <epic_summary>" \
+      BEADS_STORY_ID=$(bd list --json | jq -r --arg title "Story: <epic_summary>" \
         '[.[] | select(.title == $title)] | first | .id // empty')
-      if [ -n "$BEADS_PLAN_ID" ]; then
-        bd list --parent "$BEADS_PLAN_ID" --json | jq 'all(.status == "done")'
+      if [ -n "$BEADS_STORY_ID" ]; then
+        bd list --parent "$BEADS_STORY_ID" --json | jq 'all(.status == "done")'
         # Log the result for observability; use Jira task status as the authoritative gate
       fi
       ```
