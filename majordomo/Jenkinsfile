@@ -49,7 +49,11 @@ pipeline {
                         source shared/setup-env.sh
                         source shared/setup-claude.sh
 
-                        claude -p "$(cat majordomo/system-prompt.md)" | tee /tmp/prompt-output.txt
+                        CLAUDE_EXIT=0
+                        claude -p "$(cat majordomo/system-prompt.md)" --output-format json \
+                          > /tmp/claude-output.json || CLAUDE_EXIT=$?
+                        python3 shared/report-token-usage.py /tmp/claude-output.json || true
+                        exit $CLAUDE_EXIT
                     '''
                 }
             }
