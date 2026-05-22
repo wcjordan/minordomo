@@ -3,7 +3,7 @@ allowed_gh_users:
   - wcjordan
 
 # Branch that new feature branches are created from
-base_branch: blocked_beads
+base_branch: main
 
 # Repos tracked by Majordomo and their Jira project keys
 projects:
