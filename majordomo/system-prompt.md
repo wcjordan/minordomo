@@ -230,6 +230,14 @@ If a planning agent was launched, record `planning_agent_launched: true` in the 
       bd dep add "$BEADS_STAGE_N_ID" "$BEADS_STAGE_N_MINUS_1_ID"
       ```
       If any `bd dep add` fails, log a per-epic error and continue (partial chains are better than none).
+   l. **Close the beads planning task** — now that subtasks and dependencies are wired, look up and close the Plan bead by the planning task's summary:
+      ```bash
+      BEADS_PLAN_ID=$(bd list --json | jq -r --arg title "<planning_task_summary>" '[.[] | select(.title == $title)] | first | .id // empty')
+      if [ -n "$BEADS_PLAN_ID" ]; then
+        bd close "$BEADS_PLAN_ID"
+      fi
+      ```
+      If not found or `bd close` fails, log a per-epic warning and continue (the Jira task was already transitioned to Done in step g).
 3. Record in the step log: number of approved tasks processed, total implementation tasks created, and total beads subtasks created
 
 ---
