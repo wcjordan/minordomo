@@ -11,3 +11,4 @@
 {"id":"int-bb345967","kind":"field_change","created_at":"2026-05-23T02:08:44.425095Z","actor":"minordomo","issue_id":"minordomo-wl8.1","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Closed"}}
 {"id":"int-fa2c7cb3","kind":"field_change","created_at":"2026-05-23T02:08:58.594984Z","actor":"minordomo","issue_id":"minordomo-af8","extra":{"field":"status","new_value":"closed","old_value":"open","reason":"Duplicate of minordomo-tic"}}
 {"id":"int-1e1e0544","kind":"field_change","created_at":"2026-05-23T02:10:16.867386Z","actor":"minordomo","issue_id":"minordomo-tic.1","extra":{"field":"status","new_value":"open","old_value":"in_progress"}}
+{"id":"int-34cc460b","kind":"field_change","created_at":"2026-05-23T02:32:11.81361Z","actor":"minordomo","issue_id":"minordomo-af8","extra":{"field":"status","new_value":"closed","old_value":"open","reason":"Duplicate of minordomo-tic"}}
