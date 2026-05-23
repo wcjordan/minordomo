@@ -6,64 +6,73 @@ GitHub Issue #90 body is empty — title only: "Email me if a run fails".
 Jira Epic MDOMO-67 description contains only the GitHub Issue URL.
 No prior requirements or design notes exist.
 
+## Answers from owner (GH Issue #90 comments, 2026-05-23)
+
+1. **Email delivery**: Use Amazon SES. Owner will provide API credentials once given setup instructions.
+2. **Recipient address**: Derive from domain — `${DOMAIN_ROOT}@gmail.com` (same convention as JENKINS_USERNAME).
+3. **Which jobs**: All 4 jobs — `majordomo`, `minordomo-plan`, `minordomo-step`, `minordomo-container-builder`.
+4. **Failure threshold**: Email on errors as well as hard failures. Email body = same output as build description.
+
 ## Jenkins Jobs ("runs") in scope
 
-Three pipeline jobs send agents to do work:
+Four pipeline jobs will receive notifications:
 
-| Job | Jenkinsfile | Trigger |
-|---|---|---|
-| `majordomo` | `majordomo/Jenkinsfile` | Manual/cron |
-| `minordomo-plan` | `minordomo-plan/Jenkinsfile` | Triggered by Majordomo |
-| `minordomo-step` | `minordomo-step/Jenkinsfile` | Triggered by Majordomo |
+| Job | Jenkinsfile | Trigger | Container |
+|---|---|---|---|
+| `majordomo` | `majordomo/Jenkinsfile` | Manual/cron | minordomo-image |
+| `minordomo-plan` | `minordomo-plan/Jenkinsfile` | Triggered by Majordomo | minordomo-image |
+| `minordomo-step` | `minordomo-step/Jenkinsfile` | Triggered by Majordomo | minordomo-image |
+| `minordomo-container-builder` | `minordomo-container-builder/Jenkinsfile` | Weekly cron | docker:27-dind / jenkins-helm |
 
-A fourth job (`minordomo-container-builder`) builds the Docker image on a weekly cron — it is unclear whether this counts as "a run" for notification purposes.
+Note: `majordomo` has TWO stages — "Majordomo" (runs Claude) and "Beads Status" (runs bd). The "Beads Status" stage is skipped on hard failure of stage 1.
 
 ## Failure modes
 
-1. **Jenkins FAILURE status** — `claude -p` exits non-zero (unrecoverable errors, timeout, container crash). This is the canonical "build failed" state visible in Jenkins UI.
-2. **Agent run log `"status": "failure"`** — the Claude agent exits non-zero when a fatal error occurs. Since all Jenkinsfiles use `set -euo pipefail`, any non-zero exit propagates to Jenkins FAILURE. However, partial failures (per-issue errors, per-task errors) are logged in the run log `errors` array but still exit 0 — Jenkins would show SUCCESS in this case.
+1. **Jenkins FAILURE status** — `claude -p` exits non-zero (unrecoverable errors, timeout, container crash). All Jenkinsfiles use `set -euo pipefail`, so any non-zero exit propagates.
+2. **Agent run log `"status": "failure"`** — agent emits JSON run log to stdout; exits 0 even when `"status": "failure"` or `"errors": [...]` is non-empty. Jenkins shows SUCCESS in this case.
 
-## Existing email infrastructure
+Both modes must trigger notification.
 
-No email-sending code or credentials exist in the repo. The only email-related patterns are:
+## Current build description mechanism
 
-- `JIRA_EMAIL` — used for Jira API basic auth (not a sending address)
-- `JENKINS_USERNAME` — derived as `${DOMAIN_ROOT}@gmail.com` (e.g., `flipperkid@gmail.com` if ROOT_DOMAIN is `flipperkid.com`)
-- No SMTP credential, no mail plugin configuration, no emailext usage anywhere
+All 3 agent Jenkinsfiles capture Claude output via `tee /tmp/prompt-output.txt` and in `post { always }` set `currentBuild.description = output`. The `majordomo` Jenkinsfile also appends beads status in stage 2's post block.
 
-## Design questions (see Jira/GH comments)
+## Implementation design
 
-### 1. Email delivery mechanism
-Options:
-- **Jenkins built-in `mail()` step** — runs on Jenkins controller node, requires SMTP configured globally in Jenkins global settings (outside this repo). Zero new code in the container.
-- **Jenkins `emailext` plugin** — more configurable, also requires Jenkins SMTP.
-- **Container-side Python smtplib** — requires adding a new SMTP credential to Jenkins + code in the container's post block.
-- **External service** (SendGrid, Gmail API) — requires a new credential + more complex code.
+### Notification infrastructure (Stage 1)
+- `shared/notify-failure.py` — boto3 SES email sender
+  - CLI: `--subject SUBJECT [--body-file FILE]`
+  - Env: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SES_REGION` (default: us-east-1), `NOTIFICATION_EMAIL`, `SES_SENDER_EMAIL` (defaults to `NOTIFICATION_EMAIL`)
+  - Always exits 0 (notification failures must not break builds)
+  - Skip silently if `NOTIFICATION_EMAIL` not set
+- `requirements.txt`: add `boto3>=1.34`
+- `setup-env.sh`: export `NOTIFICATION_EMAIL="${DOMAIN_ROOT}@gmail.com"`
+- `docs/setup/aws-ses-setup.md`: human-facing setup instructions
 
-### 2. Recipient email address
-Options:
-- New `notification_email` field in `shared/config.yaml`
-- New Jenkins global env var (like `JIRA_CLOUD_ID`)
-- Derive from existing `JENKINS_USERNAME` / `ROOT_DOMAIN` convention (`${DOMAIN_ROOT}@gmail.com`)
+### Error detection (Stage 2)
+- In each agent job's stage `post { always }` block, after setting description:
+  - Parse `/tmp/prompt-output.txt` as JSON using `python3 -c`
+  - If `status == "failure"` or `errors` list is non-empty, set `currentBuild.result = 'FAILURE'`
+  - This causes the pipeline-level `post { failure }` (Stage 3) to fire
 
-### 3. Which jobs count as "a run"
-- Just `majordomo`, `minordomo-plan`, `minordomo-step`?
-- Also `minordomo-container-builder`?
+### Pipeline-level notification (Stage 3)
+- Add `post { failure { script { podTemplate { node(POD_LABEL) { ... } } } } }` at pipeline level for all 4 jobs
+- Spins up a minordomo-image pod (also works for container-builder which uses other images)
+- Body: `currentBuild.description ?: "Build failed.\nURL: ${env.BUILD_URL}"`
+- Body written via `writeFile` to workspace (after `checkout scm`), passed as `--body-file`
+- Credentials: `aws-ses-access-key-id`, `aws-ses-secret-access-key` Jenkins credentials
 
-### 4. Failure threshold / content
-- Only Jenkins `FAILURE` state, or also when agent's run log has errors but exits 0?
-- Content: minimal subject + build URL, or include the run log excerpt (available in `currentBuild.description`)?
-- Rate limiting: if Majordomo runs hourly and fails repeatedly, suppress duplicates?
+### SES sender/recipient
+- Both sender and recipient are `${DOMAIN_ROOT}@gmail.com`
+- In SES sandbox: this email must be verified as a SES identity
+- The same verification covers both sender and recipient since they're the same address
 
-## Implementation sketch (pending answers)
+## Jenkins credential IDs to create
 
-If Jenkins `mail()` + `NOTIFICATION_EMAIL` env var:
-- Add `NOTIFICATION_EMAIL` global Jenkins env var (documented in README)
-- Add `post { failure { mail(to: env.NOTIFICATION_EMAIL, ...) } }` at pipeline level in each Jenkinsfile
-- ~10 lines per Jenkinsfile, no container or image changes needed
+| Jenkins Credential ID | Type | Description |
+|---|---|---|
+| `aws-ses-access-key-id` | Secret text | AWS IAM Access Key ID |
+| `aws-ses-secret-access-key` | Secret text | AWS IAM Secret Access Key |
 
-If container-side sender:
-- Add SMTP credential to Jenkins + helm secrets
-- Add Python email helper script
-- Add to `requirements.txt` if needed
-- More involved (~2-3 stages)
+`ROOT_DOMAIN` is already a Jenkins global env var.
+`AWS_SES_REGION` can be a global env var or default to `us-east-1` in the script.
