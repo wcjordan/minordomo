@@ -31,13 +31,21 @@ Sub-step f2 must:
      git -C /tmp/spinoff-<EPIC_KEY> pull --ff-only origin feature/<EPIC_KEY>
      ```
 
-2. Delete the spec doc and research directory if they exist:
+2. Review planning and research docs before deletion: read
+   `docs/planning/<EPIC_KEY>-spec.md` and any files under `docs/research/<EPIC_KEY>/`
+   from the checked-out feature branch.  For any architecture decisions, rationale, or
+   context not already captured in code, system prompts, or general docs, update the
+   appropriate general docs (README.md, CLAUDE.md, docs/GETTING_AROUND.md,
+   docs/WORKFLOWS.md, or docs/agent-workflow-spec.md) on the feature branch.  Commit
+   any such updates with message `"docs: update general docs from <EPIC_KEY> planning artifacts"`.
+
+3. Delete the spec doc and research directory if they exist:
    ```bash
    git -C /tmp/spinoff-<EPIC_KEY> rm -f  --ignore-unmatch docs/planning/<EPIC_KEY>-spec.md
    git -C /tmp/spinoff-<EPIC_KEY> rm -rf --ignore-unmatch docs/research/<EPIC_KEY>/
    ```
 
-3. If either deletion staged any changes
+4. If either deletion staged any changes
    (`git -C /tmp/spinoff-<EPIC_KEY> diff --cached --quiet` exits non-zero):
    ```bash
    git -C /tmp/spinoff-<EPIC_KEY> commit -m "chore: remove planning docs for <EPIC_KEY>"
@@ -45,7 +53,7 @@ Sub-step f2 must:
    ```
    If no changes were staged, skip the commit and continue.
 
-4. On any error in this sub-step (clone, checkout, push): append a per-Epic error to
+5. On any error in this sub-step (clone, checkout, push): append a per-Epic error to
    `epic_errors`, increment `epics_skipped`, and continue to the next Epic (do not open
    a PR for a branch in an uncertain state).
 
@@ -53,13 +61,14 @@ Note: after this change, the spinoff directory is guaranteed to exist before ste
 ("Read commit messages"), which relied on its prior existence without ensuring it.
 
 ### Acceptance Criteria
-- `majordomo/system-prompt.md` Step 9 contains new sub-step instructions to delete
-  `docs/planning/<EPIC_KEY>-spec.md` and `docs/research/<EPIC_KEY>/` from the feature
-  branch before opening the PR.
-- The new instructions appear after step f (Extract GH Issue URL) and before step g
-  (Read commit messages).
+- `majordomo/system-prompt.md` Step 9 contains new sub-step instructions inserted after
+  step f (Extract GH Issue URL) and before step g (Read commit messages).
 - Instructions ensure the spinoff directory exists (clone if absent), fetch, and check
   out the feature branch.
+- Instructions direct the agent to review planning and research docs, update general docs
+  as appropriate, and commit any such updates before deletion.
+- Instructions delete `docs/planning/<EPIC_KEY>-spec.md` and `docs/research/<EPIC_KEY>/`
+  from the feature branch.
 - Instructions handle the case where neither docs path exists (no empty commit made).
 - Instructions treat cleanup errors as per-Epic errors (skip the Epic, do not abort).
 - `make test` passes.

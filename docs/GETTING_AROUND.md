@@ -37,7 +37,8 @@ minordomo/
 ├── docs/
 │   ├── GETTING_AROUND.md    — This file
 │   ├── WORKFLOWS.md         — Jira status flows, branching model, spec docs, prioritization
-│   └── agent-workflow-spec.md — Full spec for remaining unimplemented stages (5–7)
+│   ├── agent-workflow-spec.md — System capabilities and Majordomo run sequence
+│   └── FUTURE_WORK.md       — Planned capabilities not yet implemented
 ├── CLAUDE.md                — Agent trust model and implementation patterns
 ├── README.md                — Setup and configuration
 └── Makefile                 — `make test`
@@ -45,16 +46,19 @@ minordomo/
 
 ---
 
-## Stage Overview
+## System Capabilities
 
-| Stage | Description | Status |
-|---|---|---|
-| 1 | Foundation & trust boundaries: allowlist, Jira project schema, Majordomo skeleton | Done |
-| 2 | GH Issue ingestion and minimal worker end-to-end | Done |
-| 3 | Planning agent loop: research, Q&A, spec doc, plan approval spinoff | Done |
-| 4 | Majordomo prioritization, Ready promotion, feature→base PRs | Done |
-| 5 | Usage limits (Claude API quota check) and time-of-day scheduling | Not implemented |
-| 6 | Spec evolution: worker updates spec doc in-flight when plan changes | Not implemented |
-| 7 | Failure handling: crash recovery, sweep job for stuck In Progress tasks | Not implemented |
+The pipeline is fully operational. Key capabilities:
 
-After Stage 3, the system became self-managing: additional features (beads integration, planning priority guard, planning/research doc cleanup, and more) have been implemented autonomously by filing GH Issues. Stages 5–7 remain open and can be implemented the same way.
+| Capability | Description |
+|---|---|
+| GH Issue ingestion | Polls GH Issues → creates Jira Epics + Planning Tasks |
+| Planning agent loop | Research, Q&A, spec doc, plan approval spinoff |
+| Task prioritization | Ready promotion, continuity/priority/rank ordering |
+| Worker agents | Branch, implement, open PR, transition ticket |
+| Feature→main PRs | Auto-opened when all Implementation Tasks are Done; includes doc cleanup |
+| Beads coordination | `bd` CLI mirrors Jira hierarchy; `bd ready` for task selection |
+| Planning priority guard | Defers planning if higher-priority implementation work is available |
+| PR sync | Auto-transitions Jira on merged PRs |
+
+See [`docs/agent-workflow-spec.md`](agent-workflow-spec.md) for the full capability descriptions and Majordomo run sequence. See [`docs/FUTURE_WORK.md`](FUTURE_WORK.md) for planned capabilities not yet implemented.

@@ -90,7 +90,7 @@ Each `## Stage N:` section in the spec yields one Jira Implementation Task. The 
 
 When a stage's implementation reveals necessary changes to the plan, the spec doc is updated and included in that stage's PR. The next stage's worker branches from the updated feature branch and reads the current spec.
 
-Before opening the feature→main PR (Step 9), Majordomo deletes `docs/planning/<EPIC_KEY>-spec.md` and `docs/research/<EPIC_KEY>/` from the feature branch. Planning and research artifacts do not land on the base branch.
+Before opening the feature→main PR (Step 9), Majordomo first reviews the planning and research documents for context worth preserving, updating general docs (README.md, CLAUDE.md, GETTING_AROUND.md, and others) as appropriate. After updating docs, it deletes `docs/planning/<EPIC_KEY>-spec.md` and `docs/research/<EPIC_KEY>/` from the feature branch. Planning and research artifacts do not land on the base branch.
 
 ---
 

@@ -22,7 +22,7 @@ Majordomo runs on a schedule. On each run it:
 5. Launches a Worker Agent to implement the top Ready task
 6. Opens feature → main PRs when all subtasks of an Epic are Done
 
-Stages 1–4 are implemented. Since then the system has autonomously implemented many additional features (beads integration, planning priority guard, doc cleanup, and more). Stage 5 (usage limits/scheduling), Stage 6 (spec evolution), and Stage 7 (failure handling) are not yet implemented; see [`docs/agent-workflow-spec.md`](docs/agent-workflow-spec.md).
+The pipeline is fully operational: it ingests GH Issues, drives them through planning and implementation, and opens feature→main PRs. It also includes beads-based task coordination, a planning priority guard, and automatic cleanup of planning artifacts. Planned future work (usage limits, spec evolution, failure handling) is captured in [`docs/FUTURE_WORK.md`](docs/FUTURE_WORK.md).
 
 ---
 
