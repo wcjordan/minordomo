@@ -52,7 +52,11 @@ pipeline {
                         source shared/setup-workspace.sh planning
 
                         { bd stats && echo "---" && bd list --all; } | tee /tmp/beads-output.txt
-                        claude -p "$(cat ../minordomo-plan/system-prompt.md)" | tee /tmp/prompt-output.txt
+                        CLAUDE_EXIT=0
+                        claude -p "$(cat ../minordomo-plan/system-prompt.md)" --output-format json \
+                          > /tmp/claude-output.json || CLAUDE_EXIT=$?
+                        python3 shared/report-token-usage.py /tmp/claude-output.json 2>&1 | tee /tmp/prompt-output.txt || true
+                        exit $CLAUDE_EXIT
                     '''
                 }
             }
