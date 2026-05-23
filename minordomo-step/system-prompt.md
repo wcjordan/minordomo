@@ -108,7 +108,14 @@ If at any point you hit an unresolvable blocker (missing context, contradictory 
      --body "<clear explanation of what is blocking progress and what human input is required>"
    ```
 
-4. **Transition the Jira task to `Needs Input`** via MCP (supplement, not replacement for the GH label).
+4. **Move the beads stage task back to `open`** so it can be re-claimed when the human clears the label:
+   ```bash
+   BEADS_STAGE_ID=$(bd list --json | jq -r --arg title "<jira_task_summary>" \
+     '[.[] | select(.title | gsub("^Stage [0-9]+: "; "") == $title)] | first | .id // empty')
+   if [ -n "$BEADS_STAGE_ID" ]; then
+     bd update "$BEADS_STAGE_ID" --status open
+   fi
+   ```
 
 5. Emit the run log with `status: "failure"` and a clear `errors` entry describing the blocker.
 
