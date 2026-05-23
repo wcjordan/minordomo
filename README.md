@@ -22,7 +22,7 @@ Majordomo runs on a schedule. On each run it:
 5. Launches a Worker Agent to implement the top Ready task
 6. Opens feature → main PRs when all subtasks of an Epic are Done
 
-Stages 1–4 are implemented. Stage 5 (usage limits/scheduling), Stage 6 (spec evolution), and Stage 7 (failure handling) are not yet implemented.
+Stages 1–4 are implemented. Since then the system has autonomously implemented many additional features (beads integration, planning priority guard, doc cleanup, and more). Stage 5 (usage limits/scheduling), Stage 6 (spec evolution), and Stage 7 (failure handling) are not yet implemented; see [`docs/agent-workflow-spec.md`](docs/agent-workflow-spec.md).
 
 ---
 
@@ -72,7 +72,7 @@ docker push ${GAR_REPO}/minordomo-image:latest
 
 | Job name | Jenkinsfile path | Trigger |
 |---|---|---|
-| `majordomo` | `majordomo/Jenkinsfile` | Manual (for now); cron after Stage 5 |
+| `majordomo` | `majordomo/Jenkinsfile` | Manual trigger; cron scheduling planned as part of Stage 5 |
 | `majordomo-build-runner` | `minordomo-container-builder/Jenkinsfile` | Weekly cron (Sundays ~2 AM); manual as needed |
 | `minordomo-plan` | `minordomo-plan/Jenkinsfile` | Triggered by Majordomo |
 | `minordomo-step` | `minordomo-step/Jenkinsfile` | Triggered by Majordomo |

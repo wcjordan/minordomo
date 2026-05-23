@@ -73,7 +73,7 @@ All merges across branches require a human-reviewed PR. Agents never merge direc
     └── task/PROJ-46             (impl stage 3; PR → feature/PROJ-42)
 ```
 
-- **Feature branch** — created by the planning agent; holds the canonical spec doc (`docs/planning/PROJ-42-spec.md`) after the planning PR is merged
+- **Feature branch** — created by the planning agent; holds the spec doc (`docs/planning/PROJ-42-spec.md`) during implementation; spec is deleted from the feature branch before the feature→main PR is opened
 - **Task branches** — created by the agent at launch time, always branching from the current feature branch tip; named `task/<ticket-id>`
 - **task → feature PRs** — opened by the agent on completion; reviewed and merged by human
 - **feature → base PRs** — opened by Majordomo when all Implementation Tasks of an Epic are `Done`; reviewed and merged by human
@@ -89,6 +89,8 @@ The implementation plan lives as a markdown file on the feature branch (`docs/pl
 Each `## Stage N:` section in the spec yields one Jira Implementation Task. The stage number is not stored in the Jira title — only the text after `## Stage N:` is used. Stage ordering is determined by Jira rank (`customfield_10019`), which reflects creation order.
 
 When a stage's implementation reveals necessary changes to the plan, the spec doc is updated and included in that stage's PR. The next stage's worker branches from the updated feature branch and reads the current spec.
+
+Before opening the feature→main PR (Step 9), Majordomo deletes `docs/planning/<EPIC_KEY>-spec.md` and `docs/research/<EPIC_KEY>/` from the feature branch. Planning and research artifacts do not land on the base branch.
 
 ---
 

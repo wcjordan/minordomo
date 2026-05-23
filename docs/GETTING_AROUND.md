@@ -57,4 +57,4 @@ minordomo/
 | 6 | Spec evolution: worker updates spec doc in-flight when plan changes | Not implemented |
 | 7 | Failure handling: crash recovery, sweep job for stuck In Progress tasks | Not implemented |
 
-After Stage 3, Stages 5–7 can be filed as GH Issues and the system will plan and implement them autonomously.
+After Stage 3, the system became self-managing: additional features (beads integration, planning priority guard, planning/research doc cleanup, and more) have been implemented autonomously by filing GH Issues. Stages 5–7 remain open and can be implemented the same way.

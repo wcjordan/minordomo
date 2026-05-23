@@ -37,11 +37,23 @@ For repo structure and stage overview, see [`GETTING_AROUND.md`](GETTING_AROUND.
 - Step 7: selects top Ready task using prioritization (continuity → Epic priority → Jira rank), transitions to In Progress, triggers worker
 - Step 8: opens feature→base PR when all Implementation Tasks of an Epic are Done; transitions Epic to In Review
 
+### Post-Stage-4 Autonomous Work ✅
+
+After Stage 3 the system became self-managing. Additional features implemented autonomously by filing GH Issues:
+
+- **Beads integration** — replaced Jira as the agent-facing task coordination layer; introduced `Story:` / `Plan:` / `Stage N:` bead hierarchy, dependency graph, and `bd ready` for task selection
+- **Planning priority guard** — before launching a planning agent, Majordomo checks `bd ready` for higher-priority implementation tasks and defers planning if one exists
+- **Backlog/skip label filtering** — GH Issues with `backlog` or `skip` labels are skipped at ingestion
+- **Base-branch merge** — before implementing the first stage of an Epic, the worker merges the base branch into the feature branch to avoid drift
+- **PR sync** — Majordomo auto-transitions Jira tickets when humans merge planning or implementation PRs
+- **Token usage reporting** — `shared/report-token-usage.py` summarises input/cache/output tokens and cost per job
+- **Planning/research doc cleanup** — Majordomo deletes `docs/planning/<EPIC_KEY>-spec.md` and `docs/research/<EPIC_KEY>/` from the feature branch before opening the feature→main PR (Step 9)
+
 ---
 
 ## ✦ Handoff Point
 
-After Stage 3, file a GH Issue describing Stages 5–7. The Majordomo will ingest it, the Planning Agent will research and produce a spec, and the Worker will implement each stage. The specs below serve as the starting point for that work.
+The handoff has occurred — GH Issues can be filed for Stages 5–7 and the system will plan and implement them autonomously. The specs below serve as the starting point for that work.
 
 ---
 
@@ -98,6 +110,7 @@ If implementation of a stage reveals necessary changes to the plan:
 - Worker updates the spec doc (`docs/planning/<EPIC_KEY>-spec.md`) in place
 - Updated spec doc is included in the PR against the feature branch
 - Next stage worker branches from the updated feature branch tip, picking up the revised spec automatically
+- Note: the spec doc is present on the feature branch throughout implementation and is deleted by Majordomo (Step 9) before the feature→main PR is opened — spec evolution happens before that point
 
 This already works mechanically (workers branch from feature tip and read the spec); Stage 6 is about making it an explicit documented behavior with test coverage, and ensuring the worker's system prompt instructs it to do so.
 
