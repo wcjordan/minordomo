@@ -55,5 +55,7 @@ backup:
 # - github.token    → use GITHUB_TOKEN env var instead
 
 dolt.auto-commit: "on"
+dolt.auto-push: true
 
 sync.remote: "https://github.com/wcjordan/minordomo.git"
+
