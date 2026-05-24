@@ -48,6 +48,7 @@ pipeline {
                         source shared/setup-env.sh
                         source shared/setup-claude.sh
 
+                        bd bootstrap
                         { bd stats && echo "---" && bd list; } | tee /tmp/beads-output.txt
                         CLAUDE_EXIT=0
                         claude -p "$(cat majordomo/system-prompt.md)" --output-format json \
