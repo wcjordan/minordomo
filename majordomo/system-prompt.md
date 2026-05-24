@@ -113,7 +113,7 @@ Initialize: `tasks_checked = 0`, `tasks_transitioned = 0`, `task_errors = []`
       - `GET ${JIRA_URL}/rest/api/3/issue/<TASK_KEY>/transitions` — find the entry where `to.name` matches the target status and extract its `id`
       - `POST ${JIRA_URL}/rest/api/3/issue/<TASK_KEY>/transitions` with body `{"transition": {"id": "<id>"}}`
       - On success: increment `tasks_transitioned`
-      - If the task was a Planning Task (summary starts with `"Plan:"`): do **not** close the beads planning task here. The Plan bead remains open as a child of the Story bead after the spinoff.
+      - If the task was a Planning Task (summary starts with `"Plan:"`): do **not** close the beads planning task here. The Plan bead will be closed by Step 6 sub-step l after implementation subtasks are created.
       - If the task was an Implementation Task (summary does NOT start with `"Plan:"`), also mark the corresponding beads subtask done — beads subtask titles have the form `"Stage N: <jira_summary>"`, so find it by stripping the prefix and matching against the Jira summary:
         ```bash
         BEADS_IMPL_ID=$(bd list --json | jq -r --arg title "<fields.summary>" \
@@ -235,9 +235,12 @@ If a planning agent was launched, record `planning_agent_launched: true` in the 
       BEADS_PLAN_ID=$(bd list --json | jq -r --arg title "<planning_task_summary>" '[.[] | select(.title == $title)] | first | .id // empty')
       if [ -n "$BEADS_PLAN_ID" ]; then
         bd close "$BEADS_PLAN_ID"
+        # log per-epic: plan_bead_closed: <BEADS_PLAN_ID>
+      else
+        # log per-epic warning: plan_bead_not_found: <planning_task_summary>; do not abort — Jira task already transitioned in step g
       fi
       ```
-      If not found or `bd close` fails, log a per-epic warning and continue (the Jira task was already transitioned to Done in step g).
+      Whether closed or not found, always log the outcome so it is visible in the run log.
 3. Record in the step log: number of approved tasks processed, total implementation tasks created, and total beads subtasks created
 
 ---
