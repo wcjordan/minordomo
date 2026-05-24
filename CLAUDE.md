@@ -126,18 +126,6 @@ Runs shellcheck, bats unit tests (`test/bats/`), and a prompt validation script.
 
 This project uses **bd (beads)** for issue tracking. Run `bd prime` to see full workflow context and commands.
 
-### Local Usage
-
-`bd` commands require the Dolt server running in-cluster. When working locally (outside a Jenkins agent), prefix every `bd` command with `./scripts/dolt-forward.sh`:
-
-```bash
-./scripts/dolt-forward.sh bd ready
-./scripts/dolt-forward.sh bd show <id>
-./scripts/dolt-forward.sh bd list --status=open
-```
-
-Inside Jenkins agents, `bd` works directly (no prefix needed).
-
 ### Quick Reference
 
 ```bash

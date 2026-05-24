@@ -51,7 +51,7 @@ pipeline {
                         source shared/setup-claude.sh
                         source shared/setup-workspace.sh worker
 
-                        { bd stats && echo "---" && bd list --all; } | tee /tmp/beads-output.txt
+                        { bd stats && echo "---" && bd list; } | tee /tmp/beads-output.txt
                         CLAUDE_EXIT=0
                         claude -p "$(cat ../minordomo-step/system-prompt.md)" --output-format json \
                           > /tmp/claude-output.json || CLAUDE_EXIT=$?
@@ -100,7 +100,6 @@ pipeline {
                 }
             }
             environment {
-                BEADS_DOLT_PASSWORD = credentials('dolt-minordomo-password')
                 GH_APP                  = credentials('github-app')
                 JIRA_ACCT           = credentials('jira-api-key')
             }
@@ -113,7 +112,7 @@ pipeline {
                         set -euo pipefail
                         source shared/setup-env.sh
                         [ -d .beads ] && chmod 700 .beads
-                        { bd stats && echo "---" && bd list --all; } | tee /tmp/beads-output.txt
+                        { bd stats && echo "---" && bd list; } | tee /tmp/beads-output.txt
                     '''
                 }
             }

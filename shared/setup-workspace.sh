@@ -115,8 +115,8 @@ else
     git checkout -b "task/${JIRA_TASK_ID}"
 fi
 
-# Initialize the beads workspace against the central Dolt server.
-# metadata.json is committed but the Dolt DB is not — bd init --server connects and pulls it.
+# Initialize the beads workspace
 [ -d .beads ] && chmod 700 .beads
+bd bootstrap
 bd dolt show
 bd stats
