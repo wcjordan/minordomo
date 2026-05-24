@@ -56,3 +56,4 @@ backup:
 
 dolt.auto-commit: "on"
 
+sync.remote: "git+https://github.com/wcjordan/minordomo.git"
