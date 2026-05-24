@@ -69,6 +69,13 @@ pipeline {
                             if (output) {
                                 currentBuild.description = output
                             }
+                            def hasErrors = sh(
+                                script: 'python3 shared/check-run-errors.py /tmp/prompt-output.txt',
+                                returnStatus: true
+                            ) == 1
+                            if (hasErrors) {
+                                currentBuild.result = 'FAILURE'
+                            }
                         }
                     }
                 }
