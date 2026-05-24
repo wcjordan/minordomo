@@ -34,7 +34,6 @@ pipeline {
                 }
             }
             environment {
-                BEADS_DOLT_PASSWORD     = credentials('dolt-minordomo-password')
                 CLAUDE_CODE_OAUTH_TOKEN = credentials('claude-code-oauth-token')
                 GH_APP                  = credentials('github-app')
                 JIRA_ACCT               = credentials('jira-api-key')
@@ -51,10 +50,12 @@ pipeline {
                         source shared/setup-claude.sh
                         source shared/setup-workspace.sh planning
 
-                        { bd stats && echo "---" && bd list --all; } | tee /tmp/beads-output.txt
+                        { bd stats && echo "---" && bd list; } | tee /tmp/beads-output.txt
                         CLAUDE_EXIT=0
                         claude -p "$(cat ../minordomo-plan/system-prompt.md)" --output-format json \
                           > /tmp/claude-output.json || CLAUDE_EXIT=$?
+
+                        bd dolt push
                         python3 ../shared/report-token-usage.py /tmp/claude-output.json 2>&1 | tee /tmp/prompt-output.txt || true
                         exit $CLAUDE_EXIT
                     '''
@@ -112,8 +113,13 @@ pipeline {
                     sh '''
                         set -euo pipefail
                         source shared/setup-env.sh
+
+                        gh auth setup-git
                         [ -d .beads ] && chmod 700 .beads
-                        { bd stats && echo "---" && bd list --all; } | tee /tmp/beads-output.txt
+                        bd bootstrap
+                        bd dolt show
+                        bd dolt pull
+                        { bd stats && echo "---" && bd list; } | tee /tmp/beads-output.txt
                     '''
                 }
             }

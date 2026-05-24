@@ -48,18 +48,3 @@ setup() {
     source shared/setup-env.sh
     [ -n "$BASE_BRANCH" ]
 }
-
-@test "exports BEADS_DOLT_SERVER_HOST pointing at the k8s dolt service" {
-    source shared/setup-env.sh
-    [ "$BEADS_DOLT_SERVER_HOST" = "dolt-server.minordomo.svc.cluster.local" ]
-}
-
-@test "exports BEADS_DOLT_SERVER_PORT as 3306" {
-    source shared/setup-env.sh
-    [ "$BEADS_DOLT_SERVER_PORT" = "3306" ]
-}
-
-@test "exports BEADS_DOLT_SERVER_USER" {
-    source shared/setup-env.sh
-    [ -n "$BEADS_DOLT_SERVER_USER" ]
-}
