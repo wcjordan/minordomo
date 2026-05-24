@@ -51,7 +51,12 @@ pipeline {
                         source shared/setup-claude.sh
                         source shared/setup-workspace.sh planning
 
-                        claude -p "$(cat ../minordomo-plan/system-prompt.md)" | tee /tmp/prompt-output.txt
+                        { bd stats && echo "---" && bd list --all; } | tee /tmp/beads-output.txt
+                        CLAUDE_EXIT=0
+                        claude -p "$(cat ../minordomo-plan/system-prompt.md)" --output-format json \
+                          > /tmp/claude-output.json || CLAUDE_EXIT=$?
+                        python3 ../shared/report-token-usage.py /tmp/claude-output.json 2>&1 | tee /tmp/prompt-output.txt || true
+                        exit $CLAUDE_EXIT
                     '''
                 }
             }
@@ -60,11 +65,69 @@ pipeline {
                     container('worker') {
                         script {
                             def output = sh(
-                                script: 'cat /tmp/prompt-output.txt 2>/dev/null || true',
+                                script: 'cat /tmp/beads-output.txt /tmp/prompt-output.txt 2>/dev/null || true',
                                 returnStdout: true
                             ).trim()
                             if (output) {
                                 currentBuild.description = output
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        stage('Beads Status') {
+            agent {
+                kubernetes {
+                    yaml """
+                        apiVersion: v1
+                        kind: Pod
+                        spec:
+                          containers:
+                          - name: majordomo
+                            image: ${GAR_REPO}/minordomo-image:latest
+                            command:
+                            - cat
+                            tty: true
+                            resources:
+                              requests:
+                                cpu: "100m"
+                                memory: "256Mi"
+                              limits:
+                                cpu: "500m"
+                                memory: "512Mi"
+                    """
+                }
+            }
+            environment {
+                BEADS_DOLT_PASSWORD = credentials('dolt-minordomo-password')
+                GH_APP                  = credentials('github-app')
+                JIRA_ACCT           = credentials('jira-api-key')
+            }
+            options {
+                timeout(time: 5, unit: 'MINUTES')
+            }
+            steps {
+                container('majordomo') {
+                    sh '''
+                        set -euo pipefail
+                        source shared/setup-env.sh
+                        [ -d .beads ] && chmod 700 .beads
+                        { bd stats && echo "---" && bd list --all; } | tee /tmp/beads-output.txt
+                    '''
+                }
+            }
+            post {
+                always {
+                    container('majordomo') {
+                        script {
+                            def beadsOutput = sh(
+                                script: 'cat /tmp/beads-output.txt 2>/dev/null || true',
+                                returnStdout: true
+                            ).trim()
+                            if (beadsOutput) {
+                                def existing = currentBuild.description ?: ''
+                                currentBuild.description = existing + (existing ? '\n\n---\n\n' : '') + beadsOutput
                             }
                         }
                     }

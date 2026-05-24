@@ -83,7 +83,14 @@ Review everything gathered so far. Flag anything that is vague or underspecified
    gh issue edit <issue-number> --repo wcjordan/<repo> --add-label needs-input
    gh issue comment <issue-number> --repo wcjordan/<repo> --body "<numbered question list>"
    ```
-4. Transition the Planning Task to **Needs Input** via MCP.
+4. Move the beads planning task back to `open` so it can be re-claimed when the human clears the label:
+   ```bash
+   BEADS_PLAN_ID=$(bd list --json | jq -r --arg title "<planning_task_summary>" \
+     '[.[] | select(.title == $title)] | first | .id // empty')
+   if [ -n "$BEADS_PLAN_ID" ]; then
+     bd update "$BEADS_PLAN_ID" --status open
+   fi
+   ```
 5. Emit the run log and exit 0.
 
 ---
@@ -160,4 +167,7 @@ Use `BUILD_TAG` env var for `run_id` if set; otherwise use the current UTC times
 
 Set `status` to `"failure"` and populate `errors` if any step fails fatally. Otherwise `"success"`.
 
-When questions were posted and the task transitioned to Needs Input, set `"new_status": "Needs Input"` on the `jira_transition` step and omit the `write_spec` and `open_pr` steps.
+When questions were posted, omit the `write_spec` and `open_pr` steps and include a `beads_status_update` step instead of `jira_transition`:
+```json
+{"step": "beads_status_update", "status": "ok", "new_status": "open", "reason": "needs_input"}
+```

@@ -154,7 +154,7 @@ Planning Tasks are Jira Tasks (`issuetype = Task`) whose summary starts with `Pl
 3a. **Priority guard — check for higher-priority implementation work in beads:**
    a. Query beads for eligible implementation tasks:
       ```bash
-      bd ready --json | jq '[.[] | select(.title | startswith("Plan:") | not)]'
+      bd ready --json | jq '[.[] | select(.title | (startswith("Plan:") or startswith("Story:")) | not)]'
       ```
    b. Compute `best_impl_priority`: the minimum `.priority` value across all returned tasks (beads priority is an integer, 0=P0 best). If no tasks returned, `best_impl_priority = 4`.
    c. Compute `planning_priority`: the `.priority` value of the selected planning task's beads record. Retrieve it by title:
@@ -258,7 +258,7 @@ Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for all Jira 
 
 2. **Promote beads-ready tasks to Jira `Ready`:** Run:
    ```bash
-   bd ready --json | jq '[.[] | select(.title | startswith("Plan:") | not)]'
+   bd ready --json | jq '[.[] | select(.title | (startswith("Plan:") or startswith("Story:")) | not)]'
    ```
    For each beads-ready implementation task returned:
    a. Strip the `Stage N: ` prefix from the beads title using `gsub("^Stage [0-9]+: "; "")` to obtain the Jira summary.
