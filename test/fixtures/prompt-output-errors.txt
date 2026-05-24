@@ -26,3 +26,14 @@ All steps complete. Emitting the final run log.
   ]
 }
 ```
+
+**Run summary:**
+- **Step 4:** Transitioned MDOMO-78 and MDOMO-71 to Done.
+- **Step 8:** Launched worker for MDOMO-72.
+
+=== Token Usage ===
+  Input tokens:      34
+  Cache read tokens: 1,494,062
+  Output tokens:     13,328
+  Cost (USD):        $0.7447
+  Duration:          229.3s
