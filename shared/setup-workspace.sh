@@ -117,6 +117,8 @@ fi
 
 # Initialize the beads workspace
 [ -d .beads ] && chmod 700 .beads
+git config beads.role maintainer
 bd bootstrap
 bd dolt show
+bd dolt pull
 bd stats

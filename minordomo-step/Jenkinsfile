@@ -55,6 +55,8 @@ pipeline {
                         CLAUDE_EXIT=0
                         claude -p "$(cat ../minordomo-step/system-prompt.md)" --output-format json \
                           > /tmp/claude-output.json || CLAUDE_EXIT=$?
+
+                        bd dolt push
                         python3 ../shared/report-token-usage.py /tmp/claude-output.json 2>&1 | tee /tmp/prompt-output.txt || true
                         exit $CLAUDE_EXIT
                     '''
@@ -111,7 +113,12 @@ pipeline {
                     sh '''
                         set -euo pipefail
                         source shared/setup-env.sh
+
                         [ -d .beads ] && chmod 700 .beads
+                        git config beads.role maintainer
+                        bd bootstrap
+                        bd dolt show
+                        bd dolt pull
                         { bd stats && echo "---" && bd list; } | tee /tmp/beads-output.txt
                     '''
                 }
