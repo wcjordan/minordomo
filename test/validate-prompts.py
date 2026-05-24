@@ -33,8 +33,8 @@ def check_prompt(path: Path) -> list[str]:
     # Static path check: single-backtick spans only (avoids code block noise)
     for m in re.finditer(r"`([^`\n]+)`", content):
         candidate = m.group(1)
-        # Skip: shell variables, spaces, protocols, or Jira keys (parameterized examples)
-        if "$" in candidate or " " in candidate or "://" in candidate:
+        # Skip: shell variables, angle-bracket placeholders, spaces, protocols, or Jira keys (parameterized examples)
+        if "$" in candidate or "<" in candidate or " " in candidate or "://" in candidate:
             continue
         if re.search(r"[A-Z]+-\d+", candidate):
             continue
