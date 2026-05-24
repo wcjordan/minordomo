@@ -67,12 +67,12 @@ else
 
     # Detect if this is the first implementation task of the Epic.
     # If so, merge origin/${BASE_BRANCH} into the feature branch before creating the task branch.
-    JQL="parent = ${EPIC_KEY} AND issuetype = Task AND summary !~ \"Plan:\""
+    JQL="parent = ${EPIC_KEY} AND issuetype = Task"
     JQL_ENCODED=$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]))" "$JQL")
     SIBLINGS_RESPONSE=$(curl -s -w "\n%{http_code}" \
         -u "${JIRA_EMAIL}:${JIRA_API_TOKEN}" \
         -H "Accept: application/json" \
-        "${JIRA_URL}/rest/api/3/search/jql?jql=${JQL_ENCODED}&fields=customfield_10019&maxResults=100")
+        "${JIRA_URL}/rest/api/3/search/jql?jql=${JQL_ENCODED}&fields=customfield_10019,summary&maxResults=100")
     SIBLINGS_HTTP_CODE=$(echo "$SIBLINGS_RESPONSE" | tail -1)
     SIBLINGS_JSON=$(echo "$SIBLINGS_RESPONSE" | sed '$d')
     if [[ "$SIBLINGS_HTTP_CODE" != "200" ]]; then
@@ -84,6 +84,7 @@ else
 import json, sys
 data = json.load(sys.stdin)
 issues = data.get('issues', [])
+issues = [i for i in issues if not i['fields'].get('summary', '').startswith('Plan:')]
 if not issues:
     sys.exit('No implementation siblings found for Epic ${EPIC_KEY}')
 sorted_issues = sorted(issues, key=lambda x: x['fields'].get('customfield_10019', ''))
