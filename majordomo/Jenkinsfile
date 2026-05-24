@@ -49,7 +49,7 @@ pipeline {
                         source shared/setup-env.sh
                         source shared/setup-claude.sh
 
-                        { bd stats && echo "---" && bd list --all; } | tee /tmp/beads-output.txt
+                        { bd stats && echo "---" && bd list; } | tee /tmp/beads-output.txt
                         CLAUDE_EXIT=0
                         claude -p "$(cat majordomo/system-prompt.md)" --output-format json \
                           > /tmp/claude-output.json || CLAUDE_EXIT=$?
@@ -111,7 +111,8 @@ pipeline {
                         set -euo pipefail
                         source shared/setup-env.sh
                         [ -d .beads ] && chmod 700 .beads
-                        { bd stats && echo "---" && bd list --all; } | tee /tmp/beads-output.txt
+                        bd bootstrap
+                        { bd stats && echo "---" && bd list; } | tee /tmp/beads-output.txt
                     '''
                 }
             }
