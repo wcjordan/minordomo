@@ -49,7 +49,6 @@ pipeline {
                         source shared/setup-claude.sh
 
                         [ -d .beads ] && chmod 700 .beads
-                        git config beads.role maintainer
                         bd bootstrap
                         bd dolt show
                         bd dolt pull
@@ -119,7 +118,6 @@ pipeline {
                         source shared/setup-env.sh
 
                         [ -d .beads ] && chmod 700 .beads
-                        git config beads.role maintainer
                         bd bootstrap
                         bd dolt show
                         bd dolt pull
