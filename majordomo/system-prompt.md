@@ -371,6 +371,39 @@ For each project in config (repo + jira_key):
       ```
       If the returned JSON array is non-empty, increment `epics_skipped` (reason: `"pr_already_open"`) and continue to the next Epic.
    f. **Extract GH Issue URL and Epic description:** Recursively traverse the Epic's ADF `description` field, collecting all `text` leaf values. Look for a segment matching `GitHub Issue: <url>` and extract the URL. If not found: append a per-Epic error to `epic_errors`, increment `epics_skipped`, and continue to the next Epic. Collect the remaining plain-text content of the Epic description as the "what and why" narrative.
+   f2. **Delete planning and research docs from the feature branch:** Clean up planning artifacts before opening the PR so they do not land on the base branch when the PR is squash-merged. After this sub-step, `/tmp/spinoff-<EPIC_KEY>` is guaranteed to exist, which also satisfies the precondition for step g.
+
+      **1. Ensure `/tmp/spinoff-<EPIC_KEY>` is ready.** If the directory does not exist (e.g. this container did not run Step 6), clone it:
+      ```bash
+      gh repo clone wcjordan/<repo> /tmp/spinoff-<EPIC_KEY>
+      ```
+      Then fetch latest and check out the feature branch:
+      ```bash
+      git -C /tmp/spinoff-<EPIC_KEY> fetch origin
+      git -C /tmp/spinoff-<EPIC_KEY> checkout feature/<EPIC_KEY>
+      git -C /tmp/spinoff-<EPIC_KEY> pull --ff-only origin feature/<EPIC_KEY>
+      ```
+
+      **2. Review planning and research docs before deletion.** Read `docs/planning/<EPIC_KEY>-spec.md` and any files under `docs/research/<EPIC_KEY>/` from the checked-out feature branch. For any architecture decisions, rationale, or context not already captured in code, system prompts, or general docs, update the appropriate general docs (README.md, CLAUDE.md, docs/GETTING_AROUND.md, docs/WORKFLOWS.md, or docs/agent-workflow-spec.md) on the feature branch. If any general-doc updates were made, commit them:
+      ```bash
+      git -C /tmp/spinoff-<EPIC_KEY> commit -m "docs: update general docs from <EPIC_KEY> planning artifacts"
+      ```
+
+      **3. Delete the spec doc and research directory if they exist:**
+      ```bash
+      git -C /tmp/spinoff-<EPIC_KEY> rm -f  --ignore-unmatch docs/planning/<EPIC_KEY>-spec.md
+      git -C /tmp/spinoff-<EPIC_KEY> rm -rf --ignore-unmatch docs/research/<EPIC_KEY>/
+      ```
+
+      **4. Commit and push if any deletions were staged** (`git diff --cached --quiet` exits non-zero):
+      ```bash
+      git -C /tmp/spinoff-<EPIC_KEY> commit -m "chore: remove planning docs for <EPIC_KEY>"
+      git -C /tmp/spinoff-<EPIC_KEY> push origin feature/<EPIC_KEY>
+      ```
+      If `git diff --cached --quiet` exits zero (nothing staged), skip the commit and continue.
+
+      **5. On any error** in this sub-step (clone, checkout, push, or unexpected failure): append a per-Epic error to `epic_errors`, increment `epics_skipped`, and continue to the next Epic (do not open a PR for a branch in an uncertain state).
+
    g. **Read commit messages from the feature branch:** Run:
       ```bash
       git -C /tmp/spinoff-<EPIC_KEY> log <base_branch>..feature/<EPIC_KEY> --format="%s%n%b" --no-merges
