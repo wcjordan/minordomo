@@ -27,7 +27,8 @@ minordomo/
 │   ├── pre-bash-guard.sh    — Secondary Bash safety hook (referenced by agent-settings.json)
 │   ├── setup-env.sh         — Derives runtime env vars from Jenkins credentials
 │   ├── setup-claude.sh      — Deploys agent settings and registers Atlassian MCP
-│   └── setup-workspace.sh   — Clones repo, checks out feature/task branches
+│   ├── setup-workspace.sh   — Clones repo, checks out feature/task branches
+│   └── notify-failure.py    — Sends SES failure email; always exits 0 (notification failure must not break builds)
 ├── test/
 │   ├── bats/                — Bats unit tests for shared shell scripts
 │   ├── fixtures/            — Test fixture data
@@ -38,7 +39,9 @@ minordomo/
 │   ├── GETTING_AROUND.md    — This file
 │   ├── WORKFLOWS.md         — Jira status flows, branching model, spec docs, prioritization
 │   ├── agent-workflow-spec.md — System capabilities and Majordomo run sequence
-│   └── FUTURE_WORK.md       — Planned capabilities not yet implemented
+│   ├── FUTURE_WORK.md       — Planned capabilities not yet implemented
+│   └── setup/
+│       └── aws-ses-setup.md — AWS SES setup guide (IAM policy, email verification, Jenkins credentials)
 ├── CLAUDE.md                — Agent trust model and implementation patterns
 ├── README.md                — Setup and configuration
 └── Makefile                 — `make test`
@@ -60,5 +63,6 @@ The pipeline is fully operational. Key capabilities:
 | Beads coordination | `bd` CLI mirrors Jira hierarchy; `bd ready` for task selection |
 | Planning priority guard | Defers planning if higher-priority implementation work is available |
 | PR sync | Auto-transitions Jira on merged PRs |
+| Failure notifications | SES email on pipeline failure; triggered by hard Jenkins failure or agent-reported errors |
 
 See [`docs/agent-workflow-spec.md`](agent-workflow-spec.md) for the full capability descriptions and Majordomo run sequence. See [`docs/FUTURE_WORK.md`](FUTURE_WORK.md) for planned capabilities not yet implemented.
