@@ -7,7 +7,7 @@ pipeline {
         timestamps()
     }
     parameters {
-        string(name: 'JIRA_TASK_ID', description: 'Jira planning task ID to plan (e.g. MDOMO-44)', trim: true)
+        string(name: 'BEADS_TASK_ID', description: 'Beads planning task ID to plan (e.g. minordomo-856)', trim: true)
     }
     stages {
         stage('Planning Agent') {
@@ -106,7 +106,6 @@ pipeline {
                 }
             }
             environment {
-                BEADS_DOLT_PASSWORD = credentials('dolt-minordomo-password')
                 GH_APP                  = credentials('github-app')
                 JIRA_ACCT           = credentials('jira-api-key')
             }
