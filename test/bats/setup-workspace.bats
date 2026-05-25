@@ -5,13 +5,15 @@
 
 REPO_ROOT=""
 REMOTE=""
-FIXTURE_JSON=""
-SIBLINGS_FIXTURE_JSON=""
+BEADS_TASK_FIXTURE=""
+BEADS_PARENT_FIXTURE=""
+BEADS_SIBLINGS_FIXTURE=""
 
 setup() {
     REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
-    FIXTURE_JSON="$REPO_ROOT/test/fixtures/jira-task-response.json"
-    SIBLINGS_FIXTURE_JSON="$REPO_ROOT/test/fixtures/jira-siblings-not-first.json"
+    BEADS_TASK_FIXTURE="$REPO_ROOT/test/fixtures/beads-task-show.json"
+    BEADS_PARENT_FIXTURE="$REPO_ROOT/test/fixtures/beads-parent-show.json"
+    BEADS_SIBLINGS_FIXTURE="$REPO_ROOT/test/fixtures/beads-siblings-none-closed.json"
 
     # Create a local bare git repo to act as the GitHub remote.
     # Setting HEAD → bootstrap before the first clone ensures all subsequent
@@ -33,7 +35,7 @@ setup() {
     # Mock binaries in a temp dir prepended to PATH
     local mocks="$BATS_TEST_TMPDIR/mocks"
     mkdir -p "$mocks"
-    export REMOTE FIXTURE_JSON SIBLINGS_FIXTURE_JSON
+    export REMOTE BEADS_TASK_FIXTURE BEADS_PARENT_FIXTURE BEADS_SIBLINGS_FIXTURE
 
     cat > "$mocks/gh" << 'MOCK'
 #!/usr/bin/env bash
@@ -43,6 +45,10 @@ case "$1 $2" in
     # gh repo clone wcjordan/REPO REPO  → args: $3=wcjordan/REPO $4=REPO
     git clone "$REMOTE" "$4" -q
     ;;
+  "issue view")
+    # gh issue view <number> --repo wcjordan/<repo> --json comments
+    echo '{"comments": [{"body": "Jira Epic: MDOMO-1"}]}'
+    ;;
   *) echo "mock gh: unhandled: $*" >&2; exit 1 ;;
 esac
 MOCK
@@ -50,42 +56,40 @@ MOCK
 
     cat > "$mocks/bd" << 'MOCK'
 #!/usr/bin/env bash
-exit 0
+case "$1" in
+  show)
+    # bd show <ID> --json
+    case "$2" in
+      *".1"|*".2"|*".3")
+        # Stage bead (has .N suffix)
+        cat "$BEADS_TASK_FIXTURE"
+        ;;
+      *)
+        # Parent/Plan bead
+        cat "$BEADS_PARENT_FIXTURE"
+        ;;
+    esac
+    ;;
+  list)
+    if [[ "$*" == *"--status=closed"* ]]; then
+        cat "$BEADS_SIBLINGS_FIXTURE"
+    else
+        echo "[]"
+    fi
+    ;;
+  bootstrap|dolt|stats) exit 0 ;;
+  *) exit 0 ;;
+esac
 MOCK
     chmod +x "$mocks/bd"
-
-    cat > "$mocks/curl" << 'MOCK'
-#!/usr/bin/env bash
-# Detect -w flag so we can append the status code the same way real curl does
-WITH_STATUS=false
-for arg in "$@"; do
-    if [[ "$arg" == *"%{http_code}"* ]]; then
-        WITH_STATUS=true
-    fi
-done
-append_status() { if [[ "$WITH_STATUS" == "true" ]]; then printf '\n200'; fi; }
-for arg in "$@"; do
-    if [[ "$arg" == *"/rest/api/3/search/jql"* ]]; then
-        cat "$SIBLINGS_FIXTURE_JSON"
-        append_status
-        exit 0
-    fi
-done
-cat "$FIXTURE_JSON"
-append_status
-MOCK
-    chmod +x "$mocks/curl"
 
     export PATH="$mocks:$PATH"
 
     # Required env vars
-    export JIRA_TASK_ID="MDOMO-44"
-    export JIRA_URL="https://api.atlassian.com/ex/jira/test"
-    export JIRA_EMAIL="test@example.com"
-    export JIRA_API_TOKEN="fake-token"
+    export BEADS_TASK_ID="minordomo-100.1"
     export GH_TOKEN="fake-gh-token"
     export BASE_BRANCH="bootstrap"
-    export BEADS_DOLT_SERVER_USER="minordomo"
+    export ROOT_DOMAIN="test.example.com"
     unset REPO EPIC_KEY FEATURE_BRANCH
 }
 
@@ -103,7 +107,7 @@ MOCK
 
 @test "planning mode: creates and checks out task branch" {
     source "$REPO_ROOT/shared/setup-workspace.sh" planning
-    [ "$(git branch --show-current)" = "task/MDOMO-44" ]
+    [ "$(git branch --show-current)" = "task/minordomo-100.1" ]
 }
 
 @test "planning mode: resumes existing task branch instead of creating a new one" {
@@ -112,14 +116,14 @@ MOCK
     git clone "$REMOTE" "$work" -q
     git -C "$work" checkout -b "feature/MDOMO-1" -q
     git -C "$work" push origin feature/MDOMO-1 -q
-    git -C "$work" checkout -b "task/MDOMO-44" -q
+    git -C "$work" checkout -b "task/minordomo-100.1" -q
     git -C "$work" -c user.email="t@t.com" -c user.name="T" \
         commit --allow-empty -m "prior work" -q
-    git -C "$work" push origin task/MDOMO-44 -q
+    git -C "$work" push origin task/minordomo-100.1 -q
 
     cd "$BATS_TEST_TMPDIR"
     source "$REPO_ROOT/shared/setup-workspace.sh" planning
-    [ "$(git branch --show-current)" = "task/MDOMO-44" ]
+    [ "$(git branch --show-current)" = "task/minordomo-100.1" ]
 }
 
 @test "worker mode: checks out feature branch and creates fresh task branch" {
@@ -131,7 +135,7 @@ MOCK
 
     cd "$BATS_TEST_TMPDIR"
     source "$REPO_ROOT/shared/setup-workspace.sh" worker
-    [ "$(git branch --show-current)" = "task/MDOMO-44" ]
+    [ "$(git branch --show-current)" = "task/minordomo-100.1" ]
 }
 
 @test "worker mode: first task triggers merge of base branch into feature branch" {
@@ -146,7 +150,7 @@ MOCK
         commit --allow-empty -m "base branch advance" -q
     git -C "$work" push origin bootstrap -q
 
-    SIBLINGS_FIXTURE_JSON="$REPO_ROOT/test/fixtures/jira-siblings-first.json"
+    # No closed siblings → IS_FIRST_TASK=yes (default fixture has none closed)
     cd "$BATS_TEST_TMPDIR"
     source "$REPO_ROOT/shared/setup-workspace.sh" worker
 
@@ -165,7 +169,8 @@ MOCK
     local before_sha
     before_sha=$(git ls-remote "$REMOTE" refs/heads/feature/MDOMO-1 | awk '{print $1}')
 
-    # SIBLINGS_FIXTURE_JSON defaults to jira-siblings-not-first.json (set in setup)
+    # Use the fixture that returns closed siblings → IS_FIRST_TASK=no
+    BEADS_SIBLINGS_FIXTURE="$REPO_ROOT/test/fixtures/beads-siblings-has-closed.json"
     cd "$BATS_TEST_TMPDIR"
     source "$REPO_ROOT/shared/setup-workspace.sh" worker
 
@@ -181,7 +186,7 @@ MOCK
     git -C "$work" push origin feature/MDOMO-1 -q
     # feature/MDOMO-1 and bootstrap are at the same commit — already up to date
 
-    SIBLINGS_FIXTURE_JSON="$REPO_ROOT/test/fixtures/jira-siblings-first.json"
+    # No closed siblings → IS_FIRST_TASK=yes, but merge is a no-op
     cd "$BATS_TEST_TMPDIR"
     source "$REPO_ROOT/shared/setup-workspace.sh" worker
     # Test passes if the script exits cleanly (exit 0 with "Already up to date.")
