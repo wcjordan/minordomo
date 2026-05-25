@@ -25,6 +25,8 @@ Local development uses `.claude/settings.local.json`.
 
 Agents run in ephemeral containers with no sensitive files on disk. Credentials arrive as environment variables injected by Jenkins.
 
+Safety rules are the single source of truth in `shared/safety-rules.yaml`. Run `shared/generate-safety-rules.sh` to regenerate the deny list in `agent-settings.json` and the pattern blocks in `pre-bash-guard.sh`. Use `make check-safety` to verify committed output matches the generator.
+
 To test the pre-bash-guard hook locally:
 ```bash
 # Should block (exit 1):
@@ -38,11 +40,26 @@ echo '{"tool_input": {"command": "git push origin main"}}' | shared/pre-bash-gua
 
 ## Agent Startup Sequence
 
-Every agent container sources these scripts before invoking `claude -p`:
+Every agent container sources `shared/bootstrap.sh <mode>` before invoking `claude -p`, which runs these scripts in order:
 
 1. `shared/setup-env.sh` — derives `JIRA_URL`, `GH_TOKEN`, `JENKINS_USERNAME`, `BASE_BRANCH`, `JIRA_EMAIL`, `JIRA_API_TOKEN` from Jenkins-injected credentials
 2. `shared/setup-claude.sh` — copies `agent-settings.json` to `~/.claude/settings.json`, registers the Atlassian MCP server via `claude mcp add`
 3. `shared/setup-workspace.sh <mode>` — clones the target repo, checks out or creates feature/task branches (planning agent and worker only; not Majordomo)
+
+---
+
+## Pipeline Helper Functions
+
+`shared/pipeline-helpers.sh` provides shared utilities for agent system prompts. Source it early in a run:
+
+```bash
+source shared/pipeline-helpers.sh
+```
+
+Available functions:
+- **`beads_task_id_by_title <title>`** — finds a beads task ID by exact title, searching both open and in_progress
+- **`has_needs_input <repo> <issue_number>`** — returns exit 0 if the GH issue carries the `needs-input` label, exit 1 otherwise
+- **`extract_priority <labels_json>`** — extracts the first P0–P4 label from a GH labels JSON array, defaulting to `P2`
 
 ---
 
@@ -94,11 +111,11 @@ Majordomo triggers sub-agents via Jenkins HTTP API:
 ```bash
 # Planning agent
 curl -X POST -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" \
-  "http://jenkins.${ROOT_DOMAIN}/job/minordomo-plan/job/${BASE_BRANCH}/buildWithParameters?JIRA_TASK_ID=<id>"
+  "http://jenkins.${ROOT_DOMAIN}/job/minordomo-plan/job/${BASE_BRANCH}/buildWithParameters?BEADS_TASK_ID=<beads_plan_id>"
 
 # Worker
 curl -X POST -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" \
-  "http://jenkins.${ROOT_DOMAIN}/job/minordomo-step/job/${BASE_BRANCH}/buildWithParameters?JIRA_TASK_ID=<id>"
+  "http://jenkins.${ROOT_DOMAIN}/job/minordomo-step/job/${BASE_BRANCH}/buildWithParameters?BEADS_TASK_ID=<beads_impl_id>"
 ```
 
 ---
