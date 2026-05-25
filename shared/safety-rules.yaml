@@ -1,0 +1,85 @@
+# Safety rules shared between shared/agent-settings.json (deny list) and shared/pre-bash-guard.sh.
+# Run shared/generate-safety-rules.sh to regenerate both files from this source.
+# Rules exclusive to the shell guard (multi-step shell injection patterns not expressible
+# as deny globs) are hardcoded in pre-bash-guard.sh below the guard-only marker.
+#
+# Schema per rule:
+#   description:     block message and human-readable label
+#   deny_glob:       single glob string for the deny list (omit if using deny_globs)
+#   deny_globs:      list of glob strings for the deny list (omit if using deny_glob)
+#   bash_pattern:    single ERE regex passed to grep -qE (omit if using bash_pattern_all)
+#   bash_pattern_all: list of ERE regexes, ALL must match (AND semantics)
+
+rules:
+  - description: force push not allowed
+    deny_globs:
+      - "git push --force*"
+      - "git push -f *"
+    bash_pattern_all:
+      - 'git[[:space:]]+push[[:space:]]'
+      - '(--force\b|-f[[:space:]])'
+
+  - description: git commit --no-verify not allowed
+    deny_glob: "git commit --no-verify*"
+    bash_pattern: 'git\s+commit\s+.*--no-verify'
+
+  - description: git rebase not allowed
+    deny_glob: "git rebase*"
+    bash_pattern: '\bgit\s+rebase\b'
+
+  - description: sudo not allowed
+    deny_glob: "sudo *"
+    bash_pattern: '(^|[;&|[:space:]])sudo[[:space:]]'
+
+  - description: recursive rm on system paths not allowed
+    deny_glob: "rm -rf /*"
+    bash_pattern_all:
+      - '\brm\b'
+      - '\-[a-zA-Z]*[rR][a-zA-Z]*'
+      - '[[:space:]]/([[:space:]]|$|bin|boot|dev|etc|home|lib|lib64|opt|proc|root|run|sbin|srv|sys|tmp|usr|var)'
+
+  - description: access to AWS IMDS endpoint not allowed
+    deny_glob: "curl *169.254.169.254*"
+    bash_pattern: '169\.254\.169\.254'
+
+  - description: access to GCP metadata endpoint not allowed
+    deny_glob: "curl *metadata.google.internal*"
+    bash_pattern: 'metadata\.google\.internal'
+
+  - description: disk manipulation not allowed
+    deny_globs:
+      - "mkfs*"
+      - "fdisk*"
+      - "diskutil*"
+    bash_pattern: '(^|[;&|[:space:]])(mkfs|fdisk|diskutil)([.[:space:]]|$)'
+
+  - description: shutdown/reboot not allowed
+    deny_globs:
+      - "shutdown*"
+      - "reboot*"
+    bash_pattern: '(^|[;&|[:space:]])(shutdown|reboot)([[:space:]]|$)'
+
+  - description: macOS system management not allowed
+    deny_globs:
+      - "nvram*"
+      - "csrutil*"
+      - "launchctl*"
+      - "systemsetup*"
+      - "networksetup*"
+    bash_pattern: '(^|[;&|[:space:]])(nvram|csrutil|launchctl|systemsetup|networksetup)([[:space:]]|$)'
+
+  - description: brew install not allowed
+    deny_globs:
+      - "brew install*"
+      - "brew i *"
+    bash_pattern: '\bbrew[[:space:]]+(install|i)\b'
+
+  - description: npm global install not allowed
+    deny_globs:
+      - "npm install -g*"
+      - "npm install --global*"
+      - "npm i -g*"
+      - "npm i --global*"
+    bash_pattern_all:
+      - '\bnpm[[:space:]]+(install|i)\b'
+      - '(^|[[:space:]])(-g|--global)([[:space:]]|$)'

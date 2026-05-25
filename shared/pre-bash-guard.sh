@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # Secondary safety check before each Bash tool invocation.
-# Primary control is the allow/deny list in majordomo/agent-settings.json.
+# Primary control is the allow/deny list in shared/agent-settings.json.
 # This hook provides defence-in-depth for patterns that glob matching may miss.
+#
+# The generated section (between BEGIN/END markers) is maintained by shared/generate-safety-rules.sh.
+# Run that script after editing shared/safety-rules.yaml; do not edit the generated section directly.
 #
 # Exits 0 to allow, 1 to block. Reason is written to stderr.
 # Fails open on JSON parse errors so a buggy hook never silently blocks commands.
@@ -30,41 +33,64 @@ matches() {
     echo "$COMMAND" | grep -qE "$1"
 }
 
-# Force push: matches --force or -f (with or without remote specified first)
-# Two separate checks because the space before --force may have been consumed by push\s+
-if matches 'git[[:space:]]+push[[:space:]]' && matches '(--force\b|-f[[:space:]])'; then
+# BEGIN GENERATED SECTION - do not edit manually, run shared/generate-safety-rules.sh
+if matches 'git[[:space:]]+push[[:space:]]' && \
+   matches '(--force\b|-f[[:space:]])'; then
     block "force push not allowed"
 fi
 
-# Bypass commit hooks
 if matches 'git\s+commit\s+.*--no-verify'; then
     block "git commit --no-verify not allowed"
 fi
 
-# Rebase (any form)
 if matches '\bgit\s+rebase\b'; then
     block "git rebase not allowed"
 fi
 
-# sudo
 if matches '(^|[;&|[:space:]])sudo[[:space:]]'; then
     block "sudo not allowed"
 fi
 
-# Recursive delete targeting root or top-level system paths.
-# Catches: rm -rf /, rm -fr /etc, rm -Rf /usr, etc.
-if matches '\brm\b' && matches '\-[a-zA-Z]*[rR][a-zA-Z]*' && \
+if matches '\brm\b' && \
+   matches '\-[a-zA-Z]*[rR][a-zA-Z]*' && \
    matches '[[:space:]]/([[:space:]]|$|bin|boot|dev|etc|home|lib|lib64|opt|proc|root|run|sbin|srv|sys|tmp|usr|var)'; then
-    block "recursive rm on system path not allowed"
+    block "recursive rm on system paths not allowed"
 fi
 
-# Cloud instance metadata endpoints (AWS IMDS, GCP metadata server)
 if matches '169\.254\.169\.254'; then
-    block "access to IMDS metadata endpoint not allowed"
+    block "access to AWS IMDS endpoint not allowed"
 fi
-if echo "$COMMAND" | grep -qF 'metadata.google.internal'; then
+
+if matches 'metadata\.google\.internal'; then
     block "access to GCP metadata endpoint not allowed"
 fi
+
+if matches '(^|[;&|[:space:]])(mkfs|fdisk|diskutil)([.[:space:]]|$)'; then
+    block "disk manipulation not allowed"
+fi
+
+if matches '(^|[;&|[:space:]])(shutdown|reboot)([[:space:]]|$)'; then
+    block "shutdown/reboot not allowed"
+fi
+
+if matches '(^|[;&|[:space:]])(nvram|csrutil|launchctl|systemsetup|networksetup)([[:space:]]|$)'; then
+    block "macOS system management not allowed"
+fi
+
+if matches '\bbrew[[:space:]]+(install|i)\b'; then
+    block "brew install not allowed"
+fi
+
+if matches '\bnpm[[:space:]]+(install|i)\b' && \
+   matches '(^|[[:space:]])(-g|--global)([[:space:]]|$)'; then
+    block "npm global install not allowed"
+fi
+
+# END GENERATED SECTION
+
+# --- hardcoded guard-only rules below ---
+# These patterns are defence-in-depth for shell injection and cannot be expressed
+# as simple deny-glob entries. Do not move them to safety-rules.yaml.
 
 # curl or wget output piped to a shell interpreter
 if matches '(curl|wget)\s.+\|\s*(bash|sh|python3?|perl|ruby)\b'; then
@@ -79,31 +105,6 @@ fi
 # Dynamic eval with variable expansion
 if matches '\beval\s+.*\$'; then
     block "dynamic eval not allowed"
-fi
-
-# Disk manipulation commands
-if matches '(^|[;&|[:space:]])(mkfs|fdisk|diskutil)([.[:space:]]|$)'; then
-    block "disk manipulation command not allowed"
-fi
-
-# System power and reset commands
-if matches '(^|[;&|[:space:]])(shutdown|reboot)([[:space:]]|$)'; then
-    block "shutdown/reboot not allowed"
-fi
-
-# macOS system management commands
-if matches '(^|[;&|[:space:]])(nvram|csrutil|launchctl|systemsetup|networksetup)([[:space:]]|$)'; then
-    block "macOS system management command not allowed"
-fi
-
-# Homebrew package installation (brew install and brew i shorthand)
-if matches '\bbrew[[:space:]]+(install|i)\b'; then
-    block "brew install not allowed"
-fi
-
-# npm global package installation
-if matches '\bnpm[[:space:]]+(install|i)\b' && matches '(^|[[:space:]])(-g|--global)([[:space:]]|$)'; then
-    block "npm global install not allowed"
 fi
 
 exit 0
