@@ -6,9 +6,9 @@ Guidelines and context for Claude agents and contributors working in this repo.
 
 ## What This Repo Is
 
-**minordomo** is the automated development pipeline itself. Majordomo and its sub-agents live here. This repo is also one of the repos Majordomo manages (Jira project: `MDOMO`).
+**minordomo** is the automated development pipeline itself. Majordomo and its sub-agents live here. This repo is also one of the repos Majordomo manages (beads project: `minordomo`).
 
-See [`docs/GETTING_AROUND.md`](docs/GETTING_AROUND.md) for repo structure and stage overview. See [`docs/WORKFLOWS.md`](docs/WORKFLOWS.md) for Jira status flows, branching model, and task prioritization.
+See [`docs/GETTING_AROUND.md`](docs/GETTING_AROUND.md) for repo structure and stage overview. See [`docs/WORKFLOWS.md`](docs/WORKFLOWS.md) for branching model and task prioritization.
 
 ---
 
@@ -19,7 +19,7 @@ See [`docs/GETTING_AROUND.md`](docs/GETTING_AROUND.md) for repo structure and st
 Local development uses `.claude/settings.local.json`.
 
 **Agent permissions (from `shared/agent-settings.json`):**
-- Allow: `Bash(*)`, `Read(*)`, `Edit(*)`, `Write(*)`, `mcp__atlassian__*`
+- Allow: `Bash(*)`, `Read(*)`, `Edit(*)`, `Write(*)`
 - Deny: force pushes, `git commit --no-verify`, `git rebase`, `sudo`, `rm -rf /`, GCP metadata endpoint access
 - Hook: `shared/pre-bash-guard.sh` runs before every Bash invocation as a secondary safety check
 
@@ -40,50 +40,29 @@ echo '{"tool_input": {"command": "git push origin main"}}' | shared/pre-bash-gua
 
 Every agent container sources these scripts before invoking `claude -p`:
 
-1. `shared/setup-env.sh` — derives `JIRA_URL`, `GH_TOKEN`, `JENKINS_USERNAME`, `BASE_BRANCH`, `JIRA_EMAIL`, `JIRA_API_TOKEN` from Jenkins-injected credentials
-2. `shared/setup-claude.sh` — copies `agent-settings.json` to `~/.claude/settings.json`, registers the Atlassian MCP server via `claude mcp add`
+1. `shared/setup-env.sh` — derives `GH_TOKEN`, `JENKINS_USERNAME`, `BASE_BRANCH` from Jenkins-injected credentials
+2. `shared/setup-claude.sh` — copies `agent-settings.json` to `~/.claude/settings.json`
 3. `shared/setup-workspace.sh <mode>` — clones the target repo, checks out or creates feature/task branches (planning agent and worker only; not Majordomo)
-
----
-
-## Jira Access
-
-Two access paths, depending on the operation:
-
-- **MCP tools** (`mcp__atlassian__*`) — use for reads where a matching tool exists
-- **Jira REST API** — required for transitions, searches, and operations not covered by MCP tools; use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth against `${JIRA_URL}`
-
-Key REST patterns:
-```
-JQL search:   GET  ${JIRA_URL}/rest/api/3/search/jql?jql=<encoded>&fields=...&maxResults=100
-Issue fetch:  GET  ${JIRA_URL}/rest/api/3/issue/{key}?fields=...
-Transitions:  GET  ${JIRA_URL}/rest/api/3/issue/{key}/transitions
-              POST ${JIRA_URL}/rest/api/3/issue/{key}/transitions  body: {"transition":{"id":"<id>"}}
-Create:       POST ${JIRA_URL}/rest/api/3/issue
-Comment:      POST ${JIRA_URL}/rest/api/3/issue/{key}/comment
-```
 
 ---
 
 ## Task Identity & Ordering
 
-**Planning Tasks:** A task is a Planning Task if and only if its summary **starts with** the literal prefix `Plan:` (case-sensitive, no leading whitespace). A task with "plan" elsewhere in the title (e.g. "Implement deployment plan") is an Implementation Task.
+**Planning Tasks:** A task is a Planning Task if and only if its title **starts with** the literal prefix `Plan:` (case-sensitive, no leading whitespace). A task with "plan" elsewhere in the title (e.g. "Implement deployment plan") is an Implementation Task.
 
 **Implementation Tasks:** Every Task that does not start with `Plan:`.
 
-JQL `~` / `!~` is a text-contains operator — it cannot enforce "starts with". Always apply a second, client-side filter after any Jira query that distinguishes Planning from Implementation Tasks:
+When querying beads, always filter in code after the CLI call:
 
 ```python
-# After fetching tasks from Jira, re-filter in code before acting
-planning = [t for t in tasks if t["fields"]["summary"].startswith("Plan:")]
-implementation = [t for t in tasks if not t["fields"]["summary"].startswith("Plan:")]
+# After fetching tasks from beads, re-filter before acting
+planning = [t for t in tasks if t.get("title", "").startswith("Plan:")]
+implementation = [t for t in tasks if not t.get("title", "").startswith("Plan:")]
 ```
 
-Use `summary ~ "Plan:"` / `summary !~ "Plan:"` in JQL only as a coarse pre-filter to reduce result size. Never rely on JQL alone to make this distinction.
+Implementation task titles are the text after `## Stage N:` from the spec doc.
 
-Implementation task titles are the text after `## Stage N:` from the spec doc — the stage number itself is not stored in the Jira title.
-
-**Stage ordering within an Epic:** Use Jira rank (`customfield_10019`) — lower lexicographic value = created earlier = lower stage number. Tasks are created in stage order by the Plan Approval Spinoff step (Step 5), so Jira rank reliably reflects stage sequence.
+**Stage ordering within an Epic:** Beads dependency graph — `bd ready` surfaces only tasks with no open blocking dependencies, so stage N is automatically unblocked when stage N−1 closes.
 
 ---
 
@@ -94,11 +73,11 @@ Majordomo triggers sub-agents via Jenkins HTTP API:
 ```bash
 # Planning agent
 curl -X POST -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" \
-  "http://jenkins.${ROOT_DOMAIN}/job/minordomo-plan/job/${BASE_BRANCH}/buildWithParameters?JIRA_TASK_ID=<id>"
+  "http://jenkins.${ROOT_DOMAIN}/job/minordomo-plan/job/${BASE_BRANCH}/buildWithParameters?BEADS_TASK_ID=<id>"
 
 # Worker
 curl -X POST -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" \
-  "http://jenkins.${ROOT_DOMAIN}/job/minordomo-step/job/${BASE_BRANCH}/buildWithParameters?JIRA_TASK_ID=<id>"
+  "http://jenkins.${ROOT_DOMAIN}/job/minordomo-step/job/${BASE_BRANCH}/buildWithParameters?BEADS_TASK_ID=<id>"
 ```
 
 ---

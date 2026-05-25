@@ -36,7 +36,6 @@ pipeline {
             environment {
                 CLAUDE_CODE_OAUTH_TOKEN = credentials('claude-code-oauth-token')
                 GH_APP                  = credentials('github-app')
-                JIRA_ACCT               = credentials('jira-api-key')
             }
             options {
                 timeout(time: 120, unit: 'MINUTES')
@@ -109,7 +108,6 @@ pipeline {
             }
             environment {
                 GH_APP                  = credentials('github-app')
-                JIRA_ACCT           = credentials('jira-api-key')
             }
             options {
                 timeout(time: 5, unit: 'MINUTES')

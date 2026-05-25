@@ -7,6 +7,10 @@
 #
 # Requires: BEADS_TASK_ID, GH_TOKEN, BASE_BRANCH env vars
 # Exports:  REPO, EPIC_KEY, FEATURE_BRANCH
+#
+# FEATURE_BRANCH derivation (in priority order):
+#   1. "Feature Branch: feature/..." stored in the Story bead description
+#   2. Legacy: "Jira Epic: <KEY>" comment on the linked GH Issue
 
 set -euo pipefail
 
@@ -52,11 +56,14 @@ TASK_JSON=$(bd show "${BEADS_TASK_ID}" --json)
 TASK_DESC=$(echo "$TASK_JSON" | python3 -c "import json,sys; t=json.load(sys.stdin); print(t[0].get('description') or '')")
 PARENT_ID=$(echo "$TASK_JSON" | python3 -c "import json,sys; t=json.load(sys.stdin); print(t[0].get('parent') or '')")
 
-GH_ISSUE_URL=$(echo "$TASK_DESC" | grep -Eo 'https://github\.com/[^[:space:]]+/issues/[0-9]+' | head -1 || true)
-if [ -z "$GH_ISSUE_URL" ] && [ -n "$PARENT_ID" ]; then
-    PARENT_DESC=$(bd show "$PARENT_ID" --json | python3 -c "import json,sys; t=json.load(sys.stdin); print(t[0].get('description') or '')")
-    GH_ISSUE_URL=$(echo "$PARENT_DESC" | grep -Eo 'https://github\.com/[^[:space:]]+/issues/[0-9]+' | head -1 || true)
+# STORY_DESC is the description of the Story bead (parent for stage tasks, self for plan tasks).
+# It contains "GH Issue: <url>" and optionally "Feature Branch: feature/...".
+STORY_DESC="$TASK_DESC"
+if [ -n "$PARENT_ID" ]; then
+    STORY_DESC=$(bd show "$PARENT_ID" --json | python3 -c "import json,sys; t=json.load(sys.stdin); print(t[0].get('description') or '')")
 fi
+
+GH_ISSUE_URL=$(echo "$STORY_DESC" | grep -Eo 'https://github\.com/[^[:space:]]+/issues/[0-9]+' | head -1 || true)
 
 if [ -z "$GH_ISSUE_URL" ]; then
     echo "ERROR: No GH Issue URL found in beads task ${BEADS_TASK_ID} or its parent" >&2
@@ -65,9 +72,14 @@ fi
 
 GH_ISSUE_NUMBER=$(echo "$GH_ISSUE_URL" | grep -Eo '[0-9]+$')
 
-export EPIC_KEY
-EPIC_KEY=$(gh issue view "$GH_ISSUE_NUMBER" --repo "wcjordan/${REPO}" --json comments \
-    | python3 -c "
+export FEATURE_BRANCH
+FEATURE_BRANCH=$(echo "$STORY_DESC" | grep -Eo 'Feature Branch: [^[:space:]]+' | awk '{print $3}' | head -1 || true)
+
+if [ -z "$FEATURE_BRANCH" ]; then
+    # Legacy fallback: look for "Jira Epic: KEY" comment on the GH Issue
+    export EPIC_KEY
+    EPIC_KEY=$(gh issue view "$GH_ISSUE_NUMBER" --repo "wcjordan/${REPO}" --json comments \
+        | python3 -c "
 import json, sys, re
 data = json.load(sys.stdin)
 for comment in data.get('comments', []):
@@ -77,8 +89,10 @@ for comment in data.get('comments', []):
         sys.exit(0)
 sys.exit('No Jira Epic comment found')
 ")
+    FEATURE_BRANCH="feature/${EPIC_KEY}"
+fi
 
-export FEATURE_BRANCH="feature/${EPIC_KEY}"
+export EPIC_KEY="${FEATURE_BRANCH#feature/}"
 
 echo "Derived REPO=${REPO} EPIC_KEY=${EPIC_KEY} FEATURE_BRANCH=${FEATURE_BRANCH}"
 

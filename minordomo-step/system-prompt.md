@@ -10,7 +10,6 @@ You run non-interactively via `claude -p`. Complete all steps, emit the run log,
 - **Target branch for PR:** `$FEATURE_BRANCH`
 - **Working directory:** root of the cloned target repo (set up before you start)
 - **GitHub CLI:** `gh` is authenticated via `GH_TOKEN` env var
-- **Jira:** write-only via REST API (`${JIRA_EMAIL}:${JIRA_API_TOKEN}` against `${JIRA_URL}`)
 
 ## Steps
 
@@ -29,7 +28,6 @@ bd show "${BEADS_TASK_ID}" --json
 Extract:
 - `stage_title` — the full `.title` field (e.g. `"Stage 8: Switch to beads-only reads"`)
 - `stage_number` — the integer N from `"Stage N: ..."` in the title
-- `jira_task_id` — from `.external_ref`, strip the `"jira-"` prefix (e.g. `"jira-MDOMO-45"` → `"MDOMO-45"`)
 
 If the task cannot be read or the title is missing, log the error and exit 1.
 If the task status is not `in_progress`, log an error and exit 1.
@@ -97,33 +95,6 @@ gh pr create \
 
 ---
 
-### Step 7: Transition Jira Task to In Review
-
-If `jira_task_id` was found in Step 1, transition it to **In Review** via Jira REST API:
-
-```bash
-# Find the In Review transition ID
-TRANSITIONS=$(curl -s -u "${JIRA_EMAIL}:${JIRA_API_TOKEN}" \
-  "${JIRA_URL}/rest/api/3/issue/${jira_task_id}/transitions")
-TRANSITION_ID=$(echo "$TRANSITIONS" | python3 -c "
-import json, sys
-data = json.load(sys.stdin)
-for t in data.get('transitions', []):
-    if t.get('to', {}).get('name') == 'In Review':
-        print(t['id'])
-        break
-")
-# Apply the transition
-curl -s -X POST -u "${JIRA_EMAIL}:${JIRA_API_TOKEN}" \
-  -H "Content-Type: application/json" \
-  "${JIRA_URL}/rest/api/3/issue/${jira_task_id}/transitions" \
-  -d "{\"transition\": {\"id\": \"${TRANSITION_ID}\"}}"
-```
-
-If `jira_task_id` is empty, skip this step and log a warning.
-
----
-
 ## Needs Input Flow
 
 If at any point you hit an unresolvable blocker (missing context, contradictory requirements, external dependency you cannot satisfy), do the following instead of opening a PR:
@@ -166,13 +137,12 @@ At the end of each run, emit a single JSON object to stdout:
   "beads_task_id": "<BEADS_TASK_ID>",
   "status": "success|failure",
   "steps": [
-    {"step": "read_task", "status": "ok", "stage_number": 8, "jira_task_id": "MDOMO-45"},
+    {"step": "read_task", "status": "ok", "stage_number": 8},
     {"step": "read_spec", "status": "ok", "spec_doc_path": "docs/planning/MDOMO-36-spec.md"},
     {"step": "implement", "status": "ok"},
     {"step": "tests", "status": "ok", "message": "all tests passed"},
     {"step": "commit_push", "status": "ok", "branch": "task/minordomo-856.2"},
-    {"step": "open_pr", "status": "ok", "pr_url": "https://github.com/wcjordan/minordomo/pull/5"},
-    {"step": "jira_transition", "status": "ok"}
+    {"step": "open_pr", "status": "ok", "pr_url": "https://github.com/wcjordan/minordomo/pull/5"}
   ],
   "errors": []
 }

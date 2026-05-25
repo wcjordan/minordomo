@@ -7,8 +7,7 @@
       "Bash(*)",
       "Read(*)",
       "Edit(*)",
-      "Write(*)",
-      "mcp__atlassian__*"
+      "Write(*)"
     ],
     "deny": [
       "Bash(git push --force*)",
