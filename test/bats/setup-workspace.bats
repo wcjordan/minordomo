@@ -90,7 +90,6 @@ MOCK
     export GH_TOKEN="fake-gh-token"
     export BASE_BRANCH="bootstrap"
     export ROOT_DOMAIN="test.example.com"
-    export BEADS_DOLT_SERVER_USER="minordomo"
     unset REPO EPIC_KEY FEATURE_BRANCH
 }
 
