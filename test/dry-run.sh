@@ -34,6 +34,7 @@ cat > "$MOCKS/gh" << 'MOCK'
 case "$1 $2" in
   "auth setup-git") exit 0 ;;
   "repo clone") git clone "$REMOTE" "$4" -q ;;
+  "issue view") echo '{"comments": [{"body": "Jira Epic: MDOMO-1"}]}' ;;
   *) echo "mock gh: unhandled: $*" >&2; exit 1 ;;
 esac
 MOCK
@@ -55,7 +56,26 @@ chmod +x "$MOCKS/claude"
 
 cat > "$MOCKS/bd" << 'MOCK'
 #!/usr/bin/env bash
-exit 0
+case "$1" in
+  show)
+    # Return a task or parent bead; detect by arg
+    BEADS_ID="${2:-}"
+    if echo "$BEADS_ID" | grep -qE '\.[0-9]+$'; then
+      # Stage/Plan task (has dot suffix) — parent is the base ID
+      PARENT=$(echo "$BEADS_ID" | sed 's/\.[0-9]*$//')
+      echo "[{\"id\": \"$BEADS_ID\", \"title\": \"Stage 1: Test stage\", \"description\": null, \"status\": \"in_progress\", \"priority\": 2, \"parent\": \"$PARENT\"}]"
+    else
+      # Story/Parent bead
+      echo "[{\"id\": \"$BEADS_ID\", \"title\": \"Plan: Test feature\", \"description\": \"GH Issue: https://github.com/wcjordan/minordomo/issues/1\", \"status\": \"in_progress\", \"priority\": 2, \"parent\": null}]"
+    fi
+    ;;
+  list)
+    echo "[]"
+    ;;
+  *)
+    exit 0
+    ;;
+esac
 MOCK
 chmod +x "$MOCKS/bd"
 
@@ -69,7 +89,7 @@ export GH_APP_PSW="gh-fake-token"
 export JIRA_ACCT_PSW="jira-fake-token"
 export JIRA_ACCT_USR="test@example.com"
 export JIRA_CLOUD_ID="test-cloud-id"
-export JIRA_TASK_ID="MDOMO-44"
+export BEADS_TASK_ID="minordomo-100.1"
 export HOME="$WORK/home"
 mkdir -p "$HOME"
 
