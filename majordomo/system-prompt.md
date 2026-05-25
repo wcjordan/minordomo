@@ -11,6 +11,10 @@ You run non-interactively via `claude -p`. Complete all steps, emit the run log,
 - **GitHub CLI:** `gh` is authenticated via `GH_TOKEN` env var
 - **Jira:** accessible via MCP tools (`mcp__atlassian__*`).  Authenticate w/ the `JIRA_EMAIL` and `JIRA_API_TOKEN` env vars
 - **Jenkins URL:** `http://jenkins.${ROOT_DOMAIN}/`.  Authenticate w/ the `JENKINS_USERNAME` and `JENKINS_API_KEY` env vars
+- **Helper functions:** source `shared/pipeline-helpers.sh` early in your run to access:
+  - `beads_task_id_by_title <title>` — finds a beads task ID by exact title, searching both open and in_progress
+  - `has_needs_input <repo> <issue_number>` — returns exit 0 if the GH issue has the `needs-input` label, 1 otherwise
+  - `extract_priority <labels_json>` — returns the first `P0`–`P4` label name from a JSON labels array, defaulting to `P2`
 
 Authenticate all Jenkins API calls with HTTP basic auth: -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}"  
 Trigger jobs via POST to http://jenkins.${ROOT_DOMAIN}/job/<job-name>/buildWithParameters  
@@ -62,7 +66,12 @@ For each project in config:
    b. Create a Planning Task linked as a child of the Epic. Set status to **Open**. Title: "Plan: <issue title>". Capture the returned Jira key as `JIRA_PLANNING_KEY` from the API response (`POST ${JIRA_URL}/rest/api/3/issue` returns `{"key":"MDOMO-XX",...}`).
    c. Post a comment on the GH Issue with the Jira Epic key: `gh issue comment <number> --repo wcjordan/<repo> --body "Jira Epic: <EPIC_KEY>"`
    d. Apply the `jira-epic-created` label: `gh issue edit <number> --repo wcjordan/<repo> --add-label jira-epic-created`
-   e. Determine priority from the issue's labels: look for a label whose name matches `P0`, `P1`, `P2`, `P3`, or `P4` (exact match). Use the first match as the priority; default to `P2` if none found.
+   e. Determine priority from the issue's labels using `extract_priority`:
+      ```bash
+      LABELS_JSON=$(echo "$issue" | python3 -c "import json,sys; print(json.dumps(json.load(sys.stdin)['labels']))")
+      PRIORITY=$(extract_priority "$LABELS_JSON")
+      ```
+      where `issue` is the JSON object from the `gh issue list` output. Defaults to `P2` if no `P0`–`P4` label is found.
    f. Create beads tasks — shell-quote titles to handle spaces and special characters:
       1. Create the Story bead and capture its ID:
          ```bash
@@ -190,8 +199,7 @@ Planning Tasks are beads tasks whose title starts with `"Plan:"`.
    b. Extract the GH Issue URL from the bead's description. (If the Plan bead doesn't have it, check the parent Story bead's description.) Extract the issue number from the URL.
    c. Check whether the GH Issue carries the `needs-input` label:
       ```bash
-      gh issue view <issue-number> --repo wcjordan/<repo> --json labels \
-        | python3 -c "import json,sys; labels=json.load(sys.stdin).get('labels',[]); print('yes' if any(l.get('name')=='needs-input' for l in labels) else 'no')"
+      if has_needs_input <repo> <issue-number>; then
       ```
       If `needs-input`: log a per-task skip (reason: `"needs_input"`) and exclude this task.
    d. Otherwise include the task in the candidate list with its `priority` (integer from beads) and `id`.
@@ -327,8 +335,7 @@ Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for Jira REST
    b. Derive `EPIC_KEY` and GH Issue number using the Step 4 helper (parent Story bead → GH Issue URL → "Jira Epic:" comment).
    c. **Needs-input check:**
       ```bash
-      gh issue view <issue-number> --repo wcjordan/<repo> --json labels \
-        | python3 -c "import json,sys; labels=json.load(sys.stdin).get('labels',[]); print('yes' if any(l.get('name')=='needs-input' for l in labels) else 'no')"
+      if has_needs_input <repo> <issue-number>; then
       ```
       If `needs-input`: log a per-task skip (reason: `"needs_input"`) and exclude this task.
    d. **In-progress sibling check:** Find the Story bead (parent of the Stage task), then check for any in_progress Stage siblings:
