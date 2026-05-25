@@ -47,9 +47,7 @@ pipeline {
                     sh '''
                         set -euo pipefail
 
-                        source shared/setup-env.sh
-                        source shared/setup-claude.sh
-                        source shared/setup-workspace.sh worker
+                        source shared/bootstrap.sh worker
 
                         { bd stats && echo "---" && bd list; } | tee /tmp/beads-output.txt
                         CLAUDE_EXIT=0
