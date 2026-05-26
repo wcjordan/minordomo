@@ -109,21 +109,9 @@ Initialize: `tasks_checked = 0`, `tasks_transitioned = 0`, `task_errors = []`
    - **Stage tasks**: title starts with `"Stage"` (Implementation Tasks)
    - **Plan tasks**: title starts with `"Plan:"` (Planning Tasks)
 
-2. **Helper: derive EPIC_KEY from a beads task.** For any Stage or Plan bead, its parent is the Story bead. The Story bead's description contains `"GH Issue: <url>"`. Fetch the GH Issue and find the `"Jira Epic: <KEY>"` comment:
+2. **Helper: derive EPIC_KEY and GH_ISSUE_NUMBER from a beads task.** Use `shared/get-epic-key.sh <beads_task_id> <repo>` — it prints EPIC_KEY on line 1 and GH_ISSUE_NUMBER on line 2:
    ```bash
-   STORY_DESC=$(bd show "<parent_id>" --json | python3 -c "import json,sys; t=json.load(sys.stdin); print(t[0].get('description') or '')")
-   GH_ISSUE_URL=$(echo "$STORY_DESC" | grep -Eo 'https://github\.com/[^[:space:]]+/issues/[0-9]+' | head -1)
-   GH_ISSUE_NUMBER=$(echo "$GH_ISSUE_URL" | grep -Eo '[0-9]+$')
-   EPIC_KEY=$(gh issue view "$GH_ISSUE_NUMBER" --repo "wcjordan/<repo>" --json comments \
-     | python3 -c "
-   import json, sys, re
-   data = json.load(sys.stdin)
-   for comment in data.get('comments', []):
-       m = re.search(r'Jira Epic: ([A-Z]+-[0-9]+)', comment.get('body', ''))
-       if m:
-           print(m.group(1))
-           break
-   ")
+   { read -r EPIC_KEY; read -r GH_ISSUE_NUMBER; } < <(shared/get-epic-key.sh "<beads_task_id>" "<repo>")
    ```
 
 3. **Helper: derive repo from a beads task ID.** Use longest-match against config repos (same as `shared/setup-workspace.sh`).
@@ -137,7 +125,7 @@ Initialize: `tasks_checked = 0`, `tasks_transitioned = 0`, `task_errors = []`
       shared/check-pr-merged.sh <repo> <EPIC_KEY> <beads_task_id>
       ```
    e. If the script exits 0 (PR was merged):
-      - Transition Jira task to **Done**: `GET` transitions, find `to.name == "Done"`, `POST` the transition.
+      - Transition Jira task to **Done**: `shared/jira-transition.sh "${jira_task_key}" "Done"`
       - On success: increment `tasks_transitioned`.
       - Close the beads subtask: `bd close "<beads_task_id>"`.
       - On any per-task error: append to `task_errors` and continue.
@@ -151,7 +139,7 @@ Initialize: `tasks_checked = 0`, `tasks_transitioned = 0`, `task_errors = []`
       shared/check-pr-merged.sh <repo> <EPIC_KEY> <beads_task_id>
       ```
    e. If the script exits 0 (PR was merged):
-      - Transition Jira Planning Task to **Approved**: `GET` transitions, find `to.name == "Approved"`, `POST` the transition.
+      - Transition Jira Planning Task to **Approved**: `shared/jira-transition.sh "${jira_task_key}" "Approved"`
       - On success: increment `tasks_transitioned`.
       - Do **not** close the beads Plan bead here — Step 6 closes it after creating implementation subtasks.
       - On any per-task error: append to `task_errors` and continue.
@@ -355,8 +343,7 @@ Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for Jira REST
 
 8. **Transition Jira task to In Progress** (write — keep):
    - Extract `jira_task_key` from `external_ref` by stripping the `"jira-"` prefix.
-   - `GET ${JIRA_URL}/rest/api/3/issue/<jira_task_key>/transitions` — find the entry where `to.name == "In Progress"` and extract its `id`
-   - `POST ${JIRA_URL}/rest/api/3/issue/<jira_task_key>/transitions` with body `{"transition": {"id": "<id>"}}`
+   - `shared/jira-transition.sh "${jira_task_key}" "In Progress"`
    - On error: log a warning and continue — the beads claim already succeeded.
 
 9. **Trigger worker Jenkins job:**
@@ -393,20 +380,9 @@ Initialize: `epics_checked = 0`, `prs_opened = 0`, `epics_skipped = 0`, `epic_er
    c. **Fetch Stage children:** `bd list --parent "<story_bead_id>" --json` — filter to Stage tasks (title starts with `"Stage"`). Separate Plan children from Stage children (Stage children are the Implementation Tasks).
    d. **Skip — no Stage tasks:** If the Stage task list is empty, increment `epics_skipped` (reason: `"no_impl_tasks"`) and continue to the next Story.
    e. **Skip — incomplete:** If any Stage task status is not `"closed"`, increment `epics_skipped` (reason: `"impl_tasks_not_done"`) and continue to the next Story.
-   f. **Derive EPIC_KEY and GH Issue:** Extract the GH Issue URL from the Story bead's description. Fetch comments from the GH Issue and look for `"Jira Epic: <KEY>"`:
+   f. **Derive EPIC_KEY and GH Issue:** Use `shared/get-epic-key.sh` with the Story bead's ID:
       ```bash
-      GH_ISSUE_URL=$(echo "<story_description>" | grep -Eo 'https://github\.com/[^[:space:]]+/issues/[0-9]+' | head -1)
-      GH_ISSUE_NUMBER=$(echo "$GH_ISSUE_URL" | grep -Eo '[0-9]+$')
-      EPIC_KEY=$(gh issue view "$GH_ISSUE_NUMBER" --repo "wcjordan/<repo>" --json comments \
-        | python3 -c "
-      import json, sys, re
-      data = json.load(sys.stdin)
-      for comment in data.get('comments', []):
-          m = re.search(r'Jira Epic: ([A-Z]+-[0-9]+)', comment.get('body', ''))
-          if m:
-              print(m.group(1))
-              break
-      ")
+      { read -r EPIC_KEY; read -r GH_ISSUE_NUMBER; } < <(shared/get-epic-key.sh "<story_bead_id>" "<repo>")
       ```
       If EPIC_KEY cannot be derived: append a per-Epic error to `epic_errors`, increment `epics_skipped`, and continue to the next Story.
    g. **Skip — PR exists:**
@@ -482,8 +458,7 @@ Initialize: `epics_checked = 0`, `prs_opened = 0`, `epics_skipped = 0`, `epic_er
       ```
       Capture stdout and log the PR URL.
    n. **Transition Epic to In Review:**
-      - `GET ${JIRA_URL}/rest/api/3/issue/<EPIC_KEY>/transitions` — find the entry where `to.name == "In Review"` and extract its `id`.
-      - `POST ${JIRA_URL}/rest/api/3/issue/<EPIC_KEY>/transitions` with body `{"transition": {"id": "<id>"}}`.
+      - `shared/jira-transition.sh "${EPIC_KEY}" "In Review"`
       - On error: append to `epic_errors` (do not abort the step).
    o. Increment `prs_opened`.
 

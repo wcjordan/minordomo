@@ -106,22 +106,7 @@ gh pr create \
 If `jira_task_id` was found in Step 1, transition it to **In Review** via Jira REST API:
 
 ```bash
-# Find the In Review transition ID
-TRANSITIONS=$(curl -s -u "${JIRA_EMAIL}:${JIRA_API_TOKEN}" \
-  "${JIRA_URL}/rest/api/3/issue/${jira_task_id}/transitions")
-TRANSITION_ID=$(echo "$TRANSITIONS" | python3 -c "
-import json, sys
-data = json.load(sys.stdin)
-for t in data.get('transitions', []):
-    if t.get('to', {}).get('name') == 'In Review':
-        print(t['id'])
-        break
-")
-# Apply the transition
-curl -s -X POST -u "${JIRA_EMAIL}:${JIRA_API_TOKEN}" \
-  -H "Content-Type: application/json" \
-  "${JIRA_URL}/rest/api/3/issue/${jira_task_id}/transitions" \
-  -d "{\"transition\": {\"id\": \"${TRANSITION_ID}\"}}"
+shared/jira-transition.sh "${jira_task_id}" "In Review"
 ```
 
 If `jira_task_id` is empty, skip this step and log a warning.
@@ -132,11 +117,9 @@ If `jira_task_id` is empty, skip this step and log a warning.
 
 If at any point you hit an unresolvable blocker (missing context, contradictory requirements, external dependency you cannot satisfy), do the following instead of opening a PR:
 
-1. **Find the GH Issue number** — get the parent bead's description and extract the GH Issue URL:
+1. **Find the GH Issue number** — use `shared/get-epic-key.sh` (`$REPO` is exported by `shared/setup-workspace.sh`):
    ```bash
-   PARENT_ID=$(bd show "${BEADS_TASK_ID}" --json | python3 -c "import json,sys; t=json.load(sys.stdin); print(t[0].get('parent') or '')")
-   GH_ISSUE_URL=$(bd show "$PARENT_ID" --json | python3 -c "import json,sys; t=json.load(sys.stdin); print(t[0].get('description') or '')" | grep -Eo 'https://github\.com/[^[:space:]]+/issues/[0-9]+' | head -1)
-   GH_ISSUE_NUMBER=$(echo "$GH_ISSUE_URL" | grep -Eo '[0-9]+$')
+   { read -r _EPIC_KEY; read -r GH_ISSUE_NUMBER; } < <(shared/get-epic-key.sh "${BEADS_TASK_ID}" "$REPO")
    ```
 
 2. **Apply the `needs-input` label** to the linked GH Issue:

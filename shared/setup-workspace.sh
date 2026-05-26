@@ -45,40 +45,14 @@ bd bootstrap
 bd dolt show
 bd dolt pull
 
-# Derive EPIC_KEY and FEATURE_BRANCH from the beads task's parent chain + GH Issue.
-# Planning tasks store the GH Issue URL in their own description.
-# Stage tasks store it in their parent (the Plan bead) description.
-TASK_JSON=$(bd show "${BEADS_TASK_ID}" --json)
-TASK_DESC=$(echo "$TASK_JSON" | python3 -c "import json,sys; t=json.load(sys.stdin); print(t[0].get('description') or '')")
-PARENT_ID=$(echo "$TASK_JSON" | python3 -c "import json,sys; t=json.load(sys.stdin); print(t[0].get('parent') or '')")
-
-GH_ISSUE_URL=$(echo "$TASK_DESC" | grep -Eo 'https://github\.com/[^[:space:]]+/issues/[0-9]+' | head -1 || true)
-if [ -z "$GH_ISSUE_URL" ] && [ -n "$PARENT_ID" ]; then
-    PARENT_DESC=$(bd show "$PARENT_ID" --json | python3 -c "import json,sys; t=json.load(sys.stdin); print(t[0].get('description') or '')")
-    GH_ISSUE_URL=$(echo "$PARENT_DESC" | grep -Eo 'https://github\.com/[^[:space:]]+/issues/[0-9]+' | head -1 || true)
-fi
-
-if [ -z "$GH_ISSUE_URL" ]; then
-    echo "ERROR: No GH Issue URL found in beads task ${BEADS_TASK_ID} or its parent" >&2
-    exit 1
-fi
-
-GH_ISSUE_NUMBER=$(echo "$GH_ISSUE_URL" | grep -Eo '[0-9]+$')
-
+# Derive EPIC_KEY from the beads task via shared/get-epic-key.sh.
 export EPIC_KEY
-EPIC_KEY=$(gh issue view "$GH_ISSUE_NUMBER" --repo "wcjordan/${REPO}" --json comments \
-    | python3 -c "
-import json, sys, re
-data = json.load(sys.stdin)
-for comment in data.get('comments', []):
-    m = re.search(r'Jira Epic: ([A-Z]+-[0-9]+)', comment.get('body', ''))
-    if m:
-        print(m.group(1))
-        sys.exit(0)
-sys.exit('No Jira Epic comment found')
-")
+EPIC_KEY=$("$(dirname "${BASH_SOURCE[0]}")/get-epic-key.sh" "${BEADS_TASK_ID}" "${REPO}" | head -1)
 
 export FEATURE_BRANCH="feature/${EPIC_KEY}"
+
+# Derive PARENT_ID for the CLOSED_SIBLINGS check in worker mode.
+PARENT_ID=$(bd show "${BEADS_TASK_ID}" --json | python3 -c "import json,sys; t=json.load(sys.stdin); print(t[0].get('parent') or '')")
 
 echo "Derived REPO=${REPO} EPIC_KEY=${EPIC_KEY} FEATURE_BRANCH=${FEATURE_BRANCH}"
 
