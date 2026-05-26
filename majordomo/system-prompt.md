@@ -109,21 +109,9 @@ Initialize: `tasks_checked = 0`, `tasks_transitioned = 0`, `task_errors = []`
    - **Stage tasks**: title starts with `"Stage"` (Implementation Tasks)
    - **Plan tasks**: title starts with `"Plan:"` (Planning Tasks)
 
-2. **Helper: derive EPIC_KEY from a beads task.** For any Stage or Plan bead, its parent is the Story bead. The Story bead's description contains `"GH Issue: <url>"`. Fetch the GH Issue and find the `"Jira Epic: <KEY>"` comment:
+2. **Helper: derive EPIC_KEY and GH_ISSUE_NUMBER from a beads task.** Use `shared/get-epic-key.sh <beads_task_id> <repo>` — it prints EPIC_KEY on line 1 and GH_ISSUE_NUMBER on line 2:
    ```bash
-   STORY_DESC=$(bd show "<parent_id>" --json | python3 -c "import json,sys; t=json.load(sys.stdin); print(t[0].get('description') or '')")
-   GH_ISSUE_URL=$(echo "$STORY_DESC" | grep -Eo 'https://github\.com/[^[:space:]]+/issues/[0-9]+' | head -1)
-   GH_ISSUE_NUMBER=$(echo "$GH_ISSUE_URL" | grep -Eo '[0-9]+$')
-   EPIC_KEY=$(gh issue view "$GH_ISSUE_NUMBER" --repo "wcjordan/<repo>" --json comments \
-     | python3 -c "
-   import json, sys, re
-   data = json.load(sys.stdin)
-   for comment in data.get('comments', []):
-       m = re.search(r'Jira Epic: ([A-Z]+-[0-9]+)', comment.get('body', ''))
-       if m:
-           print(m.group(1))
-           break
-   ")
+   { read -r EPIC_KEY; read -r GH_ISSUE_NUMBER; } < <(shared/get-epic-key.sh "<beads_task_id>" "<repo>")
    ```
 
 3. **Helper: derive repo from a beads task ID.** Use longest-match against config repos (same as `shared/setup-workspace.sh`).
@@ -402,20 +390,9 @@ Initialize: `epics_checked = 0`, `prs_opened = 0`, `epics_skipped = 0`, `epic_er
    c. **Fetch Stage children:** `bd list --parent "<story_bead_id>" --json` — filter to Stage tasks (title starts with `"Stage"`). Separate Plan children from Stage children (Stage children are the Implementation Tasks).
    d. **Skip — no Stage tasks:** If the Stage task list is empty, increment `epics_skipped` (reason: `"no_impl_tasks"`) and continue to the next Story.
    e. **Skip — incomplete:** If any Stage task status is not `"closed"`, increment `epics_skipped` (reason: `"impl_tasks_not_done"`) and continue to the next Story.
-   f. **Derive EPIC_KEY and GH Issue:** Extract the GH Issue URL from the Story bead's description. Fetch comments from the GH Issue and look for `"Jira Epic: <KEY>"`:
+   f. **Derive EPIC_KEY and GH Issue:** Use `shared/get-epic-key.sh` with the Story bead's ID:
       ```bash
-      GH_ISSUE_URL=$(echo "<story_description>" | grep -Eo 'https://github\.com/[^[:space:]]+/issues/[0-9]+' | head -1)
-      GH_ISSUE_NUMBER=$(echo "$GH_ISSUE_URL" | grep -Eo '[0-9]+$')
-      EPIC_KEY=$(gh issue view "$GH_ISSUE_NUMBER" --repo "wcjordan/<repo>" --json comments \
-        | python3 -c "
-      import json, sys, re
-      data = json.load(sys.stdin)
-      for comment in data.get('comments', []):
-          m = re.search(r'Jira Epic: ([A-Z]+-[0-9]+)', comment.get('body', ''))
-          if m:
-              print(m.group(1))
-              break
-      ")
+      { read -r EPIC_KEY; read -r GH_ISSUE_NUMBER; } < <(shared/get-epic-key.sh "<story_bead_id>" "<repo>")
       ```
       If EPIC_KEY cannot be derived: append a per-Epic error to `epic_errors`, increment `epics_skipped`, and continue to the next Story.
    g. **Skip — PR exists:**
