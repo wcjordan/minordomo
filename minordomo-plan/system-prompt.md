@@ -90,7 +90,7 @@ Review everything gathered so far. Flag anything that is vague or underspecified
    ```
 3. Move the beads planning task back to `open` so it can be re-claimed when the human clears the label:
    ```bash
-   bd update "${BEADS_TASK_ID}" --status open
+   shared/beads-write.sh update "${BEADS_TASK_ID}" --status open
    ```
 4. Emit the run log and exit 0.
 
