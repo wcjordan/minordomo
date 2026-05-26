@@ -57,6 +57,7 @@ timestamps {
                             usernamePassword(credentialsId: 'github-app',   usernameVariable: 'GH_APP_USR',    passwordVariable: 'GH_APP_PSW'),
                             usernamePassword(credentialsId: 'jira-api-key', usernameVariable: 'JIRA_ACCT_USR', passwordVariable: 'JIRA_ACCT_PSW'),
                         ]) {
+                            checkout scm
                             container('worker') {
                                 sh """
                                     set -euo pipefail
@@ -97,6 +98,7 @@ timestamps {
                             usernamePassword(credentialsId: 'github-app',   usernameVariable: 'GH_APP_USR',    passwordVariable: 'GH_APP_PSW'),
                             usernamePassword(credentialsId: 'jira-api-key', usernameVariable: 'JIRA_ACCT_USR', passwordVariable: 'JIRA_ACCT_PSW'),
                         ]) {
+                            checkout scm
                             container('majordomo') {
                                 sh '''
                                     set -euo pipefail
