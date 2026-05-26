@@ -46,7 +46,7 @@ case "$1 $2" in
     git clone "$REMOTE" "$4" -q
     ;;
   "issue view")
-    # gh issue view <number> --repo wcjordan/<repo> --json comments
+    # Called by get-epic-key.sh: gh issue view <number> --repo wcjordan/<repo> --json comments
     echo '{"comments": [{"body": "Jira Epic: MDOMO-1"}]}'
     ;;
   *) echo "mock gh: unhandled: $*" >&2; exit 1 ;;
@@ -59,13 +59,14 @@ MOCK
 case "$1" in
   show)
     # bd show <ID> --json
+    # Called by get-epic-key.sh (for EPIC_KEY derivation) and directly (for PARENT_ID lookup).
     case "$2" in
       *".1"|*".2"|*".3")
         # Stage bead (has .N suffix)
         cat "$BEADS_TASK_FIXTURE"
         ;;
       *)
-        # Parent/Plan bead
+        # Parent/Plan bead — get-epic-key.sh falls back here when task description has no GH URL
         cat "$BEADS_PARENT_FIXTURE"
         ;;
     esac
