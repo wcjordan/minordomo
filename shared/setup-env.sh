@@ -13,6 +13,7 @@ export JIRA_EMAIL="${JIRA_ACCT_USR}"
 export JIRA_API_TOKEN="${JIRA_ACCT_PSW}"
 export GH_TOKEN="${GH_APP_PSW}"
 export NOTIFICATION_EMAIL="${JENKINS_USERNAME}"
+export GAR_HOST="us-east4-docker.pkg.dev"
 
 export BASE_BRANCH
 BASE_BRANCH=$(python3 -c "

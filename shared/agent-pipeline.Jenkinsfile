@@ -1,14 +1,21 @@
+// Shared agent pipeline. AGENT_MODE must be set by the caller ('planning' or 'worker').
 def GAR_HOST = 'us-east4-docker.pkg.dev'
 def GAR_REPO = "${GAR_HOST}/${env.GCP_PROJECT}/default-gar"
+
+def agentStageName  = (AGENT_MODE == 'planning') ? 'Planning Agent' : 'Worker'
+def agentPromptPath = (AGENT_MODE == 'planning') ? '../minordomo-plan/system-prompt.md'
+                                                  : '../minordomo-step/system-prompt.md'
 
 pipeline {
     agent none
     options {
         timestamps()
-        disableConcurrentBuilds()
+    }
+    parameters {
+        string(name: 'BEADS_TASK_ID', description: 'Beads task ID for this pipeline run', trim: true)
     }
     stages {
-        stage('Majordomo') {
+        stage("${agentStageName}") {
             agent {
                 kubernetes {
                     yaml """
@@ -16,7 +23,7 @@ pipeline {
                         kind: Pod
                         spec:
                           containers:
-                          - name: majordomo
+                          - name: worker
                             image: ${GAR_REPO}/minordomo-image:latest
                             command:
                             - cat
@@ -34,40 +41,32 @@ pipeline {
             environment {
                 CLAUDE_CODE_OAUTH_TOKEN = credentials('claude-code-oauth-token')
                 GH_APP                  = credentials('github-app')
-                JENKINS_API_KEY         = credentials('jenkins-api-key')
                 JIRA_ACCT               = credentials('jira-api-key')
             }
             options {
-                timeout(time: 60, unit: 'MINUTES')
+                timeout(time: 120, unit: 'MINUTES')
             }
             steps {
-                container('majordomo') {
-                    sh '''
+                container('worker') {
+                    sh """
                         set -euo pipefail
 
-                        source shared/setup-env.sh
-                        source shared/setup-claude.sh
+                        source shared/bootstrap.sh ${AGENT_MODE}
 
-                        gh auth setup-git
-                        [ -d .beads ] && chmod 700 .beads
-                        bd bootstrap
-                        bd dolt show
-                        bd dolt pull
                         { bd stats && echo "---" && bd list; } | tee /tmp/beads-output.txt
-
                         CLAUDE_EXIT=0
-                        claude -p "$(cat majordomo/system-prompt.md)" --output-format json \
-                          > /tmp/claude-output.json || CLAUDE_EXIT=$?
+                        claude -p "\$(cat ${agentPromptPath})" --output-format json \\
+                          > /tmp/claude-output.json || CLAUDE_EXIT=\$?
 
                         bd dolt pull && bd dolt push
-                        python3 shared/report-token-usage.py /tmp/claude-output.json 2>&1 | tee /tmp/prompt-output.txt || true
-                        exit $CLAUDE_EXIT
-                    '''
+                        python3 ../shared/report-token-usage.py /tmp/claude-output.json 2>&1 | tee /tmp/prompt-output.txt || true
+                        exit \$CLAUDE_EXIT
+                    """
                 }
             }
             post {
                 always {
-                    container('majordomo') {
+                    container('worker') {
                         script {
                             def output = sh(
                                 script: 'cat /tmp/beads-output.txt /tmp/prompt-output.txt 2>/dev/null || true',
@@ -112,7 +111,7 @@ pipeline {
                 }
             }
             environment {
-                GH_APP              = credentials('github-app')
+                GH_APP                  = credentials('github-app')
                 JIRA_ACCT           = credentials('jira-api-key')
             }
             options {
