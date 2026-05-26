@@ -135,7 +135,7 @@ If at any point you hit an unresolvable blocker (missing context, contradictory 
 
 4. **Move the beads stage task back to `open`** so it can be re-claimed when the human clears the label:
    ```bash
-   bd update "${BEADS_TASK_ID}" --status open
+   shared/beads-write.sh update "${BEADS_TASK_ID}" --status open
    ```
 
 5. Emit the run log with `status: "failure"` and a clear `errors` entry describing the blocker.
