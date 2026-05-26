@@ -134,12 +134,9 @@ Initialize: `tasks_checked = 0`, `tasks_transitioned = 0`, `task_errors = []`
    c. Derive `repo` (helper 3) and `EPIC_KEY` (helper 2) from the task's beads ID and parent.
    d. Check whether the task's PR has been merged:
       ```bash
-      gh pr list --repo wcjordan/<repo> \
-        --base feature/<EPIC_KEY> \
-        --head task/<beads_task_id> \
-        --state merged --json number
+      shared/check-pr-merged.sh <repo> <EPIC_KEY> <beads_task_id>
       ```
-   e. If the JSON array is non-empty (PR was merged):
+   e. If the script exits 0 (PR was merged):
       - Transition Jira task to **Done**: `GET` transitions, find `to.name == "Done"`, `POST` the transition.
       - On success: increment `tasks_transitioned`.
       - Close the beads subtask: `bd close "<beads_task_id>"`.
@@ -151,12 +148,9 @@ Initialize: `tasks_checked = 0`, `tasks_transitioned = 0`, `task_errors = []`
    c. Derive `repo` (helper 3) and `EPIC_KEY` (helper 2) from the task's beads ID and parent.
    d. Check whether the plan PR has been merged:
       ```bash
-      gh pr list --repo wcjordan/<repo> \
-        --base feature/<EPIC_KEY> \
-        --head task/<beads_task_id> \
-        --state merged --json number
+      shared/check-pr-merged.sh <repo> <EPIC_KEY> <beads_task_id>
       ```
-   e. If the JSON array is non-empty (PR was merged):
+   e. If the script exits 0 (PR was merged):
       - Transition Jira Planning Task to **Approved**: `GET` transitions, find `to.name == "Approved"`, `POST` the transition.
       - On success: increment `tasks_transitioned`.
       - Do **not** close the beads Plan bead here — Step 6 closes it after creating implementation subtasks.
@@ -259,12 +253,9 @@ A Plan bead is considered "approved" when it is in_progress in beads (claimed by
    b. Derive `EPIC_KEY` using the Step 4 helper (parent Story bead → GH Issue URL → "Jira Epic:" comment).
    c. **Check if plan PR is merged:**
       ```bash
-      gh pr list --repo wcjordan/<repo> \
-        --base feature/<EPIC_KEY> \
-        --head task/<beads_plan_id> \
-        --state merged --json number
+      shared/check-pr-merged.sh <repo> <EPIC_KEY> <beads_plan_id>
       ```
-      If the JSON array is empty (PR not yet merged): skip this Plan bead.
+      If the script exits 1 (PR not yet merged): skip this Plan bead.
    d. Run `gh auth setup-git` and clone the repo into a temp directory: `gh repo clone wcjordan/$REPO /tmp/spinoff-$EPIC_KEY`
    e. Check out `$FEATURE_BRANCH`
    f. Read `docs/planning/$EPIC_KEY-spec.md` from the feature branch
