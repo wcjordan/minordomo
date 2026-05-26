@@ -47,6 +47,7 @@ pipeline {
                 timeout(time: 120, unit: 'MINUTES')
             }
             steps {
+                checkout scm
                 container('worker') {
                     sh """
                         set -euo pipefail
@@ -118,6 +119,7 @@ pipeline {
                 timeout(time: 5, unit: 'MINUTES')
             }
             steps {
+                checkout scm
                 container('majordomo') {
                     sh '''
                         set -euo pipefail
