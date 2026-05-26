@@ -112,7 +112,7 @@ pipeline {
                 }
             }
             environment {
-                GH_APP                  = credentials('github-app')
+                GH_APP              = credentials('github-app')
                 JIRA_ACCT           = credentials('jira-api-key')
             }
             options {

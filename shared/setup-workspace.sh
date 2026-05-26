@@ -82,6 +82,9 @@ export FEATURE_BRANCH="feature/${EPIC_KEY}"
 
 echo "Derived REPO=${REPO} EPIC_KEY=${EPIC_KEY} FEATURE_BRANCH=${FEATURE_BRANCH}"
 
+# Reset HEAD to avoid conflicts when switching branches. This is a no-op if the repo is already clean.
+git reset --hard
+
 # Feature branch: planning creates it from main if missing; worker assumes it exists.
 if [[ "$MODE" == "planning" ]]; then
     if git ls-remote --exit-code origin "${FEATURE_BRANCH}" > /dev/null 2>&1; then

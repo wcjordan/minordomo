@@ -28,7 +28,9 @@ def call() {
             container('notify') {
                 withCredentials([
                     string(credentialsId: 'aws-ses-access-key-id', variable: 'AWS_ACCESS_KEY_ID'),
-                    string(credentialsId: 'aws-ses-secret-access-key', variable: 'AWS_SECRET_ACCESS_KEY')
+                    string(credentialsId: 'aws-ses-secret-access-key', variable: 'AWS_SECRET_ACCESS_KEY'),
+                    usernamePassword(credentialsId: 'github-app', usernameVariable: 'GH_APP_USR', passwordVariable: 'GH_APP_PSW'),
+                    usernamePassword(credentialsId: 'jira-api-key', usernameVariable: 'JIRA_ACCT_USR', passwordVariable: 'JIRA_ACCT_PSW')
                 ]) {
                     withEnv(["NOTIFY_SUBJECT=${subject}"]) {
                         sh '''
