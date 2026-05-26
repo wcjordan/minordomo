@@ -75,12 +75,12 @@ For each project in config:
    f. Create beads tasks — shell-quote titles to handle spaces and special characters:
       1. Create the Story bead and capture its ID:
          ```bash
-         BEADS_STORY_ID=$(bd create "Story: <issue title>" --priority <priority> --description "GH Issue: <issue url>" --json | python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))")
+         BEADS_STORY_ID=$(shared/beads-write.sh create "Story: <issue title>" --priority <priority> --description "GH Issue: <issue url>" --json | python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))")
          ```
          If this call fails or `BEADS_STORY_ID` is empty, log the per-issue error (`beads_story_task_creation_failed`) and continue to the next issue; do not abort processing of other issues.
       2. Create the Plan bead as a child of the Story, recording the Jira planning task key in `external_ref`:
          ```bash
-         bd create "Plan: <issue title>" --parent "$BEADS_STORY_ID" --priority <priority> --description "GH Issue: <issue url>" --external-ref "jira-${JIRA_PLANNING_KEY}"
+         shared/beads-write.sh create "Plan: <issue title>" --parent "$BEADS_STORY_ID" --priority <priority> --description "GH Issue: <issue url>" --external-ref "jira-${JIRA_PLANNING_KEY}"
          ```
          If this call fails, log the per-issue error (`beads_plan_task_creation_failed`) and continue; do not abort processing of other issues.
    g. Apply the `beads-ingested` label: `gh issue edit <number> --repo wcjordan/<repo> --add-label beads-ingested`
@@ -127,7 +127,7 @@ Initialize: `tasks_checked = 0`, `tasks_transitioned = 0`, `task_errors = []`
    e. If the script exits 0 (PR was merged):
       - Transition Jira task to **Done**: `shared/jira-transition.sh "${jira_task_key}" "Done"`
       - On success: increment `tasks_transitioned`.
-      - Close the beads subtask: `bd close "<beads_task_id>"`.
+      - Close the beads subtask: `shared/beads-write.sh close "<beads_task_id>"`.
       - On any per-task error: append to `task_errors` and continue.
 
 5. **For each Plan task (Planning Task):**
@@ -213,7 +213,7 @@ Planning Tasks are beads tasks whose title starts with `"Plan:"`.
 
 4. After the Jira transition and Jenkins trigger, claim the beads Plan bead:
    ```bash
-   bd update "<beads_plan_id>" --claim
+   shared/beads-write.sh update "<beads_plan_id>" --claim
    ```
    If the claim fails, log a warning and continue — the Jira transition and Jenkins trigger already succeeded.
 
@@ -263,17 +263,17 @@ A Plan bead is considered "approved" when it is in_progress in beads (claimed by
    k. **Epic priority for beads tasks** — use the Story bead's `priority` field as `EPIC_PRIORITY`.
    l. **Create beads subtasks** — for each stage N (in order), capture the returned ID and record the Jira key in `external_ref`:
       ```bash
-      BEADS_STAGE_N_ID=$(bd create "Stage N: <title>" --parent "$BEADS_STORY_ID" --priority "$EPIC_PRIORITY" --external-ref "jira-${JIRA_IMPL_KEY_N}" --json | python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))")
+      BEADS_STAGE_N_ID=$(shared/beads-write.sh create "Stage N: <title>" --parent "$BEADS_STORY_ID" --priority "$EPIC_PRIORITY" --external-ref "jira-${JIRA_IMPL_KEY_N}" --json | python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))")
       ```
-      If any `bd create` fails, log a per-epic error and skip dependency wiring (step m) for this epic; continue to the next epic.
+      If any `shared/beads-write.sh create` fails, log a per-epic error and skip dependency wiring (step m) for this epic; continue to the next epic.
    m. **Wire blocking dependencies** — for each consecutive stage pair (N ≥ 2), make stage N depend on stage N−1:
       ```bash
-      bd dep add "$BEADS_STAGE_N_ID" "$BEADS_STAGE_N_MINUS_1_ID"
+      shared/beads-write.sh dep add "$BEADS_STAGE_N_ID" "$BEADS_STAGE_N_MINUS_1_ID"
       ```
-      If any `bd dep add` fails, log a per-epic error and continue (partial chains are better than none).
+      If any `shared/beads-write.sh dep add` fails, log a per-epic error and continue (partial chains are better than none).
    n. **Close the beads Plan bead** — now that subtasks and dependencies are wired:
       ```bash
-      bd close "<beads_plan_id>"
+      shared/beads-write.sh close "<beads_plan_id>"
       # log per-epic: plan_bead_closed: <beads_plan_id>
       ```
       If the close fails, log a per-epic warning and continue — Jira task already transitioned in step i.
@@ -337,7 +337,7 @@ Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for Jira REST
 
 7. **Claim the beads task:**
    ```bash
-   bd update "<beads_impl_id>" --claim
+   shared/beads-write.sh update "<beads_impl_id>" --claim
    ```
    On error: record in `errors` and continue to Step 9 without triggering the Jenkins job.
 
