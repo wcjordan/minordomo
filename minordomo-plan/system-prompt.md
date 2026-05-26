@@ -133,20 +133,7 @@ Review everything gathered so far. Flag anything that is vague or underspecified
 
 5. Transition the Planning Task to **In Review** in Jira (write-only; use `jira_task_id` from Step 1):
    ```bash
-   TRANSITIONS=$(curl -s -u "${JIRA_EMAIL}:${JIRA_API_TOKEN}" \
-     "${JIRA_URL}/rest/api/3/issue/${jira_task_id}/transitions")
-   TRANSITION_ID=$(echo "$TRANSITIONS" | python3 -c "
-   import json, sys
-   data = json.load(sys.stdin)
-   for t in data.get('transitions', []):
-       if t.get('to', {}).get('name') == 'In Review':
-           print(t['id'])
-           break
-   ")
-   curl -s -X POST -u "${JIRA_EMAIL}:${JIRA_API_TOKEN}" \
-     -H "Content-Type: application/json" \
-     "${JIRA_URL}/rest/api/3/issue/${jira_task_id}/transitions" \
-     -d "{\"transition\": {\"id\": \"${TRANSITION_ID}\"}}"
+   shared/jira-transition.sh "${jira_task_id}" "In Review"
    ```
    If `jira_task_id` is empty, skip this step and log a warning.
 

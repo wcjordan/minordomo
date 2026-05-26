@@ -1,3 +1,4 @@
 {"id":"int-d22faf68","kind":"field_change","created_at":"2026-05-24T18:39:49.334584Z","actor":"minordomo","issue_id":"minordomo-tic.3","extra":{"field":"status","new_value":"in_progress","old_value":"open"}}
 {"id":"int-3441a51d","kind":"field_change","created_at":"2026-05-25T01:21:34.629092Z","actor":"minordomo","issue_id":"minordomo-856.2","extra":{"field":"status","new_value":"open","old_value":"in_progress"}}
 {"id":"int-096f1e5a","kind":"field_change","created_at":"2026-05-26T01:11:35.50914Z","actor":"minordomo","issue_id":"minordomo-856","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Closed"}}
+{"id":"int-dde74fb5","kind":"field_change","created_at":"2026-05-26T11:43:32.302849856Z","actor":"minordomo","issue_id":"minordomo-x9o.3","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Stage 1 work merged in commit ec34090 (PR #150)"}}

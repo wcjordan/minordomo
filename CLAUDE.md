@@ -61,6 +61,16 @@ Available functions:
 - **`has_needs_input <repo> <issue_number>`** — returns exit 0 if the GH issue carries the `needs-input` label, exit 1 otherwise
 - **`extract_priority <labels_json>`** — extracts the first P0–P4 label from a GH labels JSON array, defaulting to `P2`
 
+`shared/jira-transition.sh` is a standalone script for transitioning a Jira issue to a named status. Usage:
+
+```bash
+shared/jira-transition.sh "<issue_key>" "<status_name>"
+# Example:
+shared/jira-transition.sh "${jira_task_id}" "In Review"
+```
+
+Reads `JIRA_URL`, `JIRA_EMAIL`, and `JIRA_API_TOKEN` from the environment. Exits non-zero with an error message if credentials are missing, the GET request fails, or the named status is not in the transitions list.
+
 ---
 
 ## Jira Access
