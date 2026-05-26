@@ -1,2 +1,16 @@
-AGENT_MODE = 'planning'
-load 'shared/agent-pipeline.Jenkinsfile'
+podTemplate(yaml: """
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: loader
+    image: jenkins/inbound-agent:latest-jdk21
+    command: [cat]
+    tty: true
+""") {
+    node(POD_LABEL) {
+        checkout scm
+        AGENT_MODE = 'planning'
+        load 'shared/agent-pipeline.Jenkinsfile'
+    }
+}
