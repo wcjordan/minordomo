@@ -128,7 +128,7 @@ Initialize: `tasks_checked = 0`, `tasks_transitioned = 0`, `task_errors = []`
         --state merged --json number
       ```
    e. If the JSON array is non-empty (PR was merged):
-      - Transition Jira task to **Done**: `GET` transitions, find `to.name == "Done"`, `POST` the transition.
+      - Transition Jira task to **Done**: `shared/jira-transition.sh "${jira_task_key}" "Done"`
       - On success: increment `tasks_transitioned`.
       - Close the beads subtask: `bd close "<beads_task_id>"`.
       - On any per-task error: append to `task_errors` and continue.
@@ -145,7 +145,7 @@ Initialize: `tasks_checked = 0`, `tasks_transitioned = 0`, `task_errors = []`
         --state merged --json number
       ```
    e. If the JSON array is non-empty (PR was merged):
-      - Transition Jira Planning Task to **Approved**: `GET` transitions, find `to.name == "Approved"`, `POST` the transition.
+      - Transition Jira Planning Task to **Approved**: `shared/jira-transition.sh "${jira_task_key}" "Approved"`
       - On success: increment `tasks_transitioned`.
       - Do **not** close the beads Plan bead here — Step 6 closes it after creating implementation subtasks.
       - On any per-task error: append to `task_errors` and continue.
@@ -352,8 +352,7 @@ Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for Jira REST
 
 8. **Transition Jira task to In Progress** (write — keep):
    - Extract `jira_task_key` from `external_ref` by stripping the `"jira-"` prefix.
-   - `GET ${JIRA_URL}/rest/api/3/issue/<jira_task_key>/transitions` — find the entry where `to.name == "In Progress"` and extract its `id`
-   - `POST ${JIRA_URL}/rest/api/3/issue/<jira_task_key>/transitions` with body `{"transition": {"id": "<id>"}}`
+   - `shared/jira-transition.sh "${jira_task_key}" "In Progress"`
    - On error: log a warning and continue — the beads claim already succeeded.
 
 9. **Trigger worker Jenkins job:**
@@ -468,8 +467,7 @@ Initialize: `epics_checked = 0`, `prs_opened = 0`, `epics_skipped = 0`, `epic_er
       ```
       Capture stdout and log the PR URL.
    n. **Transition Epic to In Review:**
-      - `GET ${JIRA_URL}/rest/api/3/issue/<EPIC_KEY>/transitions` — find the entry where `to.name == "In Review"` and extract its `id`.
-      - `POST ${JIRA_URL}/rest/api/3/issue/<EPIC_KEY>/transitions` with body `{"transition": {"id": "<id>"}}`.
+      - `shared/jira-transition.sh "${EPIC_KEY}" "In Review"`
       - On error: append to `epic_errors` (do not abort the step).
    o. Increment `prs_opened`.
 
