@@ -36,6 +36,21 @@ EOF
     [ "$status" -eq 0 ]
 }
 
+@test "jenkins-trigger: passes Content-Length: 0 header to curl" {
+    cat > "$TMP_DIR/curl" << 'EOF'
+#!/usr/bin/env bash
+# Record args and return 201
+echo "$@" >> "$TMP_DIR/curl_args"
+echo "201"
+exit 0
+EOF
+    chmod +x "$TMP_DIR/curl"
+
+    run "$REPO_ROOT/shared/jenkins-trigger.sh" "minordomo-step" "minordomo-abc.1"
+    [ "$status" -eq 0 ]
+    grep -q "Content-Length: 0" "$TMP_DIR/curl_args"
+}
+
 # ---------------------------------------------------------------------------
 # Non-201 HTTP response
 # ---------------------------------------------------------------------------

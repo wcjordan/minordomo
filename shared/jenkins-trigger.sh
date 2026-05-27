@@ -18,6 +18,7 @@ url="http://jenkins.${ROOT_DOMAIN}/job/${job_name}/job/${BASE_BRANCH}/buildWithP
 
 http_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
     -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" \
+    -H "Content-Length: 0" \
     "${url}") || {
     echo "ERROR: curl failed when triggering Jenkins job '${job_name}' with task '${beads_task_id}'" >&2
     exit 1
