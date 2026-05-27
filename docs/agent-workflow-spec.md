@@ -12,15 +12,15 @@ For repo structure, see [`GETTING_AROUND.md`](GETTING_AROUND.md). For Jira statu
 
 ### GH Issue Ingestion
 
-Majordomo polls GitHub Issues on a schedule and creates a Jira Epic + Planning Task for each new Issue matching the allowlist in `shared/config.yaml`. Issues with `backlog` or `skip` labels are skipped. A `jira-epic-created` label is applied to each Issue as an idempotency gate.
+Majordomo polls GitHub Issues on a schedule and creates a Jira Epic and beads tasks (Story + Plan) for each new Issue matching the allowlist in `shared/config.yaml`. Issues with `backlog` or `skip` labels are skipped. A `jira-epic-created` label is applied to each Issue as an idempotency gate.
 
 ### Planning Agent Loop
 
-Majordomo identifies open Planning Tasks, transitions them to In Progress, and triggers the planning agent Jenkins job. The planning agent researches the task, and either posts questions (→ Needs Input) or produces a spec doc PR (→ In Review). Humans answer questions via Jira comments and approve spec docs via PR review. Before launching a planning agent, Majordomo checks `bd ready` for higher-priority implementation tasks and defers planning if one exists (planning priority guard).
+Majordomo identifies open Plan beads tasks and triggers the planning agent Jenkins job. The planning agent researches the task, and either posts questions or produces a spec doc PR. Humans answer questions and approve spec docs via PR review. Before launching a planning agent, Majordomo checks `bd ready` for higher-priority implementation tasks and defers planning if one exists (planning priority guard).
 
 ### Plan Approval Spinoff
 
-When a Planning Task is approved, Majordomo reads the spec doc from the feature branch and creates one Jira Implementation Task per `## Stage N:` section. Implementation Tasks are created in stage order; Jira rank reflects stage sequence and is used for ordering.
+When a Plan bead is approved (spec PR merged), Majordomo reads the spec doc from the feature branch and creates one Jira Implementation Task per `## Stage N:` section. Implementation Tasks are created in stage order; Jira rank reflects stage sequence and is used for ordering.
 
 ### Task Prioritization & Ready Promotion
 

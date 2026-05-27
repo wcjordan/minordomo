@@ -8,40 +8,19 @@ How work flows through the minordomo pipeline: Jira ticket hierarchy, status tra
 
 ```
 Epic (linked to GH Issue)
-└── Planning Task     (summary starts with "Plan:")
 └── Implementation Tasks  (one per stage from the approved plan)
 ```
 
-- Epics and Planning Tasks are created by Majordomo when a new GH Issue is ingested (Step 3).
-- Implementation Tasks are spun off by Majordomo when the Planning Task reaches `Approved` (Step 5). One task per `## Stage N:` section in the spec doc.
+- Epics are created by Majordomo when a new GH Issue is ingested (Step 3). Plan tasks exist in beads only (not Jira).
+- Implementation Tasks are spun off by Majordomo when the Plan bead reaches `Approved` (Step 5). One task per `## Stage N:` section in the spec doc.
 - Implementation tasks are leaf nodes — no further planning required. They become eligible for promotion once all prior sibling tasks are `Done`.
 
 **Task identity:**
-- Planning Tasks: `issuetype = Task AND summary ~ "^Plan:"`
 - Implementation Tasks: `issuetype = Task AND summary !~ "^Plan:"`
 
 ---
 
 ## Jira Status Flows
-
-### Planning Task
-
-```
-Open → In Progress → Needs Input → Open → ... → In Progress → In Review → Approved → Done
-```
-
-| Status | Meaning |
-|---|---|
-| Open | Ready for Majordomo to assign to a planning agent (or human has answered questions) |
-| In Progress | Planning agent is actively working |
-| Needs Input | Agent posted questions on the ticket; Majordomo will not re-queue until human resets to Open |
-| In Review | Agent opened a PR (spec doc branch → feature branch); human reviews and merges |
-| Approved | Majordomo auto-detected merged spec PR; will spin off Implementation Tasks on next run |
-| Done | Implementation Tasks created; planning ticket closed |
-
-**Human actions required:**
-- Answer questions → set ticket back to **Open**
-- Approve spec → merge PR (Majordomo auto-transitions to **Approved**)
 
 ### Implementation Task
 
@@ -103,7 +82,7 @@ Before opening the feature→main PR (Step 9), Majordomo first reviews the plann
 At most one task per Epic can be promoted at a time (the second check ensures this).
 
 **Selecting a worker target (Step 7):** From all `Ready` tasks, Majordomo excludes tasks whose Epic has a sibling `In Progress` or `In Review`, then ranks the remainder:
-1. Tasks whose Epic has at least one Implementation Task (non-`Plan:`) already `Done` (continuity — Planning Tasks completing do not count)
+1. Tasks whose Epic has at least one Implementation Task already `Done` (continuity)
 2. Epic priority label: `P0` > `P1` > `P2` > unlabelled
 3. Epic Jira rank (`customfield_10019`, ascending lexicographic = manual ordering)
 
