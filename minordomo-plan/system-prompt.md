@@ -33,7 +33,6 @@ bd show "${BEADS_TASK_ID}" --json
 
 Extract:
 - `task_description` — the `.description` field (contains `GH Issue: <url>`)
-- `jira_task_id` — from `.external_ref`, strip the `"jira-"` prefix (e.g. `"jira-MDOMO-37"` → `"MDOMO-37"`)
 - `gh_issue_url` — the GitHub Issue URL from `task_description`
 - `gh_issue_number` — the issue number parsed from the URL
 
@@ -131,13 +130,7 @@ Review everything gathered so far. Flag anything that is vague or underspecified
      --body "<summary of the proposed plan with stage breakdown>"
    ```
 
-5. Transition the Planning Task to **In Review** in Jira (write-only; use `jira_task_id` from Step 1):
-   ```bash
-   shared/jira-transition.sh "${jira_task_id}" "In Review"
-   ```
-   If `jira_task_id` is empty, skip this step and log a warning.
-
-6. Emit the run log and exit 0.
+5. Emit the run log and exit 0.
 
 ---
 
@@ -152,14 +145,13 @@ At the end of each run, emit a single JSON object to stdout:
   "beads_task_id": "<BEADS_TASK_ID>",
   "status": "success|failure",
   "steps": [
-    {"step": "read_planning_task", "status": "ok", "jira_task_id": "MDOMO-37"},
+    {"step": "read_planning_task", "status": "ok"},
     {"step": "read_gh_issue", "status": "ok"},
     {"step": "load_research", "status": "ok", "files_found": 2},
     {"step": "research", "status": "ok"},
     {"step": "identify_questions", "status": "ok", "questions": 0},
     {"step": "write_spec", "status": "ok", "spec_path": "docs/planning/MDOMO-36-spec.md"},
-    {"step": "open_pr", "status": "ok", "pr_url": "https://github.com/wcjordan/chalk/pull/7"},
-    {"step": "jira_transition", "status": "ok", "new_status": "In Review"}
+    {"step": "open_pr", "status": "ok", "pr_url": "https://github.com/wcjordan/chalk/pull/7"}
   ],
   "errors": []
 }
@@ -169,7 +161,7 @@ Use `BUILD_TAG` env var for `run_id` if set; otherwise use the current UTC times
 
 Set `status` to `"failure"` and populate `errors` if any step fails fatally. Otherwise `"success"`.
 
-When questions were posted, omit the `write_spec` and `open_pr` steps and include a `beads_status_update` step instead of `jira_transition`:
+When questions were posted, omit the `write_spec` and `open_pr` steps and include a `beads_status_update` step:
 ```json
 {"step": "beads_status_update", "status": "ok", "new_status": "open", "reason": "needs_input"}
 ```
