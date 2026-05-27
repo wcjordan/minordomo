@@ -57,37 +57,36 @@ For each project in config:
 
 1. Fetch open GH Issues: `gh issue list --repo wcjordan/<repo> --state open --json number,title,body,author,labels,url`
 2. Filter to issues where `author.login` is in `allowed_gh_users`
-3. Skip issues where any label name in `labels[].name` is exactly `backlog` or `skip`. Log a per-issue skip with reason `backlog_or_skip_label`. Do not create a Jira Epic, Planning Task, or beads task for these issues. Do not apply `jira-epic-created` or `beads-ingested` labels to them.
+3. Skip issues where any label name in `labels[].name` is exactly `backlog` or `skip`. Log a per-issue skip with reason `backlog_or_skip_label`. Do not create a Jira Epic or beads task for these issues. Do not apply `jira-epic-created` or `beads-ingested` labels to them.
 4. Skip issues that already have the `jira-epic-created` label (idempotency gate)
 5. For each new issue:
    a. Create a Jira Epic under the project's `jira_key`. Set the Epic name to the issue title. Include the GH Issue URL in the description.
-   b. Create a Planning Task linked as a child of the Epic. Set status to **Open**. Title: "Plan: <issue title>". Capture the returned Jira key as `JIRA_PLANNING_KEY` from the API response (`POST ${JIRA_URL}/rest/api/3/issue` returns `{"key":"MDOMO-XX",...}`).
-   c. Post a comment on the GH Issue with the Jira Epic key: `gh issue comment <number> --repo wcjordan/<repo> --body "Jira Epic: <EPIC_KEY>"`
-   d. Apply the `jira-epic-created` label: `gh issue edit <number> --repo wcjordan/<repo> --add-label jira-epic-created`
-   e. Determine priority from the issue's labels using `extract_priority`:
+   b. Post a comment on the GH Issue with the Jira Epic key: `gh issue comment <number> --repo wcjordan/<repo> --body "Jira Epic: <EPIC_KEY>"`
+   c. Apply the `jira-epic-created` label: `gh issue edit <number> --repo wcjordan/<repo> --add-label jira-epic-created`
+   d. Determine priority from the issue's labels using `extract_priority`:
       ```bash
       LABELS_JSON=$(echo "$issue" | python3 -c "import json,sys; print(json.dumps(json.load(sys.stdin)['labels']))")
       PRIORITY=$(extract_priority "$LABELS_JSON")
       ```
       where `issue` is the JSON object from the `gh issue list` output. Defaults to `P2` if no `P0`–`P4` label is found.
-   f. Create beads tasks — shell-quote titles to handle spaces and special characters:
+   e. Create beads tasks — shell-quote titles to handle spaces and special characters:
       1. Create the Story bead and capture its ID:
          ```bash
          BEADS_STORY_ID=$(shared/beads-write.sh create "Story: <issue title>" --priority <priority> --description "GH Issue: <issue url>" --json | python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))")
          ```
          If this call fails or `BEADS_STORY_ID` is empty, log the per-issue error (`beads_story_task_creation_failed`) and continue to the next issue; do not abort processing of other issues.
-      2. Create the Plan bead as a child of the Story, recording the Jira planning task key in `external_ref`:
+      2. Create the Plan bead as a child of the Story:
          ```bash
-         shared/beads-write.sh create "Plan: <issue title>" --parent "$BEADS_STORY_ID" --priority <priority> --description "GH Issue: <issue url>" --external-ref "jira-${JIRA_PLANNING_KEY}"
+         shared/beads-write.sh create "Plan: <issue title>" --parent "$BEADS_STORY_ID" --priority <priority> --description "GH Issue: <issue url>"
          ```
          If this call fails, log the per-issue error (`beads_plan_task_creation_failed`) and continue; do not abort processing of other issues.
-   g. Apply the `beads-ingested` label: `gh issue edit <number> --repo wcjordan/<repo> --add-label beads-ingested`
+   f. Apply the `beads-ingested` label: `gh issue edit <number> --repo wcjordan/<repo> --add-label beads-ingested`
 
 Record in the step log:
 - Total issues fetched per repo
 - Issues skipped with reason `backlog_or_skip_label` (backlog/skip label present)
 - Issues skipped (already labelled with `jira-epic-created`)
-- Issues processed (Jira Epic + Planning Task + beads tasks created)
+- Issues processed (Jira Epic + beads tasks created)
 - Beads task creation errors (per-issue; do not abort the whole step)
 - Any other per-issue errors (log and continue; do not abort the whole step)
 
@@ -128,21 +127,7 @@ Initialize: `tasks_checked = 0`, `tasks_transitioned = 0`, `task_errors = []`
       - Close the beads subtask: `shared/beads-write.sh close "<beads_task_id>"`.
       - On any per-task error: append to `task_errors` and continue.
 
-5. **For each Plan task (Planning Task):**
-   a. Increment `tasks_checked`.
-   b. Extract `jira_task_key` from `external_ref` (same as 4b). If empty: append per-task error, continue.
-   c. Derive `repo` (helper 3) and `EPIC_KEY` (helper 2) from the task's beads ID and parent.
-   d. Check whether the plan PR has been merged:
-      ```bash
-      shared/check-pr-merged.sh <repo> <EPIC_KEY> <beads_task_id>
-      ```
-   e. If the script exits 0 (PR was merged):
-      - Transition Jira Planning Task to **Approved**: `shared/jira-transition.sh "${jira_task_key}" "Approved"`
-      - On success: increment `tasks_transitioned`.
-      - Do **not** close the beads Plan bead here — Step 6 closes it after creating implementation subtasks.
-      - On any per-task error: append to `task_errors` and continue.
-
-6. **Log step result:**
+5. **Log step result:**
    ```json
    {"step": "sync_pr_merge_status", "status": "ok", "tasks_checked": <N>, "tasks_transitioned": <N>}
    ```
@@ -202,8 +187,7 @@ Planning Tasks are beads tasks whose title starts with `"Plan:"`.
       - Log: `{"decision": "skip_planning_agent", "reason": "higher_priority_impl_work_available", "planning_priority": <value>, "best_impl_priority": <value>}`
       - Set `planning_agent_launched: false`
       - Skip to Step 6 — do not transition the planning task, do not trigger Jenkins, do not claim the beads task
-   e. Otherwise: proceed with planning agent launch.
-      Transition the Jira Planning Task (look up key via `external_ref`) to `In Progress` and trigger the planning Jenkins job:
+   e. Otherwise: proceed with planning agent launch. Trigger the planning Jenkins job:
       ```bash
       shared/jenkins-trigger.sh minordomo-plan "<beads_plan_id>"
       ```
@@ -222,7 +206,7 @@ If a planning agent was launched, record `planning_agent_launched: true` in the 
 
 ### Step 6: Plan Approval Spinoff
 
-A Plan bead is considered "approved" when it is in_progress in beads (claimed by Step 5) and its plan PR has been merged into the feature branch. Step 4 writes the Jira transition to `Approved` on the same run; Step 6 independently detects the merged PR and creates implementation tasks. The Plan bead remains in_progress through both steps and is closed by sub-step l.
+A Plan bead is considered "approved" when it is in_progress in beads (claimed by Step 5) and its plan PR has been merged into the feature branch. Step 6 detects the merged PR and creates implementation tasks, then closes the Plan bead at sub-step m.
 
 1. **Query in_progress Plan beads:**
    ```bash
@@ -250,30 +234,29 @@ A Plan bead is considered "approved" when it is in_progress in beads (claimed by
       - Description: the stage description (from `### Description` subsection)
       - Acceptance criteria: from the `### Acceptance Criteria` subsection
       - In the description, also include: `spec_doc_path: docs/planning/$EPIC_KEY-spec.md` and `feature_branch: $FEATURE_BRANCH`
-      Capture each returned Jira task key as `JIRA_IMPL_KEY_N` for use in step j.
-   i. Transition the Jira Planning Task (look up key via `external_ref`) to `Done`
-   j. **Find the beads story task.** The Plan bead's parent is the Story bead:
+      Capture each returned Jira task key as `JIRA_IMPL_KEY_N` for use in step k.
+   i. **Find the beads story task.** The Plan bead's parent is the Story bead:
       ```bash
       BEADS_STORY_ID=$(bd show "<plan_bead_parent_id>" --json | python3 -c "import json,sys; t=json.load(sys.stdin); print(t[0].get('id',''))")
       ```
-      If not found or the command fails, log a per-epic error (`"beads_story_task_not_found"`) and skip steps k–m for this epic. Do not abort; Jira tasks were already created.
-   k. **Epic priority for beads tasks** — use the Story bead's `priority` field as `EPIC_PRIORITY`.
-   l. **Create beads subtasks** — for each stage N (in order), capture the returned ID and record the Jira key in `external_ref`:
+      If not found or the command fails, log a per-epic error (`"beads_story_task_not_found"`) and skip steps j–l for this epic. Do not abort; Jira tasks were already created.
+   j. **Epic priority for beads tasks** — use the Story bead's `priority` field as `EPIC_PRIORITY`.
+   k. **Create beads subtasks** — for each stage N (in order), capture the returned ID and record the Jira key in `external_ref`:
       ```bash
       BEADS_STAGE_N_ID=$(shared/beads-write.sh create "Stage N: <title>" --parent "$BEADS_STORY_ID" --priority "$EPIC_PRIORITY" --external-ref "jira-${JIRA_IMPL_KEY_N}" --json | python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))")
       ```
-      If any `shared/beads-write.sh create` fails, log a per-epic error and skip dependency wiring (step m) for this epic; continue to the next epic.
-   m. **Wire blocking dependencies** — for each consecutive stage pair (N ≥ 2), make stage N depend on stage N−1:
+      If any `shared/beads-write.sh create` fails, log a per-epic error and skip dependency wiring (step l) for this epic; continue to the next epic.
+   l. **Wire blocking dependencies** — for each consecutive stage pair (N ≥ 2), make stage N depend on stage N−1:
       ```bash
       shared/beads-write.sh dep add "$BEADS_STAGE_N_ID" "$BEADS_STAGE_N_MINUS_1_ID"
       ```
       If any `shared/beads-write.sh dep add` fails, log a per-epic error and continue (partial chains are better than none).
-   n. **Close the beads Plan bead** — now that subtasks and dependencies are wired:
+   m. **Close the beads Plan bead** — now that subtasks and dependencies are wired:
       ```bash
       shared/beads-write.sh close "<beads_plan_id>"
       # log per-epic: plan_bead_closed: <beads_plan_id>
       ```
-      If the close fails, log a per-epic warning and continue — Jira task already transitioned in step i.
+      If the close fails, log a per-epic warning and continue.
       Always log the outcome so it is visible in the run log.
 
 3. Record in the step log: number of approved plans processed, total implementation tasks created, and total beads subtasks created
