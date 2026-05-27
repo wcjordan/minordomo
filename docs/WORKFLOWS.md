@@ -39,6 +39,25 @@ Open → Ready → In Progress → In Review → Done
 
 ---
 
+## Beads Status Flows
+
+### Plan Task
+
+```
+open → in_progress → closed
+```
+
+| Status | Meaning |
+|---|---|
+| open | Created by Majordomo (Step 3); available for a planning agent to claim |
+| in_progress | Planning agent has claimed the task and is actively working |
+| blocked | Waiting on a dependency (e.g. an upstream Plan task is not yet closed) |
+| closed | Plan approved; Majordomo spun off Implementation Tasks (Step 5) |
+
+Plan tasks never appear in Jira. They live entirely in beads and are identified by the `Plan:` title prefix.
+
+---
+
 ## Branching Model
 
 All merges across branches require a human-reviewed PR. Agents never merge directly.
