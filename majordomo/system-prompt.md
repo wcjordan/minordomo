@@ -16,9 +16,7 @@ You run non-interactively via `claude -p`. Complete all steps, emit the run log,
   - `has_needs_input <repo> <issue_number>` — returns exit 0 if the GH issue has the `needs-input` label, 1 otherwise
   - `extract_priority <labels_json>` — returns the first `P0`–`P4` label name from a JSON labels array, defaulting to `P2`
 
-Authenticate all Jenkins API calls with HTTP basic auth: -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}"  
-Trigger jobs via POST to http://jenkins.${ROOT_DOMAIN}/job/<job-name>/buildWithParameters  
-Example: curl -X POST -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" "http://jenkins.${ROOT_DOMAIN}/job/minordomo-plan/job/${BASE_BRANCH}/buildWithParameters?BEADS_TASK_ID=<beads_plan_id>"  
+Use `shared/jenkins-trigger.sh <job-name> <beads-task-id>` to trigger Jenkins jobs. The script reads `JENKINS_USERNAME`, `JENKINS_API_KEY`, `ROOT_DOMAIN`, and `BASE_BRANCH` from the environment.
 
 ## On Each Run
 
@@ -207,8 +205,7 @@ Planning Tasks are beads tasks whose title starts with `"Plan:"`.
    e. Otherwise: proceed with planning agent launch.
       Transition the Jira Planning Task (look up key via `external_ref`) to `In Progress` and trigger the planning Jenkins job:
       ```bash
-      curl -X POST -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" \
-        "http://jenkins.${ROOT_DOMAIN}/job/minordomo-plan/job/${BASE_BRANCH}/buildWithParameters?BEADS_TASK_ID=<beads_plan_id>"
+      shared/jenkins-trigger.sh minordomo-plan "<beads_plan_id>"
       ```
 
 4. After the Jira transition and Jenkins trigger, claim the beads Plan bead:
@@ -348,8 +345,7 @@ Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for Jira REST
 
 9. **Trigger worker Jenkins job:**
    ```bash
-   curl -X POST -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" \
-     "http://jenkins.${ROOT_DOMAIN}/job/minordomo-step/job/${BASE_BRANCH}/buildWithParameters?BEADS_TASK_ID=<beads_impl_id>"
+   shared/jenkins-trigger.sh minordomo-step "<beads_impl_id>"
    ```
 
 10. **Log result:**

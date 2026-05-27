@@ -116,16 +116,14 @@ Implementation task titles are the text after `## Stage N:` from the spec doc â€
 
 ## Jenkins Job Trigger URLs
 
-Majordomo triggers sub-agents via Jenkins HTTP API:
+Majordomo triggers sub-agents via `shared/jenkins-trigger.sh <job-name> <beads-task-id>`. The script reads `JENKINS_USERNAME`, `JENKINS_API_KEY`, `ROOT_DOMAIN`, and `BASE_BRANCH` from the environment and POSTs to the Jenkins `buildWithParameters` endpoint:
 
 ```bash
 # Planning agent
-curl -X POST -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" \
-  "http://jenkins.${ROOT_DOMAIN}/job/minordomo-plan/job/${BASE_BRANCH}/buildWithParameters?BEADS_TASK_ID=<beads_plan_id>"
+shared/jenkins-trigger.sh minordomo-plan "<beads_plan_id>"
 
 # Worker
-curl -X POST -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" \
-  "http://jenkins.${ROOT_DOMAIN}/job/minordomo-step/job/${BASE_BRANCH}/buildWithParameters?BEADS_TASK_ID=<beads_impl_id>"
+shared/jenkins-trigger.sh minordomo-step "<beads_impl_id>"
 ```
 
 ---
