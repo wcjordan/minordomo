@@ -437,7 +437,7 @@ Initialize: `epics_checked = 0`, `prs_opened = 0`, `epics_skipped = 0`, `epic_er
       - **PR title:** Rewrite the GH Issue title as an imperative-mood commit subject line (e.g. "Add X", "Implement Y") rather than using it verbatim if it reads as a noun phrase.
       - **PR body:**
       ```
-      Implements: <GH Issue URL>
+      Resolves: <GH Issue URL>
 
       ## Summary
 
