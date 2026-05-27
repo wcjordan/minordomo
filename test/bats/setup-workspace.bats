@@ -192,3 +192,25 @@ MOCK
     source "$REPO_ROOT/shared/setup-workspace.sh" worker
     # Test passes if the script exits cleanly (exit 0 with "Already up to date.")
 }
+
+@test "migration: renames old Jira-key-named feature branch to new beads-id branch" {
+    # Pre-create old-style feature branch (feature/MDOMO-1 from mock Jira Epic comment)
+    local work="$BATS_TEST_TMPDIR/pre"
+    git clone "$REMOTE" "$work" -q
+    git -C "$work" checkout -b "feature/MDOMO-1" -q
+    git -C "$work" -c user.email="t@t.com" -c user.name="T" \
+        commit --allow-empty -m "old-style feature work" -q
+    git -C "$work" push origin feature/MDOMO-1 -q
+    local old_sha
+    old_sha=$(git ls-remote "$REMOTE" refs/heads/feature/MDOMO-1 | awk '{print $1}')
+
+    cd "$BATS_TEST_TMPDIR"
+    source "$REPO_ROOT/shared/setup-workspace.sh" planning
+
+    # New-style branch exists at the same commit
+    local new_sha
+    new_sha=$(git ls-remote "$REMOTE" refs/heads/feature/minordomo-100 | awk '{print $1}')
+    [ "$new_sha" = "$old_sha" ]
+    # Old-style branch has been deleted
+    ! git ls-remote --exit-code "$REMOTE" refs/heads/feature/MDOMO-1
+}
