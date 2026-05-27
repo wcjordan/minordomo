@@ -20,12 +20,9 @@ Also fix a race condition in Step 9: when a feature→main PR is merged, Step 9 
 
    a. Query open Story beads:
       ```bash
-      bd list --json | python3 -c "
-      import json, sys
-      tasks = json.load(sys.stdin)
-      print(json.dumps([t for t in tasks if t.get('title', '').startswith('Story:')]))
-      "
+      shared/list-story-beads.sh
       ```
+      Outputs a JSON array of open Story beads.
 
    b. For each Story bead:
       - Increment `epics_checked`
@@ -40,14 +37,10 @@ Also fix a race condition in Step 9: when a feature→main PR is merged, Step 9 
         On failure: append per-epic error to `epic_errors`, increment `epics_skipped`, continue
       - Check for a merged feature→main PR:
         ```bash
-        gh pr list \
-          --repo wcjordan/<repo> \
-          --base <base_branch> \
-          --head feature/<EPIC_KEY> \
-          --state merged \
-          --json number
+        shared/check-epic-pr-merged.sh "<repo>" "<base_branch>" "<EPIC_KEY>"
         ```
-        If the array is empty: increment `epics_skipped` (reason: `"pr_not_yet_merged"`) and continue
+        Exits 0 and outputs the merged PR number if one exists; exits 1 with empty output if not yet merged.
+        If exits 1: increment `epics_skipped` (reason: `"pr_not_yet_merged"`) and continue
       - Close the Story bead:
         ```bash
         shared/beads-write.sh close "<story_bead_id>"
