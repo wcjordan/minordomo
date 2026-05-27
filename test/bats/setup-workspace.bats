@@ -97,13 +97,13 @@ MOCK
 @test "planning mode: exports REPO, EPIC_KEY, FEATURE_BRANCH correctly" {
     source "$REPO_ROOT/shared/setup-workspace.sh" planning
     [ "$REPO" = "minordomo" ]
-    [ "$EPIC_KEY" = "MDOMO-1" ]
-    [ "$FEATURE_BRANCH" = "feature/MDOMO-1" ]
+    [ "$EPIC_KEY" = "minordomo-100" ]
+    [ "$FEATURE_BRANCH" = "feature/minordomo-100" ]
 }
 
 @test "planning mode: creates feature branch on remote when absent" {
     source "$REPO_ROOT/shared/setup-workspace.sh" planning
-    git ls-remote --exit-code "$REMOTE" "feature/MDOMO-1"
+    git ls-remote --exit-code "$REMOTE" "feature/minordomo-100"
 }
 
 @test "planning mode: creates and checks out task branch" {
@@ -115,8 +115,8 @@ MOCK
     # Pre-create the task branch on the remote so ls-remote finds it
     local work="$BATS_TEST_TMPDIR/pre"
     git clone "$REMOTE" "$work" -q
-    git -C "$work" checkout -b "feature/MDOMO-1" -q
-    git -C "$work" push origin feature/MDOMO-1 -q
+    git -C "$work" checkout -b "feature/minordomo-100" -q
+    git -C "$work" push origin feature/minordomo-100 -q
     git -C "$work" checkout -b "task/minordomo-100.1" -q
     git -C "$work" -c user.email="t@t.com" -c user.name="T" \
         commit --allow-empty -m "prior work" -q
@@ -131,8 +131,8 @@ MOCK
     # Pre-create feature branch on remote (worker assumes it exists)
     local work="$BATS_TEST_TMPDIR/pre"
     git clone "$REMOTE" "$work" -q
-    git -C "$work" checkout -b "feature/MDOMO-1" -q
-    git -C "$work" push origin feature/MDOMO-1 -q
+    git -C "$work" checkout -b "feature/minordomo-100" -q
+    git -C "$work" push origin feature/minordomo-100 -q
 
     cd "$BATS_TEST_TMPDIR"
     source "$REPO_ROOT/shared/setup-workspace.sh" worker
@@ -142,8 +142,8 @@ MOCK
 @test "worker mode: first task triggers merge of base branch into feature branch" {
     local work="$BATS_TEST_TMPDIR/pre"
     git clone "$REMOTE" "$work" -q
-    git -C "$work" checkout -b "feature/MDOMO-1" -q
-    git -C "$work" push origin feature/MDOMO-1 -q
+    git -C "$work" checkout -b "feature/minordomo-100" -q
+    git -C "$work" push origin feature/minordomo-100 -q
 
     # Advance the base branch with a new commit after feature branch was created
     git -C "$work" checkout bootstrap -q
@@ -158,17 +158,17 @@ MOCK
     # Verify the feature branch on the remote now matches the bootstrap tip (merge was pushed)
     local bootstrap_sha after_sha
     bootstrap_sha=$(git ls-remote "$REMOTE" refs/heads/bootstrap | awk '{print $1}')
-    after_sha=$(git ls-remote "$REMOTE" refs/heads/feature/MDOMO-1 | awk '{print $1}')
+    after_sha=$(git ls-remote "$REMOTE" refs/heads/feature/minordomo-100 | awk '{print $1}')
     [ "$after_sha" = "$bootstrap_sha" ]
 }
 
 @test "worker mode: non-first task skips base branch merge" {
     local work="$BATS_TEST_TMPDIR/pre"
     git clone "$REMOTE" "$work" -q
-    git -C "$work" checkout -b "feature/MDOMO-1" -q
-    git -C "$work" push origin feature/MDOMO-1 -q
+    git -C "$work" checkout -b "feature/minordomo-100" -q
+    git -C "$work" push origin feature/minordomo-100 -q
     local before_sha
-    before_sha=$(git ls-remote "$REMOTE" refs/heads/feature/MDOMO-1 | awk '{print $1}')
+    before_sha=$(git ls-remote "$REMOTE" refs/heads/feature/minordomo-100 | awk '{print $1}')
 
     # Use the fixture that returns closed siblings → IS_FIRST_TASK=no
     BEADS_SIBLINGS_FIXTURE="$REPO_ROOT/test/fixtures/beads-siblings-has-closed.json"
@@ -176,16 +176,16 @@ MOCK
     source "$REPO_ROOT/shared/setup-workspace.sh" worker
 
     local after_sha
-    after_sha=$(git ls-remote "$REMOTE" refs/heads/feature/MDOMO-1 | awk '{print $1}')
+    after_sha=$(git ls-remote "$REMOTE" refs/heads/feature/minordomo-100 | awk '{print $1}')
     [ "$before_sha" = "$after_sha" ]
 }
 
 @test "worker mode: merge that is already up to date succeeds without error" {
     local work="$BATS_TEST_TMPDIR/pre"
     git clone "$REMOTE" "$work" -q
-    git -C "$work" checkout -b "feature/MDOMO-1" -q
-    git -C "$work" push origin feature/MDOMO-1 -q
-    # feature/MDOMO-1 and bootstrap are at the same commit — already up to date
+    git -C "$work" checkout -b "feature/minordomo-100" -q
+    git -C "$work" push origin feature/minordomo-100 -q
+    # feature/minordomo-100 and bootstrap are at the same commit — already up to date
 
     # No closed siblings → IS_FIRST_TASK=yes, but merge is a no-op
     cd "$BATS_TEST_TMPDIR"

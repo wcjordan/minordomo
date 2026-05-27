@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Derive EPIC_KEY and GH_ISSUE_NUMBER from a beads task ID.
+# Derive Story bead ID (EPIC_KEY), GH_ISSUE_NUMBER, and JIRA_EPIC_KEY from a beads task ID.
 # Usage: shared/get-epic-key.sh <beads_task_id> <repo>
-# Output (stdout): EPIC_KEY on line 1, GH_ISSUE_NUMBER on line 2
+# Output (stdout): Story bead ID on line 1, GH_ISSUE_NUMBER on line 2, Jira Epic key on line 3
 # Exits 1 with a message to stderr on failure.
 
 set -euo pipefail
@@ -19,23 +19,42 @@ if [ -z "$TASK_JSON" ] || [ "$TASK_JSON" = "[]" ]; then
     exit 1
 fi
 
-TASK_DESC=$(echo "$TASK_JSON" | python3 -c "import json,sys; t=json.load(sys.stdin); print(t[0].get('description') or '')")
+TASK_TITLE=$(echo "$TASK_JSON" | python3 -c "import json,sys; t=json.load(sys.stdin); print(t[0].get('title') or '')")
 PARENT_ID=$(echo "$TASK_JSON" | python3 -c "import json,sys; t=json.load(sys.stdin); print(t[0].get('parent') or '')")
 
-GH_ISSUE_URL=$(echo "$TASK_DESC" | grep -Eo 'https://github\.com/[^[:space:]]+/issues/[0-9]+' | head -1 || true)
-if [ -z "$GH_ISSUE_URL" ] && [ -n "$PARENT_ID" ]; then
-    PARENT_DESC=$(bd show "$PARENT_ID" --json | python3 -c "import json,sys; t=json.load(sys.stdin); print(t[0].get('description') or '')")
-    GH_ISSUE_URL=$(echo "$PARENT_DESC" | grep -Eo 'https://github\.com/[^[:space:]]+/issues/[0-9]+' | head -1 || true)
+STORY_BEAD_ID=""
+STORY_DESC=""
+
+if [[ "$TASK_TITLE" == Story:* ]]; then
+    STORY_BEAD_ID="${BEADS_TASK_ID}"
+    STORY_DESC=$(echo "$TASK_JSON" | python3 -c "import json,sys; t=json.load(sys.stdin); print(t[0].get('description') or '')")
+elif [ -n "$PARENT_ID" ]; then
+    PARENT_JSON=$(bd show "$PARENT_ID" --json 2>/dev/null) || {
+        echo "ERROR: Parent task ${PARENT_ID} not found" >&2
+        exit 1
+    }
+    PARENT_TITLE=$(echo "$PARENT_JSON" | python3 -c "import json,sys; t=json.load(sys.stdin); print(t[0].get('title') or '')")
+    if [[ "$PARENT_TITLE" == Story:* ]]; then
+        STORY_BEAD_ID="${PARENT_ID}"
+        STORY_DESC=$(echo "$PARENT_JSON" | python3 -c "import json,sys; t=json.load(sys.stdin); print(t[0].get('description') or '')")
+    fi
 fi
 
+if [ -z "$STORY_BEAD_ID" ]; then
+    echo "ERROR: No Story bead found for task ${BEADS_TASK_ID}: neither the task nor its parent has a title starting with 'Story:'" >&2
+    exit 1
+fi
+
+GH_ISSUE_URL=$(echo "$STORY_DESC" | grep -Eo 'https://github\.com/[^[:space:]]+/issues/[0-9]+' | head -1 || true)
+
 if [ -z "$GH_ISSUE_URL" ]; then
-    echo "ERROR: No GH Issue URL found in beads task ${BEADS_TASK_ID} or its parent" >&2
+    echo "ERROR: No GH Issue URL found in Story bead ${STORY_BEAD_ID} description" >&2
     exit 1
 fi
 
 GH_ISSUE_NUMBER=$(echo "$GH_ISSUE_URL" | grep -Eo '[0-9]+$')
 
-EPIC_KEY=$(gh issue view "$GH_ISSUE_NUMBER" --repo "wcjordan/${REPO}" --json comments \
+JIRA_EPIC_KEY=$(gh issue view "$GH_ISSUE_NUMBER" --repo "wcjordan/${REPO}" --json comments \
     | python3 -c "
 import json, sys, re
 data = json.load(sys.stdin)
@@ -50,5 +69,6 @@ sys.exit('No Jira Epic comment found in GH issue')
     exit 1
 }
 
-echo "${EPIC_KEY}"
+echo "${STORY_BEAD_ID}"
 echo "${GH_ISSUE_NUMBER}"
+echo "${JIRA_EPIC_KEY}"
