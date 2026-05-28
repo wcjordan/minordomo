@@ -107,9 +107,9 @@ Initialize: `tasks_checked = 0`, `tasks_transitioned = 0`, `task_errors = []`
    - **Stage tasks**: title starts with `"Stage"` (Implementation Tasks)
    - **Plan tasks**: title starts with `"Plan:"` (Planning Tasks)
 
-2. **Helper: derive EPIC_KEY and GH_ISSUE_NUMBER from a beads task.** Use `shared/get-epic-key.sh <beads_task_id> <repo>` — it prints EPIC_KEY on line 1 and GH_ISSUE_NUMBER on line 2:
+2. **Helper: derive EPIC_KEY and GH_ISSUE_NUMBER from a beads task.** Use `shared/get-epic-key.sh <beads_task_id> <repo>` — it prints Story bead ID (EPIC_KEY) on line 1, GH_ISSUE_NUMBER on line 2, and Jira Epic key on line 3:
    ```bash
-   { read -r EPIC_KEY; read -r GH_ISSUE_NUMBER; } < <(shared/get-epic-key.sh "<beads_task_id>" "<repo>")
+   { read -r EPIC_KEY; read -r GH_ISSUE_NUMBER; read -r JIRA_EPIC_KEY; } < <(shared/get-epic-key.sh "<beads_task_id>" "<repo>")
    ```
 
 3. **Helper: derive repo from a beads task ID.** Use longest-match against config repos (same as `shared/setup-workspace.sh`).
@@ -235,7 +235,7 @@ A Plan bead is considered "approved" when it is in_progress in beads (claimed by
 
 2. **For each in_progress Plan bead:**
    a. Derive `repo` from the beads task ID prefix (longest-match against config repos).
-   b. Derive `EPIC_KEY` using the Step 4 helper (parent Story bead → GH Issue URL → "Jira Epic:" comment).
+   b. Derive `EPIC_KEY` using the Step 4 helper (parent Story bead → Story bead ID).
    c. **Check if plan PR is merged:**
       ```bash
       shared/check-pr-merged.sh <repo> <EPIC_KEY> <beads_plan_id>
@@ -308,7 +308,7 @@ Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for Jira REST
 
 4. **Build candidate list:** For each ready task:
    a. Derive `repo` from beads task ID prefix (longest-match against config repos).
-   b. Derive `EPIC_KEY` and GH Issue number using the Step 4 helper (parent Story bead → GH Issue URL → "Jira Epic:" comment).
+   b. Derive `EPIC_KEY` and GH Issue number using the Step 4 helper (parent Story bead → Story bead ID).
    c. **Needs-input check:**
       ```bash
       if has_needs_input <repo> <issue-number>; then
@@ -378,7 +378,7 @@ Initialize: `epics_checked = 0`, `prs_opened = 0`, `epics_skipped = 0`, `epic_er
    e. **Skip — incomplete:** If any Stage task status is not `"closed"`, increment `epics_skipped` (reason: `"impl_tasks_not_done"`) and continue to the next Story.
    f. **Derive EPIC_KEY and GH Issue:** Use `shared/get-epic-key.sh` with the Story bead's ID:
       ```bash
-      { read -r EPIC_KEY; read -r GH_ISSUE_NUMBER; } < <(shared/get-epic-key.sh "<story_bead_id>" "<repo>")
+      { read -r EPIC_KEY; read -r GH_ISSUE_NUMBER; read -r JIRA_EPIC_KEY; } < <(shared/get-epic-key.sh "<story_bead_id>" "<repo>")
       ```
       If EPIC_KEY cannot be derived: append a per-Epic error to `epic_errors`, increment `epics_skipped`, and continue to the next Story.
    g. **Skip — PR exists:**
@@ -454,7 +454,7 @@ Initialize: `epics_checked = 0`, `prs_opened = 0`, `epics_skipped = 0`, `epic_er
       ```
       Capture stdout and log the PR URL.
    n. **Transition Epic to In Review:**
-      - `shared/jira-transition.sh "${EPIC_KEY}" "In Review"`
+      - `shared/jira-transition.sh "${JIRA_EPIC_KEY}" "In Review"`
       - On error: append to `epic_errors` (do not abort the step).
    o. Increment `prs_opened`.
 
