@@ -119,7 +119,7 @@ If at any point you hit an unresolvable blocker (missing context, contradictory 
 
 1. **Find the GH Issue number** — use `shared/get-epic-key.sh` (`$REPO` is exported by `shared/setup-workspace.sh`):
    ```bash
-   { read -r _EPIC_KEY; read -r GH_ISSUE_NUMBER; } < <(shared/get-epic-key.sh "${BEADS_TASK_ID}" "$REPO")
+   { read -r _EPIC_KEY; read -r GH_ISSUE_NUMBER; read -r _JIRA_EPIC_KEY; } < <(shared/get-epic-key.sh "${BEADS_TASK_ID}" "$REPO")
    ```
 
 2. **Apply the `needs-input` label** to the linked GH Issue:
@@ -154,7 +154,7 @@ At the end of each run, emit a single JSON object to stdout:
   "status": "success|failure",
   "steps": [
     {"step": "read_task", "status": "ok", "stage_number": 8, "jira_task_id": "MDOMO-45"},
-    {"step": "read_spec", "status": "ok", "spec_doc_path": "docs/planning/MDOMO-36-spec.md"},
+    {"step": "read_spec", "status": "ok", "spec_doc_path": "docs/planning/minordomo-xxx-spec.md"},
     {"step": "implement", "status": "ok"},
     {"step": "tests", "status": "ok", "message": "all tests passed"},
     {"step": "commit_push", "status": "ok", "branch": "task/minordomo-856.2"},
