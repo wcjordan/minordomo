@@ -56,6 +56,27 @@ open → in_progress → closed
 
 Plan tasks never appear in Jira. They live entirely in beads and are identified by the `Plan:` title prefix.
 
+### Story
+
+Story beads are container beads — they do not move through a status lifecycle. A Story bead is created `open` by Majordomo (Step 3) when a GH Issue is ingested and remains `open` throughout all planning and implementation work beneath it. Majordomo polls open Story beads (Step 9) to detect when all Stage children are closed and then opens the feature → base PR.
+
+### Stage (Implementation Task)
+
+```
+open → in_progress → closed
+         ↓
+        open  (needs-input revert)
+```
+
+| Status | Meaning |
+|---|---|
+| open | Created by Majordomo (Step 6) when the Plan bead is approved; no blockers remain |
+| blocked | Earlier Stage sibling is not yet closed; `bd ready` excludes this task |
+| in_progress | Claimed by Majordomo (Step 8) just before launching the worker |
+| closed | Worker's PR was merged; Majordomo transitions on next run (Step 4) |
+
+If the worker hits a blocker requiring human input, it applies the `needs-input` label to the GH Issue and moves the Stage bead back to `open` so it can be re-claimed once the human resolves the blocker. Stage tasks are identified by the `Stage N:` title prefix and mirror a Jira Implementation Task via `external_ref`.
+
 ---
 
 ## Branching Model
