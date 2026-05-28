@@ -66,14 +66,14 @@ All merges across branches require a human-reviewed PR. Agents never merge direc
 
 ```
 <base_branch> (bootstrap by default)
-└── feature/PROJ-42              (Epic/Story branch)
-    ├── task/PROJ-43             (planning task; spec doc PR → feature/PROJ-42)
-    ├── task/PROJ-44             (impl stage 1; PR → feature/PROJ-42)
-    ├── task/PROJ-45             (impl stage 2; PR → feature/PROJ-42)
-    └── task/PROJ-46             (impl stage 3; PR → feature/PROJ-42)
+└── feature/story-bead-id        (Epic/Story branch)
+    ├── task/story-bead-id.0     (planning task; spec doc PR → feature/story-bead-id)
+    ├── task/story-bead-id.1     (impl stage 1; PR → feature/story-bead-id)
+    ├── task/story-bead-id.2     (impl stage 2; PR → feature/story-bead-id)
+    └── task/story-bead-id.3     (impl stage 3; PR → feature/story-bead-id)
 ```
 
-- **Feature branch** — created by the planning agent; holds the spec doc (`docs/planning/PROJ-42-spec.md`) during implementation; spec is deleted from the feature branch before the feature→main PR is opened
+- **Feature branch** — created by the planning agent; holds the spec doc (`docs/planning/story-bead-id-spec.md`) during implementation; spec is deleted from the feature branch before the feature→main PR is opened
 - **Task branches** — created by the agent at launch time, always branching from the current feature branch tip; named `task/<ticket-id>`
 - **task → feature PRs** — opened by the agent on completion; reviewed and merged by human
 - **feature → base PRs** — opened by Majordomo when all Implementation Tasks of an Epic are `Done`; reviewed and merged by human
@@ -84,7 +84,7 @@ Agents never pre-create branches. Branching at launch time ensures each agent st
 
 ## Spec Documents
 
-The implementation plan lives as a markdown file on the feature branch (`docs/planning/PROJ-42-spec.md`). It is created by the planning agent on its task branch and arrives on the feature branch when the planning PR is merged.
+The implementation plan lives as a markdown file on the feature branch (`docs/planning/story-bead-id-spec.md`). It is created by the planning agent on its task branch and arrives on the feature branch when the planning PR is merged.
 
 Each `## Stage N:` section in the spec yields one Jira Implementation Task. The stage number is not stored in the Jira title — only the text after `## Stage N:` is used. Stage ordering is determined by Jira rank (`customfield_10019`), which reflects creation order.
 
