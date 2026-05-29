@@ -366,7 +366,7 @@ Initialize: `epics_checked = 0`, `prs_opened = 0`, `epics_skipped = 0`, `epic_er
       If EPIC_KEY cannot be derived: append a per-Epic error to `epic_errors`, increment `epics_skipped`, and continue to the next Story.
    g. **Skip — PR exists:**
       ```bash
-      gh pr list --repo wcjordan/<repo> --base <base_branch> --head feature/<EPIC_KEY> --state open --json number
+      gh pr list --repo wcjordan/<repo> --base <base_branch> --head feature/<EPIC_KEY> --state all --json number
       ```
       If the returned JSON array is non-empty, increment `epics_skipped` (reason: `"pr_already_open"`) and continue to the next Story.
    h. **Extract GH Issue description:** Fetch the GH Issue body for the "what and why" narrative:
@@ -451,6 +451,55 @@ On any per-Story error that prevents PR opening: append to `epic_errors`, increm
 
 ---
 
+### Step 10: Close Completed Epics After Feature PR Merges
+
+Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for Jira REST writes in this step.
+
+Initialize: `epics_checked = 0`, `epics_closed = 0`, `epics_skipped = 0`, `epic_errors = []`
+
+1. **Query open Story beads:**
+   ```bash
+   shared/list-story-beads.sh
+   ```
+   Outputs a JSON array of open Story beads.
+
+2. **For each Story bead:**
+   a. Increment `epics_checked`.
+   b. Derive `repo` from beads task ID prefix (longest-match against config repos).
+   c. **Fetch Stage children:** `bd list --parent "<story_bead_id>" --json` — filter to titles starting with `"Stage"`.
+   d. **Skip — no Stage tasks:** If the Stage task list is empty, increment `epics_skipped` (reason: `"no_impl_tasks"`) and continue.
+   e. **Skip — incomplete:** If any Stage task status is not `"closed"`, increment `epics_skipped` (reason: `"impl_tasks_not_done"`) and continue.
+   f. **Derive EPIC_KEY:**
+      ```bash
+      { read -r EPIC_KEY; read -r GH_ISSUE_NUMBER; } < <(shared/get-epic-key.sh "<story_bead_id>" "<repo>")
+      ```
+      On failure: append per-epic error to `epic_errors`, increment `epics_skipped`, continue.
+   g. **Check for a merged feature→main PR:**
+      ```bash
+      shared/check-epic-pr-merged.sh "<repo>" "<base_branch>" "<EPIC_KEY>"
+      ```
+      Exits 0 and outputs the merged PR number if one exists; exits 1 with empty output if not yet merged.
+      If exits 1: increment `epics_skipped` (reason: `"pr_not_yet_merged"`) and continue.
+   h. **Close the Story bead:**
+      ```bash
+      shared/beads-write.sh close "<story_bead_id>"
+      ```
+      On error: append per-epic error, increment `epics_skipped`, continue.
+   i. **Transition the Jira Epic to "Done":**
+      ```bash
+      shared/jira-transition.sh "${EPIC_KEY}" "Done"
+      ```
+      On error: append per-epic error (do not abort; Story bead already closed).
+   j. Increment `epics_closed`.
+
+3. **Log step result:**
+   ```json
+   {"step": "close_completed_epics", "status": "ok", "epics_checked": N, "epics_closed": N, "epics_skipped": N}
+   ```
+   Append any entries from `epic_errors` to the top-level `errors` array.
+
+---
+
 ## Run Log Format
 
 At the end of each run, emit a single JSON object to stdout:
@@ -473,7 +522,8 @@ At the end of each run, emit a single JSON object to stdout:
     {"step": "create_impl_tasks", "status": "ok", "approved_tasks_processed": 0, "implementation_tasks_created": 0, "beads_subtasks_created": 0},
     {"step": "promote_tasks", "status": "skipped", "message": "replaced by beads dependency graph"},
     {"step": "launch_worker", "status": "ok", "worker_launched": false, "message": "no Ready tasks found"},
-    {"step": "check_story_completion", "status": "ok", "epics_checked": 0, "prs_opened": 0, "epics_skipped": 0}
+    {"step": "check_story_completion", "status": "ok", "epics_checked": 0, "prs_opened": 0, "epics_skipped": 0},
+    {"step": "close_completed_epics", "status": "ok", "epics_checked": 0, "epics_closed": 0, "epics_skipped": 0}
   ],
   "errors": []
 }

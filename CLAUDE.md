@@ -132,6 +132,7 @@ shared/jenkins-trigger.sh minordomo-step "<beads_impl_id>"
 - **Never force-push.** The deny list blocks this; do not attempt workarounds.
 - Workers always branch from the current feature branch tip — this ensures each agent picks up the latest spec and any code merged by prior stages.
 - Spec docs land on feature branches only via merged PRs from planning agent task branches.
+- **Put deterministic commands in shared scripts, not inline in `system-prompt.md`.** Any shell command that fetches data, checks state, or calls an API belongs in a file under `shared/` and is invoked by name from the prompt. Inline shell is only acceptable for truly one-off, single-step logic that cannot be extracted. This keeps system prompts readable and commands testable.
 
 ---
 
