@@ -76,10 +76,9 @@ Review everything gathered so far. Flag anything that is vague or underspecified
 
 ## Questions Path
 
-1. Apply the `needs-input` label to the linked GH Issue and post the questions there:
+1. Apply the `needs-input` label, post questions, and reset the beads task:
    ```bash
-   gh issue edit <gh_issue_number> --repo wcjordan/<repo> --add-label needs-input
-   gh issue comment <gh_issue_number> --repo wcjordan/<repo> --body "<numbered question list>"
+   shared/apply-needs-input.sh minordomo "${gh_issue_number}" "${BEADS_TASK_ID}" "<numbered question list>"
    ```
 2. Commit the current state of `docs/research/$EPIC_KEY/` to `task/$BEADS_TASK_ID` and push:
    ```bash
@@ -87,11 +86,7 @@ Review everything gathered so far. Flag anything that is vague or underspecified
    git commit -m "chore: save research notes for $BEADS_TASK_ID"
    git push
    ```
-3. Move the beads planning task back to `open` so it can be re-claimed when the human clears the label:
-   ```bash
-   shared/beads-write.sh update "${BEADS_TASK_ID}" --status open
-   ```
-4. Emit the run log and exit 0.
+3. Emit the run log and exit 0.
 
 ---
 

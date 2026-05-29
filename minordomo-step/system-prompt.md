@@ -122,23 +122,12 @@ If at any point you hit an unresolvable blocker (missing context, contradictory 
    { read -r _EPIC_KEY; read -r GH_ISSUE_NUMBER; read -r _JIRA_EPIC_KEY; } < <(shared/get-epic-key.sh "${BEADS_TASK_ID}" "$REPO")
    ```
 
-2. **Apply the `needs-input` label** to the linked GH Issue:
+2. **Apply the `needs-input` label, post a comment, and reset the beads task**:
    ```bash
-   gh issue edit <issue-number> --repo wcjordan/<repo> --add-label needs-input
+   shared/apply-needs-input.sh "$REPO" "$GH_ISSUE_NUMBER" "${BEADS_TASK_ID}" "<clear explanation of what is blocking progress and what human input is required>"
    ```
 
-3. **Post a comment** explaining what is needed:
-   ```bash
-   gh issue comment <issue-number> --repo wcjordan/<repo> \
-     --body "<clear explanation of what is blocking progress and what human input is required>"
-   ```
-
-4. **Move the beads stage task back to `open`** so it can be re-claimed when the human clears the label:
-   ```bash
-   shared/beads-write.sh update "${BEADS_TASK_ID}" --status open
-   ```
-
-5. Emit the run log with `status: "failure"` and a clear `errors` entry describing the blocker.
+3. Emit the run log with `status: "failure"` and a clear `errors` entry describing the blocker.
 
 ---
 

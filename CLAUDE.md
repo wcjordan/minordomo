@@ -61,6 +61,14 @@ Available functions:
 - **`has_needs_input <repo> <issue_number>`** — returns exit 0 if the GH issue carries the `needs-input` label, exit 1 otherwise
 - **`extract_priority <labels_json>`** — extracts the first P0–P4 label from a GH labels JSON array, defaulting to `P2`
 
+`shared/apply-needs-input.sh` encapsulates the three-step needs-input protocol (apply label, post comment, reset beads task). Usage:
+
+```bash
+shared/apply-needs-input.sh "<repo>" "<issue_number>" "<beads_task_id>" "<comment_body>"
+```
+
+Exits non-zero and logs to stderr identifying the failed step if any step fails.
+
 `shared/jira-transition.sh` is a standalone script for transitioning a Jira issue to a named status. Usage:
 
 ```bash
