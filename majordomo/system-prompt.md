@@ -102,9 +102,7 @@ Initialize: `tasks_checked = 0`, `tasks_transitioned = 0`, `task_errors = []`
    ```bash
    bd list --status=in_progress --json
    ```
-   Separate into:
-   - **Stage tasks**: title starts with `"Stage"` (Implementation Tasks)
-   - **Plan tasks**: title starts with `"Plan:"` (Planning Tasks)
+   Identify Stage tasks: title starts with `"Stage"` (Implementation Tasks).
 
 2. **Helper: derive EPIC_KEY and GH_ISSUE_NUMBER from a beads task.** Use `shared/get-epic-key.sh <beads_task_id> <repo>` — it prints Story bead ID (EPIC_KEY) on line 1, GH_ISSUE_NUMBER on line 2, and Jira Epic key on line 3:
    ```bash
