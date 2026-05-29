@@ -139,18 +139,7 @@ Initialize: `tasks_checked = 0`, `tasks_transitioned = 0`, `task_errors = []`
 
 Planning Tasks are beads tasks whose title starts with `"Plan:"`.
 
-1. **Check if a planning agent is already running:** Query beads for in_progress Plan beads:
-   ```bash
-   bd list --status=in_progress --json | python3 -c "
-   import json, sys
-   tasks = json.load(sys.stdin)
-   plan_tasks = [t for t in tasks if t.get('title', '').startswith('Plan:')]
-   print(json.dumps(plan_tasks))
-   "
-   ```
-   If any in_progress Plan bead exists: log decision, set `planning_agent_launched: false`, and skip to Step 6 — launch at most one planning agent per run.
-
-2. **Query open Plan beads:**
+1. **Query open Plan beads:**
    ```bash
    bd list --json | python3 -c "
    import json, sys
@@ -169,9 +158,9 @@ Planning Tasks are beads tasks whose title starts with `"Plan:"`.
       If `needs-input`: log a per-task skip (reason: `"needs_input"`) and exclude this task.
    d. Otherwise include the task in the candidate list with its `priority` (integer from beads) and `id`.
 
-3. **Pick the highest-priority eligible task** — lowest `priority` integer (0=P0 best), then earliest created (lowest beads ID). Do not transition or trigger yet.
+2. **Pick the highest-priority eligible task** — lowest `priority` integer (0=P0 best), then earliest created (lowest beads ID). Do not transition or trigger yet.
 
-3a. **Priority guard — check for higher-priority implementation work in beads:**
+2a. **Priority guard — check for higher-priority implementation work in beads:**
    a. Query beads for eligible implementation tasks:
       ```bash
       bd ready --json | python3 -c "
@@ -192,13 +181,13 @@ Planning Tasks are beads tasks whose title starts with `"Plan:"`.
       shared/jenkins-trigger.sh minordomo-plan "<beads_plan_id>"
       ```
 
-4. After the Jira transition and Jenkins trigger, claim the beads Plan bead:
+3. After the Jira transition and Jenkins trigger, claim the beads Plan bead:
    ```bash
    shared/beads-write.sh update "<beads_plan_id>" --claim
    ```
    If the claim fails, log a warning and continue — the Jira transition and Jenkins trigger already succeeded.
 
-5. Record `planning_agent_launched: true` in the step log
+4. Record `planning_agent_launched: true` in the step log
 
 If a planning agent was launched, record `planning_agent_launched: true` in the step log — Step 8 checks this to decide whether to launch a worker.
 
