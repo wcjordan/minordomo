@@ -47,23 +47,10 @@ bd dolt pull
 
 # Derive EPIC_KEY from the beads task via shared/get-epic-key.sh.
 export EPIC_KEY
-{ read -r EPIC_KEY; read -r _GH_ISSUE_NUMBER; read -r JIRA_EPIC_KEY; } \
+{ read -r EPIC_KEY; read -r _GH_ISSUE_NUMBER; read -r _JIRA_EPIC_KEY; } \
     < <("$(dirname "${BASH_SOURCE[0]}")/get-epic-key.sh" "${BEADS_TASK_ID}" "${REPO}")
 
 export FEATURE_BRANCH="feature/${EPIC_KEY}"
-
-# Migration fallback: if the new-style branch (feature/<beads-id>) doesn't exist on the remote
-# but the old Jira-key-named branch does, rename it to the new name.
-if ! git ls-remote --exit-code origin "${FEATURE_BRANCH}" > /dev/null 2>&1; then
-    OLD_FEATURE_BRANCH="feature/${JIRA_EPIC_KEY}"
-    if git ls-remote --exit-code origin "${OLD_FEATURE_BRANCH}" > /dev/null 2>&1; then
-        echo "Migrating feature branch: ${OLD_FEATURE_BRANCH} → ${FEATURE_BRANCH}"
-        git fetch origin "${OLD_FEATURE_BRANCH}"
-        git checkout -b "${FEATURE_BRANCH#refs/heads/}" "origin/${OLD_FEATURE_BRANCH}"
-        git push -u origin "${FEATURE_BRANCH}"
-        git push origin --delete "${OLD_FEATURE_BRANCH}"
-    fi
-fi
 
 # Derive PARENT_ID for the CLOSED_SIBLINGS check in worker mode.
 PARENT_ID=$(bd show "${BEADS_TASK_ID}" --json | python3 -c "import json,sys; t=json.load(sys.stdin); print(t[0].get('parent') or '')")
