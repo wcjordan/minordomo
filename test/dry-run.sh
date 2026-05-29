@@ -66,7 +66,7 @@ case "$1" in
       echo "[{\"id\": \"$BEADS_ID\", \"title\": \"Stage 1: Test stage\", \"description\": null, \"status\": \"in_progress\", \"priority\": 2, \"parent\": \"$PARENT\"}]"
     else
       # Story/Parent bead
-      echo "[{\"id\": \"$BEADS_ID\", \"title\": \"Plan: Test feature\", \"description\": \"GH Issue: https://github.com/wcjordan/minordomo/issues/1\", \"status\": \"in_progress\", \"priority\": 2, \"parent\": null}]"
+      echo "[{\"id\": \"$BEADS_ID\", \"title\": \"Story: Test feature\", \"description\": \"GH Issue: https://github.com/wcjordan/minordomo/issues/1\", \"status\": \"in_progress\", \"priority\": 2, \"parent\": null}]"
     fi
     ;;
   list)
@@ -128,7 +128,7 @@ cd "$WSDIR"
 source "$REPO_ROOT/shared/setup-workspace.sh" planning
 [ "$REPO" = "minordomo" ] \
     && pass "REPO=$REPO"               || fail "unexpected REPO: $REPO"
-[ "$EPIC_KEY" = "MDOMO-1" ] \
+[ "$EPIC_KEY" = "minordomo-100" ] \
     && pass "EPIC_KEY=$EPIC_KEY"       || fail "unexpected EPIC_KEY: $EPIC_KEY"
 [[ "$(git branch --show-current)" == task/* ]] \
     && pass "on task branch"           || fail "not on task branch: $(git branch --show-current)"
