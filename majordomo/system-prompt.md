@@ -356,7 +356,7 @@ Initialize: `epics_checked = 0`, `prs_opened = 0`, `epics_skipped = 0`, `epic_er
 2. **For each Story bead:**
    a. Increment `epics_checked`.
    b. Derive `repo` from beads task ID prefix.
-   c. **Fetch Stage children:** `bd list --parent "<story_bead_id>" --json` — filter to Stage tasks (title starts with `"Stage"`). Separate Plan children from Stage children (Stage children are the Implementation Tasks).
+   c. **Fetch Stage children:** `bd list --parent "<story_bead_id>" --all --json` — filter to Stage tasks (title starts with `"Stage"`). Separate Plan children from Stage children (Stage children are the Implementation Tasks).
    d. **Skip — no Stage tasks:** If the Stage task list is empty, increment `epics_skipped` (reason: `"no_impl_tasks"`) and continue to the next Story.
    e. **Skip — incomplete:** If any Stage task status is not `"closed"`, increment `epics_skipped` (reason: `"impl_tasks_not_done"`) and continue to the next Story.
    f. **Derive EPIC_KEY and GH Issue:** Use `shared/get-epic-key.sh` with the Story bead's ID:
