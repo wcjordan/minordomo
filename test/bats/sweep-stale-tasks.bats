@@ -116,7 +116,7 @@ MOCK
 # ---------------------------------------------------------------------------
 
 @test "non-stale task: started 1 hour ago is not reset" {
-    recent=$(python3 -c "from datetime import datetime, timedelta; print((datetime.utcnow() - timedelta(hours=1)).strftime('%Y-%m-%dT%H:%M:%SZ'))")
+    recent=$(python3 -c "from datetime import datetime, timedelta, timezone; print((datetime.now(timezone.utc) - timedelta(hours=1)).strftime('%Y-%m-%dT%H:%M:%SZ'))")
     cat > "$MOCKS/bd" << MOCK
 #!/usr/bin/env bash
 case "\$1" in
@@ -152,7 +152,7 @@ case "$1" in
         echo '[{"id":"minordomo-test-1","started_at":"2020-01-01T00:00:00Z","title":"Stage 1: Test","status":"in_progress"}]'
         ;;
     show)
-        # Return task with no parent — causes get-epic-key.sh to fail
+        # Return task with no parent — causes get-story-key.sh to fail
         echo '[{"id":"minordomo-test-1","title":"Stage 1: Test","parent":null,"status":"in_progress","description":null}]'
         ;;
     dolt)
