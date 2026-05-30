@@ -11,7 +11,6 @@ You run non-interactively via `claude -p` — do not prompt for terminal input. 
 - **Feature branch:** `$FEATURE_BRANCH`
 - **Working directory:** root of the cloned target repo, on branch `task/$BEADS_TASK_ID`
 - **GitHub CLI:** `gh` is authenticated via `GH_TOKEN` env var
-- **Jira:** write-only via REST API (`${JIRA_EMAIL}:${JIRA_API_TOKEN}` against `${JIRA_URL}`)
 - **Helper functions:** source `shared/pipeline-helpers.sh` early in your run to access:
   - `beads_task_id_by_title <title>` — finds a beads task ID by exact title, searching both open and in_progress
   - `has_needs_input <repo> <issue_number>` — returns exit 0 if the GH issue has the `needs-input` label, 1 otherwise

@@ -8,24 +8,16 @@ setup() {
     cd "$REPO_ROOT"
 
     # Unset any previously derived vars to ensure clean state
-    unset DOMAIN_ROOT JIRA_URL JENKINS_USERNAME JIRA_EMAIL JIRA_API_TOKEN GH_TOKEN BASE_BRANCH
+    unset DOMAIN_ROOT JENKINS_USERNAME GH_TOKEN BASE_BRANCH
 
     # Fake credentials matching what Jenkins injects
     export ROOT_DOMAIN="example.com"
     export GH_APP_PSW="gh-fake-token"
-    export JIRA_ACCT_PSW="jira-fake-token"
-    export JIRA_ACCT_USR="test@example.com"
-    export JIRA_CLOUD_ID="abc123cloudid"
 }
 
 @test "exports DOMAIN_ROOT as the subdomain prefix of ROOT_DOMAIN" {
     source shared/setup-env.sh
     [ "$DOMAIN_ROOT" = "example" ]
-}
-
-@test "exports JIRA_URL using JIRA_CLOUD_ID" {
-    source shared/setup-env.sh
-    [ "$JIRA_URL" = "https://api.atlassian.com/ex/jira/abc123cloudid" ]
 }
 
 @test "exports JENKINS_USERNAME as DOMAIN_ROOT@gmail.com" {
@@ -36,12 +28,6 @@ setup() {
 @test "exports GH_TOKEN from GH_APP_PSW" {
     source shared/setup-env.sh
     [ "$GH_TOKEN" = "gh-fake-token" ]
-}
-
-@test "exports JIRA_EMAIL and JIRA_API_TOKEN from JIRA_ACCT credentials" {
-    source shared/setup-env.sh
-    [ "$JIRA_EMAIL" = "test@example.com" ]
-    [ "$JIRA_API_TOKEN" = "jira-fake-token" ]
 }
 
 @test "exports non-empty BASE_BRANCH read from shared/config.yaml" {
