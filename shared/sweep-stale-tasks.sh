@@ -19,17 +19,17 @@ fi
 # Step 2: Filter to tasks started more than 12 hours ago.
 STALE_JSON=$(echo "$IN_PROGRESS_JSON" | python3 -c "
 import json, sys
-from datetime import datetime
+from datetime import datetime, timezone
 
 tasks = json.load(sys.stdin)
-now = datetime.utcnow()
+now = datetime.now(timezone.utc)
 stale = []
 for task in tasks:
     started_at = task.get('started_at')
     if not started_at:
         continue
     try:
-        started_dt = datetime.fromisoformat(started_at.replace('Z', '+00:00')).replace(tzinfo=None)
+        started_dt = datetime.fromisoformat(started_at.replace('Z', '+00:00'))
         age_hours = (now - started_dt).total_seconds() / 3600
         if age_hours > 12:
             stale.append(task)
@@ -83,7 +83,7 @@ sys.exit(1)
     utc_ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
     comment_body="Sweep job reset this task to \`open\` at \`${utc_ts}\`. It had been \`in_progress\` for more than 12 hours — likely due to a Jenkins container crash. Majordomo will re-queue it on the next run."
 
-    epic_output=$("${SCRIPT_DIR}/get-epic-key.sh" "$task_id" "$repo" 2>/dev/null) || {
+    epic_output=$("${SCRIPT_DIR}/get-story-key.sh" "$task_id" "$repo" 2>/dev/null) || {
         echo "ERROR: Failed to get GH issue for task ${task_id}" >&2
         comment_errors=$((comment_errors + 1))
         epic_output=""
