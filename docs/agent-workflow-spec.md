@@ -42,6 +42,10 @@ When all Stage tasks of an Epic are closed, Majordomo opens a feature→main PR.
 
 `bd` (beads) serves as the agent-facing task coordination layer. It mirrors the Jira Epic → Story → Task hierarchy using `Story:` / `Plan:` / `Stage N:` bead titles, exposes a dependency graph, and provides `bd ready` for task selection. Beads state is stored in a local Dolt DB and synced to the git remote via `refs/dolt/data`.
 
+### Stale Task Sweep
+
+A dedicated Jenkins pipeline (`minordomo-sweep/Jenkinsfile`) runs `shared/sweep-stale-tasks.sh` on a cron schedule (every 4 hours). It detects beads tasks that have been `in_progress` for more than 12 hours and resets them to `open`, covering both worker and planning agent tasks. Tasks with an open PR are skipped — they are actively in review, not orphaned. Before resetting each stale task, the sweep script attempts to post a comment on the associated GitHub Issue explaining the reset; comment failures are logged but do not block the reset. The job exits 0 even when some tasks encounter errors (partial success is better than aborting the sweep).
+
 ### Token Usage Reporting
 
 `shared/report-token-usage.py` summarises input/cache/output tokens and cost per job, written to the Jenkins build log.
