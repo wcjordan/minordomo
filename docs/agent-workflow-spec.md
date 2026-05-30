@@ -20,23 +20,23 @@ Majordomo identifies open Plan beads tasks and triggers the planning agent Jenki
 
 ### Plan Approval Spinoff
 
-When a Plan bead is approved (spec PR merged), Majordomo reads the spec doc from the feature branch and creates one Jira Implementation Task per `## Stage N:` section. Implementation Tasks are created in stage order; Jira rank reflects stage sequence and is used for ordering.
+When a Plan bead is approved (spec PR merged), Majordomo reads the spec doc from the feature branch and creates one beads Stage task per `## Stage N:` section. Tasks are created in stage order and wired with blocking dependencies (stage N depends on N−1) so `bd ready` surfaces them in sequence.
 
-### Task Prioritization & Ready Promotion
+### Task Prioritization & Worker Selection
 
-Majordomo promotes eligible Implementation Tasks from Open to Ready: a task is eligible when all prior siblings (lower Jira rank) are Done and no sibling is In Progress or In Review. At most one task per Epic can be Ready at a time. When selecting a worker target from all Ready tasks, Majordomo excludes tasks whose Epic has a sibling In Progress or In Review, then ranks by: continuity (Epic with at least one Implementation Task already Done) → Epic priority label (P0 > P1 > P2 > unlabelled) → Epic Jira rank.
+Unblocked, unclaimed Stage tasks are surfaced by `bd ready`. Majordomo selects a worker target by excluding tasks whose Epic has a Stage sibling `in_progress`, then ranking by: continuity (Epic with at least one Stage task already closed) → Epic priority label (P0 > P1 > P2 > unlabelled). Beads creation order implicitly reflects stage sequence since tasks are created in order during Plan Approval Spinoff.
 
 ### Worker Agent
 
-Workers branch from the current feature branch tip, implementing the task, opening a PR to the feature branch, and transitioning the Jira ticket to In Review. Before implementing the first stage of an Epic, the worker merges the base branch into the feature branch to avoid drift.
+Workers branch from the current feature branch tip, implement the task, and open a PR to the feature branch. Before implementing the first stage of an Epic, the worker merges the base branch into the feature branch to avoid drift.
 
 ### PR Sync
 
-Majordomo auto-transitions Jira tickets when humans merge planning or implementation PRs.
+Majordomo auto-transitions the Jira Epic when humans merge planning PRs. When implementation PRs are merged, Majordomo closes the corresponding beads Stage task (no Jira transition occurs for implementation PRs).
 
 ### Feature → Main PRs
 
-When all Implementation Tasks of an Epic are Done, Majordomo opens a feature→main PR. Before doing so, it reviews planning and research documents for context worth preserving, updates general docs as appropriate, then deletes `docs/planning/<EPIC_KEY>-spec.md` and `docs/research/<EPIC_KEY>/` from the feature branch so planning artifacts do not land on the base branch.
+When all Stage tasks of an Epic are closed, Majordomo opens a feature→main PR. Before doing so, it reviews planning and research documents for context worth preserving, updates general docs as appropriate, then deletes `docs/planning/<EPIC_KEY>-spec.md` and `docs/research/<EPIC_KEY>/` from the feature branch so planning artifacts do not land on the base branch.
 
 ### Beads Task Coordination
 
@@ -53,11 +53,11 @@ When all Implementation Tasks of an Epic are Done, Majordomo opens a feature→m
 The full step-by-step instructions live in `majordomo/system-prompt.md`. Summary:
 
 1. Load config from `shared/config.yaml`
-2. Ingest new GH Issues → create Jira Epics + Planning Tasks
-3. Sync PR state → transition Jira tickets for merged PRs
+2. Ingest new GH Issues → create Jira Epics + beads Planning Tasks
+3. Sync PR state → close beads Stage tasks for merged implementation PRs; transition Jira Epic for merged planning PRs
 4. Check for open Planning Tasks → launch planning agent (subject to planning priority guard)
-5. Plan Approval Spinoff → create Implementation Tasks from approved spec docs
-6. Promote eligible Implementation Tasks to Ready
-7. Select top Ready task → launch worker
-8. *(reserved)*
-9. Open feature→main PRs for Epics with all Implementation Tasks Done (includes doc review/cleanup)
+5. Plan Approval Spinoff → create beads Stage tasks from approved spec docs; wire dependency chain
+6. *(reserved)*
+7. *(reserved)*
+8. Select top ready Stage task via `bd ready` → launch worker
+9. Open feature→main PRs for Epics with all Stage tasks closed (includes doc review/cleanup)
