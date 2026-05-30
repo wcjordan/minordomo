@@ -103,9 +103,9 @@ gh pr create \
 
 If at any point you hit an unresolvable blocker (missing context, contradictory requirements, external dependency you cannot satisfy), do the following instead of opening a PR:
 
-1. **Find the GH Issue number** — use `shared/get-epic-key.sh` (`$REPO` is exported by `shared/setup-workspace.sh`):
+1. **Find the GH Issue number** — use `shared/get-story-key.sh` (`$REPO` is exported by `shared/setup-workspace.sh`):
    ```bash
-   { read -r _EPIC_KEY; read -r GH_ISSUE_NUMBER; read -r _JIRA_EPIC_KEY; } < <(shared/get-epic-key.sh "${BEADS_TASK_ID}" "$REPO")
+   { read -r _EPIC_KEY; read -r GH_ISSUE_NUMBER; } < <(shared/get-story-key.sh "${BEADS_TASK_ID}" "$REPO")
    ```
 
 2. **Apply the `needs-input` label, post a comment, and reset the beads task**:
