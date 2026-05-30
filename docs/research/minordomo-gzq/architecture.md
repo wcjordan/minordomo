@@ -17,8 +17,6 @@ Jenkins-level crashes (container dies) are out of scope and handled by a separat
 
 **Gaps:**
 - Does not commit/push partial work before exiting
-- Does not post a comment to the **Jira** ticket (only GH)
-- The `get-epic-key.sh` output includes JIRA_EPIC_KEY on line 3, but the worker does not capture it
 
 ### Error/Crash Exit (does not exist)
 When the worker fails with a hard error (not a needs-input blocker), it:
@@ -40,29 +38,27 @@ Output (one per line):
 ### `shared/beads-write.sh update <id> --status open`
 Resets beads task to open (dolt pull → bd update → dolt push).
 
-### `shared/jira-transition.sh`
-Pattern reference for Jira REST API via `${JIRA_URL}`, `${JIRA_EMAIL}`, `${JIRA_API_TOKEN}`.
-Jira comment endpoint: `POST ${JIRA_URL}/rest/api/3/issue/{key}/comment`
+### `shared/apply-needs-input.sh <repo> <issue_number> <beads_task_id> <comment_body>`
+Pattern reference for posting to GH issues via `gh issue comment`. Used in the Needs Input flow.
 
 ## Design Decisions
 
-### New script: `shared/post-jira-comment.sh`
+### New script: `shared/post-gh-issue-comment.sh`
 Per CLAUDE.md: "Any shell command that fetches data, checks state, or calls an API belongs in a file under shared/."
-This script takes `jira_issue_key` and `comment_body` and posts a Jira comment.
-Follows the same pattern as `jira-transition.sh`.
+This script takes `gh_issue_number`, `repo`, and `comment_body` and posts a GH issue comment.
+Follows the same pattern as `apply-needs-input.sh` (uses `gh issue comment`).
 
 ### Worker system prompt changes
 Two exit paths need updating:
 
 1. **Needs Input path** — add before apply-needs-input.sh:
    - Commit and push partial work (with `[partial]` prefix in commit message)
-   - Capture JIRA_EPIC_KEY from get-epic-key.sh (line 3)
-   - Call post-jira-comment.sh with the Jira key
+   - `apply-needs-input.sh` already handles the GH issue comment; no additional notification needed
 
 2. **New error/crash path** — add new section for hard failures:
    - Commit and push any partial/completed work
-   - Call get-epic-key.sh to get JIRA_EPIC_KEY
-   - Post Jira comment describing what stopped
+   - Call get-epic-key.sh to get GH_ISSUE_NUMBER (line 2)
+   - Post GH comment via post-gh-issue-comment.sh describing what stopped
    - Reset beads task to open via `shared/beads-write.sh update "$BEADS_TASK_ID" --status open`
 
 ### Partial work commits
@@ -71,5 +67,4 @@ Worker instructions should say: "git add -A && git commit -m '[partial] <brief d
 If nothing is staged, skip the commit (don't create empty commits).
 
 ## Test Patterns
-- `test/bats/apply-needs-input.bats` — reference for testing new post-jira-comment.sh
-- `test/bats/jira-transition.bats` — reference for curl mock pattern used in Jira API tests
+- `test/bats/apply-needs-input.bats` — reference for mocking `gh` CLI calls in post-gh-issue-comment.sh tests

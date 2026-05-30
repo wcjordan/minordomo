@@ -5,28 +5,25 @@ GH Issue: https://github.com/wcjordan/minordomo/issues/210
 
 ---
 
-## Stage 1: Create `shared/post-jira-comment.sh` with bats tests
+## Stage 1: Create `shared/post-gh-issue-comment.sh` with bats tests
 
 ### Description
-Add a new shared script that posts a comment to a Jira issue via the Jira REST API.
-This is the atomic building block needed by Stages 2 and 3.
+Add a new shared script that posts a comment to a GitHub issue.
+This is the atomic building block used by Stage 2's error-exit flow.
 
-The script takes two positional arguments (`jira_issue_key` and `comment_body`) and reads
-`JIRA_URL`, `JIRA_EMAIL`, and `JIRA_API_TOKEN` from the environment.
+The script takes three positional arguments: `gh_issue_number`, `repo`, and `comment_body`.
 
 Implementation:
-- Follow the `set -euo pipefail` + `curl -sf` + error message pattern used in `shared/jira-transition.sh`
-- POST to `${JIRA_URL}/rest/api/3/issue/${jira_issue_key}/comment` with ADF body:
-  `{"body": {"type": "doc", "version": 1, "content": [{"type": "paragraph", "content": [{"type": "text", "text": "<comment_body>"}]}]}}`
-- Exit non-zero with a descriptive message if credentials are missing or the POST fails
-- Write `test/bats/post-jira-comment.bats` with: happy path, missing-argument guard,
-  missing-env-var cases (JIRA_URL, JIRA_EMAIL, JIRA_API_TOKEN), and curl failure
+- Follow the `set -euo pipefail` + argument guard pattern used in `shared/apply-needs-input.sh`
+- Run: `gh issue comment "${gh_issue_number}" --repo "wcjordan/${repo}" --body "${comment_body}"`
+- Exit non-zero with a descriptive message if the `gh` command fails
+- Write `test/bats/post-gh-issue-comment.bats` with: happy path, missing-argument guard,
+  and `gh` command failure
 
 ### Acceptance Criteria
-- `shared/post-jira-comment.sh MDOMO-131 "Worker stopped at step 3"` posts a comment to the Jira issue
-- Exits non-zero with a descriptive error if JIRA_URL, JIRA_EMAIL, or JIRA_API_TOKEN are unset
-- Exits non-zero with a descriptive error if the curl call fails
-- Exits non-zero (without calling curl) if called with fewer than 2 arguments
+- `shared/post-gh-issue-comment.sh 210 minordomo "Worker stopped at step 3"` posts a comment to the GH issue
+- Exits non-zero with a descriptive error if the `gh` command fails
+- Exits non-zero (without calling `gh`) if called with fewer than 3 arguments
 - `make test` passes with the new bats test file
 
 ---
@@ -37,28 +34,28 @@ Implementation:
 Add a new shared script that encapsulates the deterministic 3-step sequence needed on
 any worker error exit (non-needs-input path):
 
-1. Get the Jira Epic key via `shared/get-epic-key.sh "$BEADS_TASK_ID" "$REPO"`
-2. Post a Jira comment via `shared/post-jira-comment.sh "$JIRA_EPIC_KEY" "$comment_body"` (best-effort — log failure and continue)
+1. Get the GH issue number via `shared/get-epic-key.sh "$BEADS_TASK_ID" "$REPO"` (read line 2: GH_ISSUE_NUMBER)
+2. Post a GH comment via `shared/post-gh-issue-comment.sh "$GH_ISSUE_NUMBER" "$REPO" "$comment_body"` (best-effort — log failure and continue)
 3. Reset beads task to open via `shared/beads-write.sh update "$BEADS_TASK_ID" --status open`
 
-Usage: `shared/worker-error-exit.sh <beads_task_id> <repo> <jira_comment_body>`
+Usage: `shared/worker-error-exit.sh <beads_task_id> <repo> <comment_body>`
 
-Steps 1 and 2 are best-effort: if `get-epic-key.sh` fails, log the error and skip the Jira
-comment step, then still attempt step 3. If `post-jira-comment.sh` fails, log the error and
+Steps 1 and 2 are best-effort: if `get-epic-key.sh` fails, log the error and skip the GH
+comment step, then still attempt step 3. If `post-gh-issue-comment.sh` fails, log the error and
 continue to step 3. Step 3 (beads reset) is not optional — its failure should be logged as
 an error and the script should exit non-zero.
 
 Write `test/bats/worker-error-exit.bats` with:
 - Happy path: all 3 steps succeed
-- `get-epic-key.sh` fails: Jira comment skipped, beads reset still called
-- `post-jira-comment.sh` fails: logged, beads reset still called
+- `get-epic-key.sh` fails: GH comment skipped, beads reset still called
+- `post-gh-issue-comment.sh` fails: logged, beads reset still called
 - `beads-write.sh` fails: exits non-zero
 - Missing argument guard
 
 ### Acceptance Criteria
-- `shared/worker-error-exit.sh` exists and encapsulates get-epic-key + post Jira comment + beads reset
-- Jira comment step is best-effort (failure is logged, beads reset still runs)
-- get-epic-key failure also skips Jira comment but still attempts beads reset
+- `shared/worker-error-exit.sh` exists and encapsulates get-epic-key + post GH comment + beads reset
+- GH comment step is best-effort (failure is logged, beads reset still runs)
+- get-epic-key failure also skips GH comment but still attempts beads reset
 - Beads reset failure causes non-zero exit
 - `make test` passes with the new bats test file
 
@@ -89,27 +86,19 @@ every existing hard-failure instruction to reference this section.
 
 **Part B — Needs Input path (existing Needs Input Flow)**
 
-Prepend two steps to the existing Needs Input Flow:
+Prepend one step to the existing Needs Input Flow:
 
 1. **Commit and push partial work** — same procedure as Part A step 1
-2. **Capture JIRA_EPIC_KEY** — update the existing `get-epic-key.sh` call to read all three
-   output lines:
-   ```bash
-   { read -r _EPIC_KEY; read -r GH_ISSUE_NUMBER; read -r JIRA_EPIC_KEY; } < <(shared/get-epic-key.sh "${BEADS_TASK_ID}" "$REPO")
-   ```
-   The existing step that calls `apply-needs-input.sh` is unchanged.
 
-Append one step after the existing `apply-needs-input.sh` call:
-
-3. **Post Jira comment** — call `shared/post-jira-comment.sh "$JIRA_EPIC_KEY" "<message>"`
-   with the same explanation as the GH comment. If this call fails, log it but continue
-   (non-fatal, because `apply-needs-input.sh` already reset the beads task).
+The existing `get-epic-key.sh` call and `apply-needs-input.sh` call are unchanged.
+`apply-needs-input.sh` already posts a comment to the GH issue, so no additional
+notification step is needed.
 
 **Part C — Run Log Format**
 
 Update the Run Log Format section to document the new step names that appear in both flows:
 - `"commit_partial"` — commit/push partial work (with `"skipped"` status if working tree was clean)
-- `"jira_comment"` — Jira comment post (with `"skipped"` status if JIRA_EPIC_KEY could not be derived)
+- `"gh_comment"` — GH issue comment post (with `"skipped"` status if GH_ISSUE_NUMBER could not be derived; error/crash path only)
 - `"beads_reset"` — beads task reset to open
 
 Add a short example showing what the run log looks like when the Error/Crash Exit Flow fires.
@@ -118,8 +107,6 @@ Add a short example showing what the run log looks like when the Error/Crash Exi
 - Worker system prompt includes a "Error/Crash Exit Flow" section defining the 2-step pre-exit procedure
 - Every hard-failure `exit 1` in Steps 1–6 and the preamble references or invokes the Error/Crash Exit Flow
 - The Needs Input Flow commits partial work as its first step
-- The Needs Input Flow captures `JIRA_EPIC_KEY` from `get-epic-key.sh` line 3
-- The Needs Input Flow posts a Jira comment after `apply-needs-input.sh` (best-effort)
-- `shared/worker-error-exit.sh` and `shared/post-jira-comment.sh` are referenced in the prompt (must pass validate-prompts.py)
-- Run log format documents `commit_partial`, `jira_comment`, and `beads_reset` step names
+- `shared/worker-error-exit.sh` and `shared/post-gh-issue-comment.sh` are referenced in the prompt (must pass validate-prompts.py)
+- Run log format documents `commit_partial`, `gh_comment`, and `beads_reset` step names
 - `make test` passes
