@@ -4,7 +4,7 @@
 
 A multi-agent system for autonomously picking up, planning, and implementing development tasks. The system is orchestrated by a **Majordomo agent** that runs on a schedule, evaluates work across projects, and launches **worker agents** to execute implementation tasks. A separate **planning agent** handles ticket grooming through an iterative human Q&A loop.
 
-For repo structure, see [`GETTING_AROUND.md`](GETTING_AROUND.md). For Jira status flows, branching model, and task prioritization, see [`WORKFLOWS.md`](WORKFLOWS.md). For planned future work, see [`FUTURE_WORK.md`](FUTURE_WORK.md).
+For repo structure, see [`GETTING_AROUND.md`](GETTING_AROUND.md). For branching model and task prioritization, see [`WORKFLOWS.md`](WORKFLOWS.md). For planned future work, see [`FUTURE_WORK.md`](FUTURE_WORK.md).
 
 ---
 
@@ -12,7 +12,7 @@ For repo structure, see [`GETTING_AROUND.md`](GETTING_AROUND.md). For Jira statu
 
 ### GH Issue Ingestion
 
-Majordomo polls GitHub Issues on a schedule and creates a Jira Epic and beads tasks (Story + Plan) for each new Issue matching the allowlist in `shared/config.yaml`. Issues with `backlog` or `skip` labels are skipped. A `jira-epic-created` label is applied to each Issue as an idempotency gate.
+Majordomo polls GitHub Issues on a schedule and creates beads tasks (Story + Plan) for each new Issue matching the allowlist in `shared/config.yaml`. Issues with `backlog` or `skip` labels are skipped. A `beads-ingested` label is applied to each Issue as an idempotency gate.
 
 ### Planning Agent Loop
 
@@ -32,7 +32,7 @@ Workers branch from the current feature branch tip, implement the task, and open
 
 ### PR Sync
 
-Majordomo auto-transitions the Jira Epic when humans merge planning PRs. When implementation PRs are merged, Majordomo closes the corresponding beads Stage task (no Jira transition occurs for implementation PRs).
+Majordomo closes the corresponding beads Stage task when implementation PRs are merged.
 
 ### Feature → Main PRs
 
@@ -40,7 +40,7 @@ When all Stage tasks of an Epic are closed, Majordomo opens a feature→main PR.
 
 ### Beads Task Coordination
 
-`bd` (beads) serves as the agent-facing task coordination layer. It mirrors the Jira Epic → Story → Task hierarchy using `Story:` / `Plan:` / `Stage N:` bead titles, exposes a dependency graph, and provides `bd ready` for task selection. Beads state is stored in a local Dolt DB and synced to the git remote via `refs/dolt/data`.
+`bd` (beads) serves as the agent-facing task coordination layer. It uses `Story:` / `Plan:` / `Stage N:` bead titles, exposes a dependency graph, and provides `bd ready` for task selection. Beads state is stored in a local Dolt DB and synced to the git remote via `refs/dolt/data`.
 
 ### Stale Task Sweep
 
@@ -57,8 +57,8 @@ A dedicated Jenkins pipeline (`minordomo-sweep/Jenkinsfile`) runs `shared/sweep-
 The full step-by-step instructions live in `majordomo/system-prompt.md`. Summary:
 
 1. Load config from `shared/config.yaml`
-2. Ingest new GH Issues → create Jira Epics + beads Planning Tasks
-3. Sync PR state → close beads Stage tasks for merged implementation PRs; transition Jira Epic for merged planning PRs
+2. Ingest new GH Issues → create beads Planning Tasks
+3. Sync PR state → close beads Stage tasks for merged implementation PRs
 4. Check for open Planning Tasks → launch planning agent (subject to planning priority guard)
 5. Plan Approval Spinoff → create beads Stage tasks from approved spec docs; wire dependency chain
 6. *(reserved)*

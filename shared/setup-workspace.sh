@@ -45,10 +45,10 @@ bd bootstrap
 bd dolt show
 bd dolt pull
 
-# Derive EPIC_KEY from the beads task via shared/get-epic-key.sh.
+# Derive EPIC_KEY from the beads task via shared/get-story-key.sh.
 export EPIC_KEY
-{ read -r EPIC_KEY; read -r _GH_ISSUE_NUMBER; read -r _JIRA_EPIC_KEY; } \
-    < <("$(dirname "${BASH_SOURCE[0]}")/get-epic-key.sh" "${BEADS_TASK_ID}" "${REPO}")
+{ read -r EPIC_KEY; read -r _GH_ISSUE_NUMBER; } \
+    < <("$(dirname "${BASH_SOURCE[0]}")/get-story-key.sh" "${BEADS_TASK_ID}" "${REPO}")
 
 export FEATURE_BRANCH="feature/${EPIC_KEY}"
 

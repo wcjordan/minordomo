@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
-# Tests for shared/get-epic-key.sh
-# Run from repo root: bats test/bats/get-epic-key.bats
+# Tests for shared/get-story-key.sh
+# Run from repo root: bats test/bats/get-story-key.bats
 
 REPO_ROOT=""
 MOCKS=""
@@ -37,17 +37,11 @@ esac
 MOCK
     chmod +x "$MOCKS/bd"
 
-    cat > "$MOCKS/gh" << 'MOCK'
-#!/usr/bin/env bash
-echo '{"comments": [{"body": "Jira Epic: MDOMO-10"}]}'
-MOCK
-    chmod +x "$MOCKS/gh"
-
-    run "$REPO_ROOT/shared/get-epic-key.sh" "test-1.1" "myrepo"
+    run "$REPO_ROOT/shared/get-story-key.sh" "test-1.1" "myrepo"
     [ "$status" -eq 0 ]
     [ "$(echo "$output" | sed -n '1p')" = "test-1" ]
     [ "$(echo "$output" | sed -n '2p')" = "42" ]
-    [ "$(echo "$output" | sed -n '3p')" = "MDOMO-10" ]
+    [ "$(echo "$output" | wc -l)" -eq 2 ]
 }
 
 # ---------------------------------------------------------------------------
@@ -71,17 +65,11 @@ esac
 MOCK
     chmod +x "$MOCKS/bd"
 
-    cat > "$MOCKS/gh" << 'MOCK'
-#!/usr/bin/env bash
-echo '{"comments": [{"body": "Jira Epic: MDOMO-20"}]}'
-MOCK
-    chmod +x "$MOCKS/gh"
-
-    run "$REPO_ROOT/shared/get-epic-key.sh" "test-1.1" "myrepo"
+    run "$REPO_ROOT/shared/get-story-key.sh" "test-1.1" "myrepo"
     [ "$status" -eq 0 ]
     [ "$(echo "$output" | sed -n '1p')" = "test-1" ]
     [ "$(echo "$output" | sed -n '2p')" = "99" ]
-    [ "$(echo "$output" | sed -n '3p')" = "MDOMO-20" ]
+    [ "$(echo "$output" | wc -l)" -eq 2 ]
 }
 
 # ---------------------------------------------------------------------------
@@ -95,17 +83,11 @@ echo '[{"id": "test-1", "title": "Story: My feature", "description": "GH Issue: 
 MOCK
     chmod +x "$MOCKS/bd"
 
-    cat > "$MOCKS/gh" << 'MOCK'
-#!/usr/bin/env bash
-echo '{"comments": [{"body": "Jira Epic: MDOMO-30"}]}'
-MOCK
-    chmod +x "$MOCKS/gh"
-
-    run "$REPO_ROOT/shared/get-epic-key.sh" "test-1" "myrepo"
+    run "$REPO_ROOT/shared/get-story-key.sh" "test-1" "myrepo"
     [ "$status" -eq 0 ]
     [ "$(echo "$output" | sed -n '1p')" = "test-1" ]
     [ "$(echo "$output" | sed -n '2p')" = "55" ]
-    [ "$(echo "$output" | sed -n '3p')" = "MDOMO-30" ]
+    [ "$(echo "$output" | wc -l)" -eq 2 ]
 }
 
 # ---------------------------------------------------------------------------
@@ -131,17 +113,11 @@ esac
 MOCK
     chmod +x "$MOCKS/bd"
 
-    cat > "$MOCKS/gh" << 'MOCK'
-#!/usr/bin/env bash
-echo '{"comments": [{"body": "Jira Epic: MDOMO-40"}]}'
-MOCK
-    chmod +x "$MOCKS/gh"
-
-    run "$REPO_ROOT/shared/get-epic-key.sh" "test-1" "myrepo"
+    run "$REPO_ROOT/shared/get-story-key.sh" "test-1" "myrepo"
     [ "$status" -eq 0 ]
     [ "$(echo "$output" | sed -n '1p')" = "test-1" ]
     [ "$(echo "$output" | sed -n '2p')" = "77" ]
-    [ "$(echo "$output" | sed -n '3p')" = "MDOMO-40" ]
+    [ "$(echo "$output" | wc -l)" -eq 2 ]
     # bd should only be called once (for the task itself, not its parent)
     [ "$(cat "$call_count_file")" = "1" ]
 }
@@ -167,13 +143,7 @@ esac
 MOCK
     chmod +x "$MOCKS/bd"
 
-    cat > "$MOCKS/gh" << 'MOCK'
-#!/usr/bin/env bash
-echo '{"comments": []}'
-MOCK
-    chmod +x "$MOCKS/gh"
-
-    run "$REPO_ROOT/shared/get-epic-key.sh" "test-1.1" "myrepo"
+    run "$REPO_ROOT/shared/get-story-key.sh" "test-1.1" "myrepo"
     [ "$status" -ne 0 ]
     echo "$output" | grep -qi "Story"
 }
@@ -199,45 +169,7 @@ esac
 MOCK
     chmod +x "$MOCKS/bd"
 
-    cat > "$MOCKS/gh" << 'MOCK'
-#!/usr/bin/env bash
-echo '{"comments": []}'
-MOCK
-    chmod +x "$MOCKS/gh"
-
-    run "$REPO_ROOT/shared/get-epic-key.sh" "test-1.1" "myrepo"
+    run "$REPO_ROOT/shared/get-story-key.sh" "test-1.1" "myrepo"
     [ "$status" -ne 0 ]
     echo "$output" | grep -qi "No GH Issue URL"
-}
-
-# ---------------------------------------------------------------------------
-# Failure: URL found but no Jira Epic comment
-# ---------------------------------------------------------------------------
-
-@test "failure: no Jira Epic comment in GH issue" {
-    cat > "$MOCKS/bd" << 'MOCK'
-#!/usr/bin/env bash
-case "$2" in
-    "test-1.1")
-        echo '[{"id": "test-1.1", "title": "Stage 1: Do something", "description": null, "status": "in_progress", "parent": "test-1"}]'
-        ;;
-    "test-1")
-        echo '[{"id": "test-1", "title": "Story: My feature", "description": "GH Issue: https://github.com/wcjordan/myrepo/issues/42", "status": "open", "parent": null}]'
-        ;;
-    *)
-        echo "[]"
-        ;;
-esac
-MOCK
-    chmod +x "$MOCKS/bd"
-
-    cat > "$MOCKS/gh" << 'MOCK'
-#!/usr/bin/env bash
-echo '{"comments": [{"body": "Just a regular comment, no epic here"}]}'
-MOCK
-    chmod +x "$MOCKS/gh"
-
-    run "$REPO_ROOT/shared/get-epic-key.sh" "test-1.1" "myrepo"
-    [ "$status" -ne 0 ]
-    echo "$output" | grep -qi "Jira Epic"
 }
