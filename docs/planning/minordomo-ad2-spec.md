@@ -15,7 +15,7 @@ stale in-progress tasks, resets them to open, and posts a comment so the cause i
 Write `shared/sweep-stale-tasks.sh` — a standalone script (no Claude invocation) that:
 
 1. Lists all in_progress beads tasks via `bd list --status=in_progress --json`.
-2. Filters to tasks where `started_at` is more than 12 hours in the past (use Python to parse ISO 8601 and compare against `datetime.utcnow()`).
+2. Filters to tasks where `started_at` is more than 12 hours in the past (use Python to parse ISO 8601 and compare against `datetime.utcnow()`). Then further filters out any task that has an open PR (check via `gh pr list --repo "wcjordan/<repo>" --head "task/<task_id>" --state open --json number`); tasks with an open PR are skipped silently — they are actively in review, not orphaned.
 3. Derives the repo for each stale task by longest-match against config repos in `shared/config.yaml` (same Python pattern as `shared/setup-workspace.sh`).
 4. For each stale task:
    a. Try to derive the GH issue number via `shared/get-epic-key.sh <task_id> <repo>` and post a comment with `gh issue comment`.
@@ -34,6 +34,7 @@ Write bats unit tests in `test/bats/sweep-stale-tasks.bats`. Test cases must cov
 - Non-stale task is not reset (under 12 hours)
 - `get-epic-key.sh` failure: task is still reset (comment failure does not block reset)
 - `gh issue comment` failure: task is still reset
+- Task has an open PR: task is skipped (not reset)
 - `bd list` returns empty: exits 0 with `Swept 0 stale task(s)` message
 
 Ensure `test/bats/sweep-stale-tasks.bats` passes `shellcheck` without warnings (add the new script to `test/shellcheck.sh` if needed — check whether `test/shellcheck.sh` auto-discovers `shared/*.sh`).
@@ -41,7 +42,7 @@ Ensure `test/bats/sweep-stale-tasks.bats` passes `shellcheck` without warnings (
 ### Acceptance Criteria
 
 - `shared/sweep-stale-tasks.sh` exists and passes shellcheck
-- Script correctly identifies in_progress tasks older than 12 hours and skips those newer than 12 hours
+- Script correctly identifies in_progress tasks older than 12 hours, skips those newer than 12 hours, and skips tasks that have an open PR
 - Script resets each stale task to open via `shared/beads-write.sh update <id> --status open`
 - Script attempts to post a GH issue comment before resetting; a comment failure does not prevent the reset
 - Script exits 0 when all tasks are swept (including partial comment failures)
