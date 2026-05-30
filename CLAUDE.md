@@ -104,11 +104,11 @@ Comment:      POST ${JIRA_URL}/rest/api/3/issue/{key}/comment
 
 **Planning Tasks:** Plan tasks exist in **beads only** (not Jira). A beads task is a Plan task if and only if its title **starts with** the literal prefix `Plan:` (case-sensitive, no leading whitespace).
 
-**Implementation Tasks:** Every Jira Task and every beads task that does not start with `Plan:`.
+**Implementation Tasks:** Every beads task that does not start with `Plan:` or `Story:`.
 
-Implementation task titles are the text after `## Stage N:` from the spec doc — the stage number itself is not stored in the Jira title.
+Implementation task titles are the text after `## Stage N:` from the spec doc — the stage number itself is not stored in the task title.
 
-**Stage ordering within an Epic:** Use Jira rank (`customfield_10019`) — lower lexicographic value = created earlier = lower stage number. Tasks are created in stage order by the Plan Approval Spinoff step (Step 5), so Jira rank reliably reflects stage sequence.
+**Stage ordering within an Epic:** determined by the beads dependency chain — each Stage N task depends on Stage N−1, so `bd ready` surfaces them in sequence.
 
 ---
 

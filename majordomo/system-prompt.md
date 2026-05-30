@@ -94,9 +94,7 @@ Record in the step log:
 
 ### Step 4: Sync PR Merge Status to Jira
 
-Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for Jira REST writes in this step.
-
-Initialize: `tasks_checked = 0`, `tasks_transitioned = 0`, `task_errors = []`
+Initialize: `tasks_checked = 0`, `beads_tasks_closed = 0`, `task_errors = []`
 
 1. **Query in_progress beads tasks:**
    ```bash
@@ -113,21 +111,19 @@ Initialize: `tasks_checked = 0`, `tasks_transitioned = 0`, `task_errors = []`
 
 4. **For each Stage task (Implementation Task):**
    a. Increment `tasks_checked`.
-   b. Extract `jira_task_key` from `external_ref` by stripping the `"jira-"` prefix (e.g. `"jira-MDOMO-45"` → `"MDOMO-45"`). If empty or malformed: append a per-task error to `task_errors` and continue.
-   c. Derive `repo` (helper 3) and `EPIC_KEY` (helper 2) from the task's beads ID and parent.
-   d. Check whether the task's PR has been merged:
+   b. Derive `repo` (helper 3) and `EPIC_KEY` (helper 2) from the task's beads ID and parent.
+   c. Check whether the task's PR has been merged:
       ```bash
       shared/check-pr-merged.sh <repo> <EPIC_KEY> <beads_task_id>
       ```
-   e. If the script exits 0 (PR was merged):
-      - Transition Jira task to **Done**: `shared/jira-transition.sh "${jira_task_key}" "Done"`
-      - On success: increment `tasks_transitioned`.
+   d. If the script exits 0 (PR was merged):
       - Close the beads subtask: `shared/beads-write.sh close "<beads_task_id>"`.
+      - On success: increment `beads_tasks_closed`.
       - On any per-task error: append to `task_errors` and continue.
 
 5. **Log step result:**
    ```json
-   {"step": "sync_pr_merge_status", "status": "ok", "tasks_checked": <N>, "tasks_transitioned": <N>}
+   {"step": "sync_pr_merge_status", "status": "ok", "tasks_checked": <N>, "beads_tasks_closed": <N>}
    ```
    Append any entries from `task_errors` to the top-level `errors` array.
 
@@ -216,29 +212,23 @@ A Plan bead is considered "approved" when it is in_progress in beads (claimed by
    e. Check out `$FEATURE_BRANCH`
    f. Read `docs/planning/$EPIC_KEY-spec.md` from the feature branch
    g. Parse the stages — each `## Stage N:` section yields one Implementation Task
-   h. Create one Jira Implementation Task per stage under the same Epic, in status `Open`, with:
-      - Title: the stage title (text after `## Stage N:`)
-      - Description: the stage description (from `### Description` subsection)
-      - Acceptance criteria: from the `### Acceptance Criteria` subsection
-      - In the description, also include: `spec_doc_path: docs/planning/$EPIC_KEY-spec.md` and `feature_branch: $FEATURE_BRANCH`
-      Capture each returned Jira task key as `JIRA_IMPL_KEY_N` for use in step k.
-   i. **Find the beads story task.** The Plan bead's parent is the Story bead:
+   h. **Find the beads story task.** The Plan bead's parent is the Story bead:
       ```bash
       BEADS_STORY_ID=$(bd show "<plan_bead_parent_id>" --json | python3 -c "import json,sys; t=json.load(sys.stdin); print(t[0].get('id',''))")
       ```
-      If not found or the command fails, log a per-epic error (`"beads_story_task_not_found"`) and skip steps j–l for this epic. Do not abort; Jira tasks were already created.
-   j. **Epic priority for beads tasks** — use the Story bead's `priority` field as `EPIC_PRIORITY`.
-   k. **Create beads subtasks** — for each stage N (in order), capture the returned ID and record the Jira key in `external_ref`:
+      If not found or the command fails, log a per-epic error (`"beads_story_task_not_found"`) and skip steps i–k for this epic.
+   i. **Epic priority for beads tasks** — use the Story bead's `priority` field as `EPIC_PRIORITY`.
+   j. **Create beads subtasks** — for each stage N (in order), capture the returned ID:
       ```bash
-      BEADS_STAGE_N_ID=$(shared/beads-write.sh create "Stage N: <title>" --parent "$BEADS_STORY_ID" --priority "$EPIC_PRIORITY" --external-ref "jira-${JIRA_IMPL_KEY_N}" --json | python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))")
+      BEADS_STAGE_N_ID=$(shared/beads-write.sh create "Stage N: <title>" --parent "$BEADS_STORY_ID" --priority "$EPIC_PRIORITY" --json | python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))")
       ```
-      If any `shared/beads-write.sh create` fails, log a per-epic error and skip dependency wiring (step l) for this epic; continue to the next epic.
-   l. **Wire blocking dependencies** — for each consecutive stage pair (N ≥ 2), make stage N depend on stage N−1:
+      If any `shared/beads-write.sh create` fails, log a per-epic error and skip dependency wiring (step k) for this epic; continue to the next epic.
+   k. **Wire blocking dependencies** — for each consecutive stage pair (N ≥ 2), make stage N depend on stage N−1:
       ```bash
       shared/beads-write.sh dep add "$BEADS_STAGE_N_ID" "$BEADS_STAGE_N_MINUS_1_ID"
       ```
       If any `shared/beads-write.sh dep add` fails, log a per-epic error and continue (partial chains are better than none).
-   m. **Close the beads Plan bead** — now that subtasks and dependencies are wired:
+   l. **Close the beads Plan bead** — now that subtasks and dependencies are wired:
       ```bash
       shared/beads-write.sh close "<beads_plan_id>"
       # log per-epic: plan_bead_closed: <beads_plan_id>
@@ -259,8 +249,6 @@ Log `{"step": "promote_tasks", "status": "skipped", "message": "replaced by bead
 ---
 
 ### Step 8: Launch Worker Agent
-
-Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for Jira REST writes in this step.
 
 1. **Skip check:** If `planning_agent_launched` is `true` from Step 5: log `{"step": "launch_worker", "status": "skipped", "message": "planning agent launched this run"}` and continue to Step 9.
 
@@ -308,17 +296,12 @@ Use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth and `${JIRA_URL}` for Jira REST
    ```
    On error: record in `errors` and continue to Step 9 without triggering the Jenkins job.
 
-8. **Transition Jira task to In Progress** (write — keep):
-   - Extract `jira_task_key` from `external_ref` by stripping the `"jira-"` prefix.
-   - `shared/jira-transition.sh "${jira_task_key}" "In Progress"`
-   - On error: log a warning and continue — the beads claim already succeeded.
-
-9. **Trigger worker Jenkins job:**
+8. **Trigger worker Jenkins job:**
    ```bash
    shared/jenkins-trigger.sh minordomo-step "<beads_impl_id>"
    ```
 
-10. **Log result:**
+9. **Log result:**
     ```json
     {"step": "launch_worker", "status": "ok", "worker_launched": true, "beads_task_id": "<beads_impl_id>"}
     ```
@@ -504,7 +487,7 @@ At the end of each run, emit a single JSON object to stdout:
     {"step": "load_config", "status": "ok", "message": "loaded 1 user, 4 projects"},
     {"step": "schedule_check", "status": "skipped", "message": "not yet implemented — always proceeding"},
     {"step": "poll_gh_issues", "status": "ok", "issues_processed": 0},
-    {"step": "sync_pr_merge_status", "status": "ok", "tasks_checked": 0, "tasks_transitioned": 0},
+    {"step": "sync_pr_merge_status", "status": "ok", "tasks_checked": 0, "beads_tasks_closed": 0},
     {"step": "eval_planning_tasks", "status": "ok", "planning_agent_launched": false},
     {"step": "create_impl_tasks", "status": "ok", "approved_tasks_processed": 0, "implementation_tasks_created": 0, "beads_subtasks_created": 0},
     {"step": "promote_tasks", "status": "skipped", "message": "replaced by beads dependency graph"},

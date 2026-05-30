@@ -58,8 +58,8 @@ The pipeline is fully operational. Key capabilities:
 | GH Issue ingestion | Polls GH Issues → creates Jira Epics + Planning Tasks |
 | Planning agent loop | Research, Q&A, spec doc, plan approval spinoff |
 | Task prioritization | Ready promotion, continuity/priority/rank ordering |
-| Worker agents | Branch, implement, open PR, transition ticket |
-| Feature→main PRs | Auto-opened when all Implementation Tasks are Done; includes doc cleanup |
+| Worker agents | Branch, implement, open PR |
+| Feature→main PRs | Auto-opened when all Stage tasks are closed; includes doc cleanup |
 | Beads coordination | `bd` CLI mirrors Jira hierarchy; `bd ready` for task selection |
 | Planning priority guard | Defers planning if higher-priority implementation work is available |
 | PR sync | Auto-transitions Jira on merged PRs |

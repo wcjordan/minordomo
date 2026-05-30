@@ -86,8 +86,8 @@ If the worker agent crashes or halts awaiting input:
 If the Jenkins job itself crashes, the worker cannot self-recover. A dedicated sweep job handles this:
 
 - Runs on a regular schedule (e.g. every 4 hours)
-- Finds any Implementation Task in **In Progress** for more than **12 hours**
-- Transitions those tickets back to **Ready**
+- Finds any beads Stage task in **in_progress** status for more than **12 hours**
+- Resets those tasks to **open**
 - Posts a comment noting the reset and timestamp
 - Majordomo will re-queue on next run
 
@@ -108,7 +108,7 @@ Same principles apply to the planning agent:
 ### Acceptance Criteria
 
 - Worker system prompt instructs the agent to commit and push any completed work before exiting on crash or blocker
-- Worker transitions ticket to **Ready** or **Needs Input** (never leaves it **In Progress**) on any exit that isn't a clean PR open
+- Worker resets beads task to **open** or applies needs-input (never leaves it **in_progress**) on any exit that isn't a clean PR open
 - A sweep Jenkins job exists, runs on a schedule, finds stale **In Progress** tasks (>12 hours), resets them to **Ready**, and posts a comment
 - Planning agent failure handling mirrors worker failure handling
 
@@ -117,5 +117,5 @@ Same principles apply to the planning agent:
 ## Other Considerations
 
 - **GH Actions migration** — when ready, Jenkinsfile logic moves to workflow YAML; Majordomo, planning agent, worker, and sweep job code remain unchanged
-- **Parallel workers** — Majordomo launches N workers; Jenkins parallel builds; `In Progress` transition is the atomic claim
+- **Parallel workers** — Majordomo launches N workers; Jenkins parallel builds; `beads-write.sh update --claim` is the atomic claim operation
 - **WIP commits** — if task failure rates or durations warrant it, introduce WIP commits to task branch mid-task to reduce lost work on Jenkins crash

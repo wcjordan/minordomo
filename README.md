@@ -17,10 +17,9 @@ GitHub Issues → Majordomo (Jenkins cron)
 Majordomo runs on a schedule. On each run it:
 1. Ingests new GH Issues → creates Jira Epics + Planning Tasks
 2. Launches a Planning Agent for the highest-priority open planning task
-3. Spins off Implementation Tasks from approved plans
-4. Promotes eligible Implementation Tasks to Ready
-5. Launches a Worker Agent to implement the top Ready task
-6. Opens feature → main PRs when all subtasks of an Epic are Done
+3. Spins off beads Stage tasks from approved plans; stages are sequenced via dependency chain
+4. Launches a Worker Agent to implement the top ready Stage task
+5. Opens feature → main PRs when all Stage tasks are closed
 
 The pipeline is fully operational: it ingests GH Issues, drives them through planning and implementation, and opens feature→main PRs. It also includes beads-based task coordination, a planning priority guard, and automatic cleanup of planning artifacts. Planned future work (usage limits, spec evolution, failure handling) is captured in [`docs/FUTURE_WORK.md`](docs/FUTURE_WORK.md).
 
