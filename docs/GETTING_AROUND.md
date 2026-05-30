@@ -17,6 +17,8 @@ minordomo/
 ├── minordomo-step/
 │   ├── Jenkinsfile          — Worker agent job (parameterized: JIRA_TASK_ID)
 │   └── system-prompt.md     — Worker agent instructions
+├── minordomo-sweep/
+│   └── Jenkinsfile          — Stale task sweep job (cron: every 4 hours, 15 min timeout)
 ├── minordomo-container-builder/
 │   ├── Dockerfile           — Container image for all agent jobs
 │   ├── Jenkinsfile          — Builds and pushes the image to GAR (weekly cron)
@@ -64,5 +66,6 @@ The pipeline is fully operational. Key capabilities:
 | Planning priority guard | Defers planning if higher-priority implementation work is available |
 | PR sync | Auto-transitions Jira on merged PRs |
 | Failure notifications | SES email on pipeline failure; triggered by hard Jenkins failure or agent-reported errors |
+| Stale task sweep | Resets tasks orphaned by Jenkins crashes back to open on a 4-hour schedule |
 
 See [`docs/agent-workflow-spec.md`](agent-workflow-spec.md) for the full capability descriptions and Majordomo run sequence. See [`docs/FUTURE_WORK.md`](FUTURE_WORK.md) for planned capabilities not yet implemented.
