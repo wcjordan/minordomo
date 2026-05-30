@@ -87,7 +87,7 @@ Record in the step log:
 
 ---
 
-### Step 4: Sync PR Merge Status to Jira
+### Step 4: Sync PR Merge Status
 
 Initialize: `tasks_checked = 0`, `beads_tasks_closed = 0`, `task_errors = []`
 
@@ -170,11 +170,11 @@ Planning Tasks are beads tasks whose title starts with `"Plan:"`.
       shared/jenkins-trigger.sh minordomo-plan "<beads_plan_id>"
       ```
 
-3. After the Jira transition and Jenkins trigger, claim the beads Plan bead:
+3. After the Jenkins trigger, claim the beads Plan bead:
    ```bash
    shared/beads-write.sh update "<beads_plan_id>" --claim
    ```
-   If the claim fails, log a warning and continue — the Jira transition and Jenkins trigger already succeeded.
+   If the claim fails, log a warning and continue — the Jenkins trigger already succeeded.
 
 4. Record `planning_agent_launched: true` in the step log
 
@@ -237,7 +237,7 @@ A Plan bead is considered "approved" when it is in_progress in beads (claimed by
 
 ### Step 7: Promote Implementation Tasks to Ready
 
-⚠️ **Removed in Stage 5 of the Jira→beads migration.** The beads dependency graph created in Step 6 means `bd ready` surfaces only tasks with no open blockers — no explicit promotion step is needed. Jira's `Ready` status is populated by the worker agent itself when it picks up a task.
+⚠️ **Removed.** The beads dependency graph created in Step 6 means `bd ready` surfaces only tasks with no open blockers — no explicit promotion step is needed.
 
 Log `{"step": "promote_tasks", "status": "skipped", "message": "replaced by beads dependency graph"}` and continue to Step 8.
 

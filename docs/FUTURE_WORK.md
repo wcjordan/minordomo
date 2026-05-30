@@ -77,9 +77,9 @@ This already works mechanically (workers branch from feature tip and read the sp
 
 If the worker agent crashes or halts awaiting input:
 - Any completed work is committed and pushed to the task branch before exit where possible
-- Worker posts a comment on the Jira ticket describing where it stopped and why
-- Worker transitions ticket to **Ready** (can retry) or **Needs Input** (human answer required)
-- Majordomo will re-queue a **Ready** task on next run; **Needs Input** tasks wait for human intervention
+- Worker posts a comment on the GH issue describing where it stopped and why, and applies the appropriate label (`needs-input` for human answer required)
+- Worker resets the beads task to **open** (can retry) or leaves it in a `needs-input` state (human answer required)
+- Majordomo will re-queue an **open** task on next run; `needs-input` tasks wait for human intervention
 
 ### Jenkins Crash (Sweep Job)
 

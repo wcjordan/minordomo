@@ -50,7 +50,6 @@ backup:
 
 # Integration settings (access with 'bd config get/set')
 # Non-secret keys (stored in the database):
-# - jira.url, jira.project
 # - linear.team_id
 # - github.org, github.repo
 #
