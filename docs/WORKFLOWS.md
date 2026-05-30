@@ -1,16 +1,6 @@
 # Workflows
 
-How work flows through the minordomo pipeline: Jira ticket hierarchy, status transitions, branching, spec documents, and task prioritization.
-
----
-
-## Jira Ticket Hierarchy
-
-```
-Epic (linked to GH Issue)
-```
-
-- Epics are created by Majordomo when a new GH Issue is ingested (Step 3). Plan tasks and Stage tasks exist in beads only (not Jira).
+How work flows through the minordomo pipeline: status transitions, branching, spec documents, and task prioritization.
 
 ---
 
@@ -29,7 +19,7 @@ open → in_progress → closed
 | blocked | Waiting on a dependency (e.g. an upstream Plan task is not yet closed) |
 | closed | Plan approved; Majordomo spun off Stage tasks (Step 6) |
 
-Plan tasks never appear in Jira. They live entirely in beads and are identified by the `Plan:` title prefix.
+Plan tasks live entirely in beads and are identified by the `Plan:` title prefix.
 
 ### Story
 
