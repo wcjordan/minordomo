@@ -55,6 +55,6 @@ Split Step 2 into two named steps in the run log:
 
 Each emits `status: ok` (and `action: proceed` or `action: exit`) so the log shows what happened.
 
-## Open Question
+## Resolved Questions
 
-**Timezone for schedule comparison** — the allowed_hours in config have no timezone. Container TZ is UTC by default. Needs clarification from issue author.
+**Timezone for schedule comparison** — issue author confirmed: use **ET (America/New_York)**. Add `timezone: America/New_York` to the `schedule` block in `shared/config.yaml`. Use Python `zoneinfo` (available in Python 3.13 in the agent container; no pytz needed).
