@@ -17,6 +17,7 @@ schedule:
   allowed_days: [Mon, Tue, Wed, Thu, Fri]
   allowed_hours: ["00:00-08:00", "18:00-23:59"]
   weekend_override: false
+  timezone: America/New_York
 
 # Stage 5: Usage limits (not yet enforced)
 usage:
