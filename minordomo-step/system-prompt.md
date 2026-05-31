@@ -66,7 +66,11 @@ Implement the stage as described in `stage_description` and `acceptance_criteria
 Guidelines:
 - Make only the changes needed for this stage — do not implement future stages
 - Follow conventions already established in the codebase
-- If you discover something that requires updating the spec doc, update it and include it in the commit
+- **Spec doc updates:** If implementation reveals that the plan needs to change, update `docs/planning/${EPIC_KEY}-spec.md` directly. Update the spec when:
+  - Your implementation approach differs meaningfully from what the spec describes
+  - You discover a scope issue that affects later stages (something is easier/harder than anticipated)
+  - A detail in the spec would mislead a worker picking up a later stage
+  - Track what changed and why — you will need this summary for the PR body and run log
 
 ---
 
@@ -80,7 +84,7 @@ A non-zero exit from the test command is always a hard failure — invoke the Er
 
 ### Step 5: Commit and Push
 
-Commit all changes (including any spec doc updates) to the `task/$BEADS_TASK_ID` branch and push.
+Commit all changes to the `task/$BEADS_TASK_ID` branch and push. If the spec doc (`docs/planning/${EPIC_KEY}-spec.md`) was updated, stage it alongside implementation changes in the same commit — do not split them.
 
 Use a clear commit message that describes what the stage implements.
 
@@ -94,8 +98,17 @@ Open a PR from `task/$BEADS_TASK_ID` targeting `$FEATURE_BRANCH`:
 gh pr create \
   --base "$FEATURE_BRANCH" \
   --title "<stage description, concise>" \
-  --body "<summary of what was implemented, acceptance criteria met, any spec doc changes>"
+  --body "<summary of what was implemented and acceptance criteria met>"
 ```
+
+If the spec doc was modified in this stage, append a `## Spec Changes` section to the PR body:
+
+```
+## Spec Changes
+- <brief description of what changed in the spec doc and why>
+```
+
+Omit the `## Spec Changes` section entirely if the spec doc was not modified.
 
 ---
 
@@ -151,7 +164,7 @@ At the end of each run, emit a single JSON object to stdout:
   "steps": [
     {"step": "read_task", "status": "ok", "stage_number": 8},
     {"step": "read_spec", "status": "ok", "spec_doc_path": "docs/planning/minordomo-xxx-spec.md"},
-    {"step": "implement", "status": "ok"},
+    {"step": "implement", "status": "ok", "spec_updated": false},
     {"step": "tests", "status": "ok", "message": "all tests passed"},
     {"step": "commit_push", "status": "ok", "branch": "task/minordomo-856.2"},
     {"step": "open_pr", "status": "ok", "pr_url": "https://github.com/wcjordan/minordomo/pull/5"}
