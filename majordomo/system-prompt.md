@@ -431,7 +431,7 @@ Initialize: `epics_checked = 0`, `epics_closed = 0`, `epics_skipped = 0`, `epic_
       { read -r EPIC_KEY; read -r GH_ISSUE_NUMBER; read -r REPO; } < <(shared/get-story-key.sh "<story_bead_id>")
       ```
       On failure: append per-epic error to `epic_errors`, increment `epics_skipped`, continue.
-   c. **Fetch Stage children:** `bd list --parent "<story_bead_id>" --json` — filter to titles starting with `"Stage"`.
+   c. **Fetch Stage children:** `bd list --parent "<story_bead_id>" --all --json` — filter to titles starting with `"Stage"`.
    d. **Skip — no Stage tasks:** If the Stage task list is empty, increment `epics_skipped` (reason: `"no_impl_tasks"`) and continue.
    e. **Skip — incomplete:** If any Stage task status is not `"closed"`, increment `epics_skipped` (reason: `"impl_tasks_not_done"`) and continue.
    f. **Check for a merged feature→main PR:**
