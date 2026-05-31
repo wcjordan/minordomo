@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate static file paths and Jenkins job names in all system-prompt.md files."""
+"""Validate static file paths, Jenkins job names, and required spec-update phrases in all system-prompt.md files."""
 import re
 import sys
 from pathlib import Path
@@ -23,6 +23,14 @@ VALID_JOB_NAMES = {
     "minordomo-step",
     "minordomo-container-builder",
 }
+
+# Required spec-update phrases in the worker system prompt
+WORKER_PROMPT = "minordomo-step/system-prompt.md"
+REQUIRED_SPEC_UPDATE_PHRASES = [
+    "docs/planning/",
+    "Spec Changes",
+    "spec_updated",
+]
 
 
 def check_prompt(path: Path) -> list[str]:
@@ -52,6 +60,12 @@ def check_prompt(path: Path) -> list[str]:
         name = m.group(1)
         if name not in VALID_JOB_NAMES:
             errors.append(f"{rel}: unknown Jenkins job name: {name!r}")
+
+    # Spec-update phrase check for worker system prompt
+    if str(rel) == WORKER_PROMPT:
+        for phrase in REQUIRED_SPEC_UPDATE_PHRASES:
+            if phrase not in content:
+                errors.append(f"{rel}: missing required spec-update phrase: {phrase!r}")
 
     return errors
 
