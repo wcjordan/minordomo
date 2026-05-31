@@ -51,21 +51,19 @@ comment_errors=0
 while IFS= read -r task_id; do
     [ -z "$task_id" ] && continue
 
-    # Step 3: Derive repo for this task by longest-match against config repos.
-    repo=$(python3 -c "
-import yaml, sys
-task_id, config_path = sys.argv[1], sys.argv[2]
-cfg = yaml.safe_load(open(config_path))
-repos = sorted([p['repo'] for p in cfg['projects']], key=len, reverse=True)
-for repo in repos:
-    if task_id.startswith(repo + '-'):
-        print(repo)
-        sys.exit(0)
-sys.exit(1)
-" "$task_id" "${SCRIPT_DIR}/config.yaml" 2>/dev/null) || {
-        echo "ERROR: Could not derive repo for task ${task_id}" >&2
+    # Step 3: Derive story info (epic key, GH issue number, repo) via get-story-key.sh.
+    story_output=$("${SCRIPT_DIR}/get-story-key.sh" "$task_id" 2>/dev/null) || {
+        echo "ERROR: Could not derive story info for task ${task_id}" >&2
+        comment_errors=$((comment_errors + 1))
+        if "${SCRIPT_DIR}/beads-write.sh" update "$task_id" --status open 2>/dev/null; then
+            swept_count=$((swept_count + 1))
+        else
+            echo "ERROR: Failed to reset task ${task_id} to open" >&2
+        fi
         continue
     }
+    gh_issue_number=$(echo "$story_output" | sed -n '2p')
+    repo=$(echo "$story_output" | sed -n '3p')
 
     # Step 4: Skip tasks that have an open PR — they are in review, not orphaned.
     open_pr_count=$(gh pr list \
@@ -83,21 +81,12 @@ sys.exit(1)
     utc_ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
     comment_body="Sweep job reset this task to \`open\` at \`${utc_ts}\`. It had been \`in_progress\` for more than 12 hours — likely due to a Jenkins container crash. Majordomo will re-queue it on the next run."
 
-    epic_output=$("${SCRIPT_DIR}/get-story-key.sh" "$task_id" "$repo" 2>/dev/null) || {
-        echo "ERROR: Failed to get GH issue for task ${task_id}" >&2
+    gh issue comment "$gh_issue_number" \
+        --repo "wcjordan/${repo}" \
+        --body "$comment_body" 2>/dev/null || {
+        echo "ERROR: Failed to post comment on GH issue ${gh_issue_number} for task ${task_id}" >&2
         comment_errors=$((comment_errors + 1))
-        epic_output=""
     }
-
-    if [ -n "$epic_output" ]; then
-        gh_issue_number=$(echo "$epic_output" | sed -n '2p')
-        gh issue comment "$gh_issue_number" \
-            --repo "wcjordan/${repo}" \
-            --body "$comment_body" 2>/dev/null || {
-            echo "ERROR: Failed to post comment on GH issue ${gh_issue_number} for task ${task_id}" >&2
-            comment_errors=$((comment_errors + 1))
-        }
-    fi
 
     # Step 5b: Reset task to open.
     if "${SCRIPT_DIR}/beads-write.sh" update "$task_id" --status open 2>/dev/null; then

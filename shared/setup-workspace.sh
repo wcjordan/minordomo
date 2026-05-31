@@ -12,20 +12,10 @@ set -euo pipefail
 
 MODE="${1:?Usage: source setup-workspace.sh <worker|planning>}"
 
-# Derive REPO from BEADS_TASK_ID prefix by longest-match against known repos in config.yaml.
-# e.g. "minordomo-856.2" → "minordomo", "gcp-setup-12.1" → "gcp-setup"
-export REPO
-REPO=$(python3 -c "
-import yaml, sys
-cfg = yaml.safe_load(open('shared/config.yaml'))
-repos = sorted([p['repo'] for p in cfg['projects']], key=len, reverse=True)
-beads_id = sys.argv[1]
-for repo in repos:
-    if beads_id.startswith(repo + '-'):
-        print(repo)
-        sys.exit(0)
-sys.exit('No repo found for BEADS_TASK_ID ' + beads_id)
-" "${BEADS_TASK_ID}")
+# Derive EPIC_KEY, GH_ISSUE_NUMBER, and REPO from the Story bead via get-story-key.sh.
+export EPIC_KEY REPO
+{ read -r EPIC_KEY; read -r _GH_ISSUE_NUMBER; read -r REPO; } \
+    < <("$(dirname "${BASH_SOURCE[0]}")/get-story-key.sh" "${BEADS_TASK_ID}")
 
 # Wire up git credential helper so plain git commands can auth via GH_TOKEN.
 gh auth setup-git
@@ -44,11 +34,6 @@ git config beads.role maintainer
 bd bootstrap
 bd dolt show
 bd dolt pull
-
-# Derive EPIC_KEY from the beads task via shared/get-story-key.sh.
-export EPIC_KEY
-{ read -r EPIC_KEY; read -r _GH_ISSUE_NUMBER; } \
-    < <("$(dirname "${BASH_SOURCE[0]}")/get-story-key.sh" "${BEADS_TASK_ID}" "${REPO}")
 
 export FEATURE_BRANCH="feature/${EPIC_KEY}"
 
