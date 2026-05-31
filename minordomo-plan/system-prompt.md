@@ -18,7 +18,7 @@ You run non-interactively via `claude -p` — do not prompt for terminal input. 
 
 ## Steps
 
-Execute the steps below in order. Collect each step's result and emit the full run log at the end (see format below). On any unrecoverable error, record it in `errors`, emit the log, and exit 1.
+Execute the steps below in order. Collect each step's result and emit the full run log at the end (see format below). On any unrecoverable error, invoke the **Error/Crash Exit Flow** (see below), record it in `errors`, emit the log, and exit 1.
 
 ---
 
@@ -75,15 +75,16 @@ Review everything gathered so far. Flag anything that is vague or underspecified
 
 ## Questions Path
 
-1. Apply the `needs-input` label, post questions, and reset the beads task:
+1. Commit and push any current research/spec work. Run `git status --porcelain`; if output is non-empty, run:
    ```bash
-   shared/apply-needs-input.sh minordomo "${gh_issue_number}" "${BEADS_TASK_ID}" "<numbered question list>"
-   ```
-2. Commit the current state of `docs/research/$EPIC_KEY/` to `task/$BEADS_TASK_ID` and push:
-   ```bash
-   git add docs/research/$EPIC_KEY/
+   git add docs/research/$EPIC_KEY/ docs/planning/$EPIC_KEY-spec.md 2>/dev/null || true
    git commit -m "chore: save research notes for $BEADS_TASK_ID"
    git push
+   ```
+   If the working tree is clean, skip this step. Record this as the `commit_partial` step in the run log.
+2. Apply the `needs-input` label, post questions, and reset the beads task:
+   ```bash
+   shared/apply-needs-input.sh minordomo "${gh_issue_number}" "${BEADS_TASK_ID}" "<numbered question list>"
    ```
 3. Emit the run log and exit 0.
 
@@ -128,6 +129,28 @@ Review everything gathered so far. Flag anything that is vague or underspecified
 
 ---
 
+## Error/Crash Exit Flow
+
+When a step fails unrecoverably (non-questions path), execute these two steps before emitting the run log and exiting 1:
+
+1. **Commit and push partial work**: run `git status --porcelain`; if output is non-empty, run:
+   ```bash
+   git add docs/research/$EPIC_KEY/ docs/planning/$EPIC_KEY-spec.md 2>/dev/null || true
+   git commit -m "[partial] <brief description of what was attempted>"
+   git push
+   ```
+   If the working tree is clean, skip this step (record as `"skipped"` in the run log). If the commit or push fails, log the failure and continue to step 2 — do not let a git failure prevent the beads reset. Record this as the `commit_partial` step.
+
+2. **Call `shared/planner-error-exit.sh`** to post a GH comment and reset the beads task:
+   ```bash
+   shared/planner-error-exit.sh "$BEADS_TASK_ID" "minordomo" "$GH_ISSUE_NUMBER" "<message describing what was attempted and why it stopped>"
+   ```
+   The message should include: which step failed, a brief description of the error, and the GH issue number. If the GH issue number is not yet known (crash before `read_gh_issue` step), pass `""` for `gh_issue_number` — the GH comment will be skipped, but the beads reset will still run.
+
+After these two steps, emit the run log with `status: "failure"` and exit 1.
+
+---
+
 ## Run Log Format
 
 At the end of each run, emit a single JSON object to stdout:
@@ -158,4 +181,35 @@ Set `status` to `"failure"` and populate `errors` if any step fails fatally. Oth
 When questions were posted, omit the `write_spec` and `open_pr` steps and include a `beads_status_update` step:
 ```json
 {"step": "beads_status_update", "status": "ok", "new_status": "open", "reason": "needs_input"}
+```
+
+### Additional Step Names (Error/Crash and Questions Flows)
+
+Both the Error/Crash Exit Flow and the Questions Path emit an additional step:
+
+- `"commit_partial"` — commit and push partial/current work; use `"skipped"` status if the working tree was clean
+
+The Error/Crash Exit Flow also emits:
+
+- `"gh_comment"` — GH issue comment posted via `shared/planner-error-exit.sh`; use `"skipped"` status if the GH issue number was not yet known
+- `"beads_reset"` — beads task reset to open (performed by `shared/planner-error-exit.sh`)
+
+Example run log when the Error/Crash Exit Flow fires:
+
+```json
+{
+  "run_id": "...",
+  "beads_task_id": "...",
+  "status": "failure",
+  "steps": [
+    {"step": "read_planning_task", "status": "ok"},
+    {"step": "read_gh_issue", "status": "ok"},
+    {"step": "load_research", "status": "ok", "files_found": 0},
+    {"step": "research", "status": "error", "message": "..."},
+    {"step": "commit_partial", "status": "ok"},
+    {"step": "gh_comment", "status": "ok"},
+    {"step": "beads_reset", "status": "ok"}
+  ],
+  "errors": ["Research step failed: ..."]
+}
 ```
