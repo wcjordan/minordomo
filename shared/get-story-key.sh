@@ -1,14 +1,12 @@
 #!/usr/bin/env bash
 # Derive Story bead ID (EPIC_KEY), GH_ISSUE_NUMBER, and REPO from a beads task ID.
-# Usage: shared/get-story-key.sh <beads_task_id> [repo]
+# Usage: shared/get-story-key.sh <beads_task_id>
 # Output (stdout): Story bead ID on line 1, GH_ISSUE_NUMBER on line 2, repo name on line 3
 # Exits 1 with a message to stderr on failure.
 
 set -euo pipefail
 
 BEADS_TASK_ID="${1:?Usage: get-story-key.sh <beads_task_id>}"
-# shellcheck disable=SC2034
-REPO="${2:-}"
 
 TASK_JSON=$(bd show "${BEADS_TASK_ID}" --json 2>/dev/null) || {
     echo "ERROR: Task ${BEADS_TASK_ID} not found" >&2

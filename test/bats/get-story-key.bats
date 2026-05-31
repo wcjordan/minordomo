@@ -37,7 +37,7 @@ esac
 MOCK
     chmod +x "$MOCKS/bd"
 
-    run "$REPO_ROOT/shared/get-story-key.sh" "test-1.1" "myrepo"
+    run "$REPO_ROOT/shared/get-story-key.sh" "test-1.1"
     [ "$status" -eq 0 ]
     [ "$(echo "$output" | sed -n '1p')" = "test-1" ]
     [ "$(echo "$output" | sed -n '2p')" = "42" ]
@@ -66,7 +66,7 @@ esac
 MOCK
     chmod +x "$MOCKS/bd"
 
-    run "$REPO_ROOT/shared/get-story-key.sh" "test-1.1" "myrepo"
+    run "$REPO_ROOT/shared/get-story-key.sh" "test-1.1"
     [ "$status" -eq 0 ]
     [ "$(echo "$output" | sed -n '1p')" = "test-1" ]
     [ "$(echo "$output" | sed -n '2p')" = "99" ]
@@ -85,7 +85,7 @@ echo '[{"id": "test-1", "title": "Story: My feature", "description": "GH Issue: 
 MOCK
     chmod +x "$MOCKS/bd"
 
-    run "$REPO_ROOT/shared/get-story-key.sh" "test-1" "myrepo"
+    run "$REPO_ROOT/shared/get-story-key.sh" "test-1"
     [ "$status" -eq 0 ]
     [ "$(echo "$output" | sed -n '1p')" = "test-1" ]
     [ "$(echo "$output" | sed -n '2p')" = "55" ]
@@ -116,7 +116,7 @@ esac
 MOCK
     chmod +x "$MOCKS/bd"
 
-    run "$REPO_ROOT/shared/get-story-key.sh" "test-1" "myrepo"
+    run "$REPO_ROOT/shared/get-story-key.sh" "test-1"
     [ "$status" -eq 0 ]
     [ "$(echo "$output" | sed -n '1p')" = "test-1" ]
     [ "$(echo "$output" | sed -n '2p')" = "77" ]
