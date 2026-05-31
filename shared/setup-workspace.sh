@@ -14,7 +14,6 @@ MODE="${1:?Usage: source setup-workspace.sh <worker|planning>}"
 
 # Initialize the minordomo beads workspace so we can look up task details before cloning target.
 [ -d .beads ] && chmod 700 .beads
-git config beads.role maintainer
 bd bootstrap
 bd dolt show
 bd dolt pull
