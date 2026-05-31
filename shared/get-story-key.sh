@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Derive Story bead ID (EPIC_KEY) and GH_ISSUE_NUMBER from a beads task ID.
-# Usage: shared/get-story-key.sh <beads_task_id> <repo>
-# Output (stdout): Story bead ID on line 1, GH_ISSUE_NUMBER on line 2
+# Derive Story bead ID (EPIC_KEY), GH_ISSUE_NUMBER, and REPO from a beads task ID.
+# Usage: shared/get-story-key.sh <beads_task_id> [repo]
+# Output (stdout): Story bead ID on line 1, GH_ISSUE_NUMBER on line 2, repo name on line 3
 # Exits 1 with a message to stderr on failure.
 
 set -euo pipefail
 
-BEADS_TASK_ID="${1:?Usage: get-story-key.sh <beads_task_id> <repo>}"
+BEADS_TASK_ID="${1:?Usage: get-story-key.sh <beads_task_id>}"
 # shellcheck disable=SC2034
-REPO="${2:?Usage: get-story-key.sh <beads_task_id> <repo>}"
+REPO="${2:-}"
 
 TASK_JSON=$(bd show "${BEADS_TASK_ID}" --json 2>/dev/null) || {
     echo "ERROR: Task ${BEADS_TASK_ID} not found" >&2
@@ -54,6 +54,8 @@ if [ -z "$GH_ISSUE_URL" ]; then
 fi
 
 GH_ISSUE_NUMBER=$(echo "$GH_ISSUE_URL" | grep -Eo '[0-9]+$')
+REPO_NAME=$(echo "$GH_ISSUE_URL" | sed 's|https://github\.com/[^/]*/||; s|/issues.*||')
 
 echo "${STORY_BEAD_ID}"
 echo "${GH_ISSUE_NUMBER}"
+echo "${REPO_NAME}"
