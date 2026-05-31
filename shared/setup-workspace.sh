@@ -34,13 +34,6 @@ git config --global user.email "$(echo "${ROOT_DOMAIN}" | cut -d. -f1)@gmail.com
 gh repo clone "wcjordan/${REPO}" "${REPO}"
 cd "${REPO}"
 
-# Initialize the beads workspace so we can look up task details
-[ -d .beads ] && chmod 700 .beads
-git config beads.role maintainer
-bd bootstrap
-bd dolt show
-bd dolt pull
-
 export FEATURE_BRANCH="feature/${EPIC_KEY}"
 
 # Derive PARENT_ID for the CLOSED_SIBLINGS check in worker mode.
