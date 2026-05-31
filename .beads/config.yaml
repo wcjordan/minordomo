@@ -36,6 +36,10 @@
 #     - ~/beads-planning  # Personal planning repo
 #     - ~/work-planning   # Work planning repo
 
+# Auto-export issues to .beads/issues.jsonl after each write operation
+export:
+  auto: false
+
 # JSONL backup (periodic export for off-machine recovery)
 # Auto-enabled when a git remote exists. Override explicitly:
 backup:
@@ -46,7 +50,6 @@ backup:
 
 # Integration settings (access with 'bd config get/set')
 # Non-secret keys (stored in the database):
-# - jira.url, jira.project
 # - linear.team_id
 # - github.org, github.repo
 #

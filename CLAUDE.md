@@ -6,9 +6,9 @@ Guidelines and context for Claude agents and contributors working in this repo.
 
 ## What This Repo Is
 
-**minordomo** is the automated development pipeline itself. Majordomo and its sub-agents live here. This repo is also one of the repos Majordomo manages (Jira project: `MDOMO`).
+**minordomo** is the automated development pipeline itself. Majordomo and its sub-agents live here. This repo is also one of the repos Majordomo manages.
 
-See [`docs/GETTING_AROUND.md`](docs/GETTING_AROUND.md) for repo structure and stage overview. See [`docs/WORKFLOWS.md`](docs/WORKFLOWS.md) for Jira status flows, branching model, and task prioritization.
+See [`docs/GETTING_AROUND.md`](docs/GETTING_AROUND.md) for repo structure and stage overview. See [`docs/WORKFLOWS.md`](docs/WORKFLOWS.md) for branching model and task prioritization.
 
 ---
 
@@ -42,8 +42,8 @@ echo '{"tool_input": {"command": "git push origin main"}}' | shared/pre-bash-gua
 
 Every agent container sources `shared/bootstrap.sh <mode>` before invoking `claude -p`, which runs these scripts in order:
 
-1. `shared/setup-env.sh` — derives `JIRA_URL`, `GH_TOKEN`, `JENKINS_USERNAME`, `BASE_BRANCH`, `JIRA_EMAIL`, `JIRA_API_TOKEN` from Jenkins-injected credentials
-2. `shared/setup-claude.sh` — copies `agent-settings.json` to `~/.claude/settings.json`, registers the Atlassian MCP server via `claude mcp add`
+1. `shared/setup-env.sh` — derives `GH_TOKEN`, `JENKINS_USERNAME`, `BASE_BRANCH` from Jenkins-injected credentials
+2. `shared/setup-claude.sh` — copies `agent-settings.json` to `~/.claude/settings.json`
 3. `shared/setup-workspace.sh <mode>` — clones the target repo, checks out or creates feature/task branches (planning agent and worker only; not Majordomo)
 
 ---
@@ -69,40 +69,11 @@ shared/apply-needs-input.sh "<repo>" "<issue_number>" "<beads_task_id>" "<commen
 
 Exits non-zero and logs to stderr identifying the failed step if any step fails.
 
-`shared/jira-transition.sh` is a standalone script for transitioning a Jira issue to a named status. Usage:
-
-```bash
-shared/jira-transition.sh "<issue_key>" "<status_name>"
-# Example:
-shared/jira-transition.sh "${jira_task_id}" "In Review"
-```
-
-Reads `JIRA_URL`, `JIRA_EMAIL`, and `JIRA_API_TOKEN` from the environment. Exits non-zero with an error message if credentials are missing, the GET request fails, or the named status is not in the transitions list.
-
----
-
-## Jira Access
-
-Two access paths, depending on the operation:
-
-- **MCP tools** (`mcp__atlassian__*`) — use for reads where a matching tool exists
-- **Jira REST API** — required for transitions, searches, and operations not covered by MCP tools; use `${JIRA_EMAIL}:${JIRA_API_TOKEN}` basic auth against `${JIRA_URL}`
-
-Key REST patterns:
-```
-JQL search:   GET  ${JIRA_URL}/rest/api/3/search/jql?jql=<encoded>&fields=...&maxResults=100
-Issue fetch:  GET  ${JIRA_URL}/rest/api/3/issue/{key}?fields=...
-Transitions:  GET  ${JIRA_URL}/rest/api/3/issue/{key}/transitions
-              POST ${JIRA_URL}/rest/api/3/issue/{key}/transitions  body: {"transition":{"id":"<id>"}}
-Create:       POST ${JIRA_URL}/rest/api/3/issue
-Comment:      POST ${JIRA_URL}/rest/api/3/issue/{key}/comment
-```
-
 ---
 
 ## Task Identity & Ordering
 
-**Planning Tasks:** Plan tasks exist in **beads only** (not Jira). A beads task is a Plan task if and only if its title **starts with** the literal prefix `Plan:` (case-sensitive, no leading whitespace).
+**Planning Tasks:** Plan tasks exist in beads only. A beads task is a Plan task if and only if its title **starts with** the literal prefix `Plan:` (case-sensitive, no leading whitespace).
 
 **Implementation Tasks:** Every beads task that does not start with `Plan:` or `Story:`.
 
@@ -177,7 +148,7 @@ bd list --json | ...
 { bd list --json; bd list --status=in_progress --json; } | python3 -c "import sys, json; print(json.dumps([t for batch in [json.loads(l) for l in sys.stdin if l.strip()] for t in batch]))" | ...
 ```
 
-**Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote; `.beads/issues.jsonl` is a passive export. See https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md for details and anti-patterns.
+**Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote. See https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md for details and anti-patterns.
 
 ## Session Completion
 
