@@ -8,7 +8,8 @@ All steps complete. Emitting the run log.
   "status": "success",
   "steps": [
     {"step": "load_config", "status": "ok", "message": "loaded 1 user, 4 projects"},
-    {"step": "schedule_check", "status": "skipped", "message": "not yet implemented — always proceeding"},
+    {"step": "schedule_check", "status": "ok", "action": "proceed"},
+    {"step": "usage_check", "status": "ok", "action": "proceed"},
     {"step": "sync_pr_merge_status", "status": "ok", "tasks_checked": 2, "tasks_transitioned": 2},
     {"step": "launch_worker", "status": "ok", "worker_launched": true, "task_id": "MDOMO-72"}
   ],

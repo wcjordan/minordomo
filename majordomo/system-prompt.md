@@ -38,14 +38,18 @@ Record in the run log:
 
 ### Step 2: Check Schedule and Usage Limits
 
-⚠️ **Stage 5 — NOT YET IMPLEMENTED**
+Run schedule and usage checks. Capture each script's stdout (JSON) and exit code.
 
-Will check:
-- Time-of-day gating against `schedule` config
-- Weekly Claude API usage vs. `usage.weekly_threshold_pct`
-- If outside window or over threshold: log decision, exit 0 without launching any agents
+1. Run `python3 shared/check-schedule.py`. Capture the JSON output and exit code.
+   - If exit code is 1: include the captured JSON as the `schedule_check` step in the run log,
+     emit the run log (status: "success"), and exit 0 — outside the schedule window is expected, not an error.
+   - If exit code is 0: record the captured JSON as the `schedule_check` step and continue.
 
-For now: log `{"step": "schedule_check", "status": "skipped", "message": "not yet implemented — always proceeding"}` and continue.
+2. Run `python3 shared/check-usage.py`. Set `CLAUDE_CODE_OAUTH_TOKEN` from the environment.
+   Capture the JSON output and exit code.
+   - If exit code is 1: include the captured JSON as the `usage_check` step in the run log,
+     emit the run log (status: "success"), and exit 0 — over-quota is expected, not an error.
+   - If exit code is 0: record the captured JSON as the `usage_check` step and continue.
 
 ---
 
@@ -470,7 +474,8 @@ At the end of each run, emit a single JSON object to stdout:
   },
   "steps": [
     {"step": "load_config", "status": "ok", "message": "loaded 1 user, 4 projects"},
-    {"step": "schedule_check", "status": "skipped", "message": "not yet implemented — always proceeding"},
+    {"step": "schedule_check", "status": "ok", "action": "proceed"},
+    {"step": "usage_check", "status": "ok", "action": "proceed"},
     {"step": "poll_gh_issues", "status": "ok", "issues_processed": 0},
     {"step": "sync_pr_merge_status", "status": "ok", "tasks_checked": 0, "beads_tasks_closed": 0},
     {"step": "eval_planning_tasks", "status": "ok", "planning_agent_launched": false},

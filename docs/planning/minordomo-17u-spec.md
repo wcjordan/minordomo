@@ -159,7 +159,7 @@ Run schedule and usage checks. Capture each script's stdout (JSON) and exit code
 
 **`majordomo/Jenkinsfile` — add cron trigger:**
 
-Add inside the `options { ... }` block at pipeline level:
+Add a `triggers { ... }` block at pipeline level, after the `options { ... }` block:
 
 ```groovy
 triggers {
@@ -190,5 +190,5 @@ With two entries reflecting the new shape:
 - The ⚠️ "NOT YET IMPLEMENTED" stub is removed
 - The run log example in `system-prompt.md` shows `schedule_check` and `usage_check` with
   `action: proceed` instead of the stub `status: skipped` entry
-- `majordomo/Jenkinsfile` has `triggers { cron('H/30 * * * 1-5') }` inside the `options` block
+- `majordomo/Jenkinsfile` has `triggers { cron('H/30 * * * 1-5') }` at pipeline level, after the `options` block
 - `make test` passes
