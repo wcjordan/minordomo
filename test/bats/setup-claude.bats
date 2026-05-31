@@ -23,10 +23,6 @@ MOCK
     chmod +x "$MOCK_DIR/claude"
     export PATH="$MOCK_DIR:$PATH"
 
-    # Required by setup-claude.sh
-    export JIRA_URL="https://api.atlassian.com/ex/jira/testcloud"
-    export JIRA_EMAIL="test@example.com"
-    export JIRA_API_TOKEN="jira-fake-token"
 }
 
 @test "copies agent-settings.json to ~/.claude/settings.json" {
@@ -39,15 +35,3 @@ MOCK
     diff shared/pre-bash-guard.sh "$HOME/.claude/hooks/pre-bash-guard.sh"
 }
 
-@test "calls claude mcp add atlassian with JIRA env vars" {
-    source shared/setup-claude.sh
-    grep -q "mcp add atlassian" "$CLAUDE_CALLS_LOG"
-    grep -q "JIRA_URL=https://api.atlassian.com/ex/jira/testcloud" "$CLAUDE_CALLS_LOG"
-    grep -q "JIRA_EMAIL=test@example.com" "$CLAUDE_CALLS_LOG"
-    grep -q "JIRA_API_TOKEN=jira-fake-token" "$CLAUDE_CALLS_LOG"
-}
-
-@test "calls claude mcp list after registering the server" {
-    source shared/setup-claude.sh
-    grep -q "mcp list" "$CLAUDE_CALLS_LOG"
-}

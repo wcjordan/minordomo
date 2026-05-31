@@ -34,17 +34,10 @@ cat > "$MOCKS/gh" << 'MOCK'
 case "$1 $2" in
   "auth setup-git") exit 0 ;;
   "repo clone") git clone "$REMOTE" "$4" -q ;;
-  "issue view") echo '{"comments": [{"body": "Jira Epic: MDOMO-1"}]}' ;;
   *) echo "mock gh: unhandled: $*" >&2; exit 1 ;;
 esac
 MOCK
 chmod +x "$MOCKS/gh"
-
-cat > "$MOCKS/curl" << 'MOCK'
-#!/usr/bin/env bash
-cat "$REPO_ROOT/test/fixtures/jira-task-response.json"
-MOCK
-chmod +x "$MOCKS/curl"
 
 CLAUDE_CALLS="$WORK/claude-calls.log"
 cat > "$MOCKS/claude" << MOCK
@@ -86,9 +79,6 @@ export PATH="$MOCKS:$PATH"
 # ---------------------------------------------------------------------------
 export ROOT_DOMAIN="test.example.com"
 export GH_APP_PSW="gh-fake-token"
-export JIRA_ACCT_PSW="jira-fake-token"
-export JIRA_ACCT_USR="test@example.com"
-export JIRA_CLOUD_ID="test-cloud-id"
 export BEADS_TASK_ID="minordomo-100.1"
 export HOME="$WORK/home"
 mkdir -p "$HOME"
@@ -100,7 +90,6 @@ echo "--- setup-env.sh ---"
 cd "$REPO_ROOT"
 source shared/setup-env.sh
 [ -n "$DOMAIN_ROOT" ] && pass "DOMAIN_ROOT=$DOMAIN_ROOT" || fail "DOMAIN_ROOT not set"
-[ -n "$JIRA_URL" ]    && pass "JIRA_URL=$JIRA_URL"       || fail "JIRA_URL not set"
 [ -n "$GH_TOKEN" ]    && pass "GH_TOKEN set"             || fail "GH_TOKEN not set"
 [ -n "$BASE_BRANCH" ] && pass "BASE_BRANCH=$BASE_BRANCH" || fail "BASE_BRANCH not set"
 
@@ -113,8 +102,6 @@ source shared/setup-claude.sh
     && pass "settings.json created" || fail "settings.json missing"
 [ -f "$HOME/.claude/hooks/pre-bash-guard.sh" ] \
     && pass "pre-bash-guard.sh installed" || fail "pre-bash-guard.sh missing"
-grep -q "mcp add atlassian" "$CLAUDE_CALLS" \
-    && pass "claude mcp add atlassian called" || fail "claude mcp add atlassian not called"
 
 # ---------------------------------------------------------------------------
 # Step 3: setup-workspace.sh (planning mode)

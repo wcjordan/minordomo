@@ -55,7 +55,6 @@ timestamps {
                         withCredentials([
                             string(credentialsId: 'claude-code-oauth-token', variable: 'CLAUDE_CODE_OAUTH_TOKEN'),
                             usernamePassword(credentialsId: 'github-app',   usernameVariable: 'GH_APP_USR',    passwordVariable: 'GH_APP_PSW'),
-                            usernamePassword(credentialsId: 'jira-api-key', usernameVariable: 'JIRA_ACCT_USR', passwordVariable: 'JIRA_ACCT_PSW'),
                         ]) {
                             checkout scm
                             container('worker') {
@@ -96,7 +95,6 @@ timestamps {
                     timeout(time: 5, unit: 'MINUTES') {
                         withCredentials([
                             usernamePassword(credentialsId: 'github-app',   usernameVariable: 'GH_APP_USR',    passwordVariable: 'GH_APP_PSW'),
-                            usernamePassword(credentialsId: 'jira-api-key', usernameVariable: 'JIRA_ACCT_USR', passwordVariable: 'JIRA_ACCT_PSW'),
                         ]) {
                             checkout scm
                             container('majordomo') {

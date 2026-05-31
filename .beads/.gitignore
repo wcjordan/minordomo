@@ -53,6 +53,10 @@ dolt-server.activity
 # Backup data (auto-exported JSONL, local-only)
 backup/
 
+# Auto-export (disabled; files kept local only)
+issues.jsonl
+interactions.jsonl
+
 # Per-project environment file (Dolt connection config, GH#2520)
 .env
 
