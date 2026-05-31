@@ -39,12 +39,6 @@ esac
 MOCK
 chmod +x "$MOCKS/gh"
 
-cat > "$MOCKS/curl" << 'MOCK'
-#!/usr/bin/env bash
-cat "$REPO_ROOT/test/fixtures/jira-task-response.json"
-MOCK
-chmod +x "$MOCKS/curl"
-
 CLAUDE_CALLS="$WORK/claude-calls.log"
 cat > "$MOCKS/claude" << MOCK
 #!/usr/bin/env bash
@@ -55,7 +49,26 @@ chmod +x "$MOCKS/claude"
 
 cat > "$MOCKS/bd" << 'MOCK'
 #!/usr/bin/env bash
-exit 0
+case "$1" in
+  show)
+    # Return a task or parent bead; detect by arg
+    BEADS_ID="${2:-}"
+    if echo "$BEADS_ID" | grep -qE '\.[0-9]+$'; then
+      # Stage/Plan task (has dot suffix) — parent is the base ID
+      PARENT=$(echo "$BEADS_ID" | sed 's/\.[0-9]*$//')
+      echo "[{\"id\": \"$BEADS_ID\", \"title\": \"Stage 1: Test stage\", \"description\": null, \"status\": \"in_progress\", \"priority\": 2, \"parent\": \"$PARENT\"}]"
+    else
+      # Story/Parent bead
+      echo "[{\"id\": \"$BEADS_ID\", \"title\": \"Story: Test feature\", \"description\": \"GH Issue: https://github.com/wcjordan/minordomo/issues/1\", \"status\": \"in_progress\", \"priority\": 2, \"parent\": null}]"
+    fi
+    ;;
+  list)
+    echo "[]"
+    ;;
+  *)
+    exit 0
+    ;;
+esac
 MOCK
 chmod +x "$MOCKS/bd"
 
@@ -66,11 +79,7 @@ export PATH="$MOCKS:$PATH"
 # ---------------------------------------------------------------------------
 export ROOT_DOMAIN="test.example.com"
 export GH_APP_PSW="gh-fake-token"
-export JIRA_ACCT_PSW="jira-fake-token"
-export JIRA_ACCT_USR="test@example.com"
-export JIRA_CLOUD_ID="test-cloud-id"
-export JIRA_TASK_ID="MDOMO-44"
-export BEADS_DOLT_SERVER_USER="minordomo"
+export BEADS_TASK_ID="minordomo-100.1"
 export HOME="$WORK/home"
 mkdir -p "$HOME"
 
@@ -81,7 +90,6 @@ echo "--- setup-env.sh ---"
 cd "$REPO_ROOT"
 source shared/setup-env.sh
 [ -n "$DOMAIN_ROOT" ] && pass "DOMAIN_ROOT=$DOMAIN_ROOT" || fail "DOMAIN_ROOT not set"
-[ -n "$JIRA_URL" ]    && pass "JIRA_URL=$JIRA_URL"       || fail "JIRA_URL not set"
 [ -n "$GH_TOKEN" ]    && pass "GH_TOKEN set"             || fail "GH_TOKEN not set"
 [ -n "$BASE_BRANCH" ] && pass "BASE_BRANCH=$BASE_BRANCH" || fail "BASE_BRANCH not set"
 
@@ -94,8 +102,6 @@ source shared/setup-claude.sh
     && pass "settings.json created" || fail "settings.json missing"
 [ -f "$HOME/.claude/hooks/pre-bash-guard.sh" ] \
     && pass "pre-bash-guard.sh installed" || fail "pre-bash-guard.sh missing"
-grep -q "mcp add atlassian" "$CLAUDE_CALLS" \
-    && pass "claude mcp add atlassian called" || fail "claude mcp add atlassian not called"
 
 # ---------------------------------------------------------------------------
 # Step 3: setup-workspace.sh (planning mode)
@@ -109,7 +115,7 @@ cd "$WSDIR"
 source "$REPO_ROOT/shared/setup-workspace.sh" planning
 [ "$REPO" = "minordomo" ] \
     && pass "REPO=$REPO"               || fail "unexpected REPO: $REPO"
-[ "$EPIC_KEY" = "MDOMO-1" ] \
+[ "$EPIC_KEY" = "minordomo-100" ] \
     && pass "EPIC_KEY=$EPIC_KEY"       || fail "unexpected EPIC_KEY: $EPIC_KEY"
 [[ "$(git branch --show-current)" == task/* ]] \
     && pass "on task branch"           || fail "not on task branch: $(git branch --show-current)"

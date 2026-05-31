@@ -1,8 +1,7 @@
 {
   "database": "dolt",
   "backend": "dolt",
-  "dolt_mode": "server",
-  "dolt_server_user": "minordomo",
+  "dolt_mode": "embedded",
   "dolt_database": "minordomo",
-  "project_id": "9d9c3800-d68e-423c-bc37-43ceeee55ad9"
+  "project_id": "67c54338-684a-472c-8b39-908fca4d3324"
 }

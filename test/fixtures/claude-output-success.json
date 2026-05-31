@@ -1,0 +1,18 @@
+{
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "duration_ms": 42100,
+  "duration_api_ms": 38500,
+  "num_turns": 3,
+  "result": "{\"status\": \"success\", \"steps\": [{\"step\": \"read_task\", \"status\": \"ok\"}], \"errors\": []}",
+  "stop_reason": "end_turn",
+  "session_id": "abc123",
+  "total_cost_usd": 0.1234,
+  "usage": {
+    "input_tokens": 12345,
+    "cache_creation_input_tokens": 5000,
+    "cache_read_input_tokens": 40000,
+    "output_tokens": 3456
+  }
+}

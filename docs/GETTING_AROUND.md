@@ -1,6 +1,6 @@
 # Getting Around
 
-Reference for the repo structure and stage overview. For Jira status flows, branching model, spec documents, and task prioritization, see [`WORKFLOWS.md`](WORKFLOWS.md).
+Reference for the repo structure and stage overview. For branching model, spec documents, and task prioritization, see [`WORKFLOWS.md`](WORKFLOWS.md).
 
 ---
 
@@ -12,11 +12,13 @@ minordomo/
 │   ├── Jenkinsfile          — Majordomo main job (disableConcurrentBuilds, 60 min timeout)
 │   └── system-prompt.md     — Majordomo agent instructions (Steps 1–9)
 ├── minordomo-plan/
-│   ├── Jenkinsfile          — Planning agent job (parameterized: JIRA_TASK_ID)
+│   ├── Jenkinsfile          — Planning agent job (parameterized: BEADS_TASK_ID)
 │   └── system-prompt.md     — Planning agent instructions
 ├── minordomo-step/
-│   ├── Jenkinsfile          — Worker agent job (parameterized: JIRA_TASK_ID)
+│   ├── Jenkinsfile          — Worker agent job (parameterized: BEADS_TASK_ID)
 │   └── system-prompt.md     — Worker agent instructions
+├── minordomo-sweep/
+│   └── Jenkinsfile          — Stale task sweep job (cron: every 4 hours, 15 min timeout)
 ├── minordomo-container-builder/
 │   ├── Dockerfile           — Container image for all agent jobs
 │   ├── Jenkinsfile          — Builds and pushes the image to GAR (weekly cron)
@@ -26,8 +28,9 @@ minordomo/
 │   ├── agent-settings.json  — Claude permissions allowlist/denylist deployed into agent containers
 │   ├── pre-bash-guard.sh    — Secondary Bash safety hook (referenced by agent-settings.json)
 │   ├── setup-env.sh         — Derives runtime env vars from Jenkins credentials
-│   ├── setup-claude.sh      — Deploys agent settings and registers Atlassian MCP
-│   └── setup-workspace.sh   — Clones repo, checks out feature/task branches
+│   ├── setup-claude.sh      — Deploys agent settings
+│   ├── setup-workspace.sh   — Clones repo, checks out feature/task branches
+│   └── notify-failure.py    — Sends SES failure email; always exits 0 (notification failure must not break builds)
 ├── test/
 │   ├── bats/                — Bats unit tests for shared shell scripts
 │   ├── fixtures/            — Test fixture data
@@ -36,8 +39,11 @@ minordomo/
 │   └── validate-prompts.py  — System prompt validation script
 ├── docs/
 │   ├── GETTING_AROUND.md    — This file
-│   ├── WORKFLOWS.md         — Jira status flows, branching model, spec docs, prioritization
-│   └── agent-workflow-spec.md — Full spec for remaining unimplemented stages (5–7)
+│   ├── WORKFLOWS.md         — Branching model, spec docs, prioritization
+│   ├── agent-workflow-spec.md — System capabilities and Majordomo run sequence
+│   ├── FUTURE_WORK.md       — Planned capabilities not yet implemented
+│   └── setup/
+│       └── aws-ses-setup.md — AWS SES setup guide (IAM policy, email verification, Jenkins credentials)
 ├── CLAUDE.md                — Agent trust model and implementation patterns
 ├── README.md                — Setup and configuration
 └── Makefile                 — `make test`
@@ -45,16 +51,21 @@ minordomo/
 
 ---
 
-## Stage Overview
+## System Capabilities
 
-| Stage | Description | Status |
-|---|---|---|
-| 1 | Foundation & trust boundaries: allowlist, Jira project schema, Majordomo skeleton | Done |
-| 2 | GH Issue ingestion and minimal worker end-to-end | Done |
-| 3 | Planning agent loop: research, Q&A, spec doc, plan approval spinoff | Done |
-| 4 | Majordomo prioritization, Ready promotion, feature→base PRs | Done |
-| 5 | Usage limits (Claude API quota check) and time-of-day scheduling | Not implemented |
-| 6 | Spec evolution: worker updates spec doc in-flight when plan changes | Not implemented |
-| 7 | Failure handling: crash recovery, sweep job for stuck In Progress tasks | Not implemented |
+The pipeline is fully operational. Key capabilities:
 
-After Stage 3, Stages 5–7 can be filed as GH Issues and the system will plan and implement them autonomously.
+| Capability | Description |
+|---|---|
+| GH Issue ingestion | Polls GH Issues → creates Planning Tasks |
+| Planning agent loop | Research, Q&A, spec doc, plan approval spinoff |
+| Task prioritization | Ready promotion, continuity/priority/rank ordering |
+| Worker agents | Branch, implement, open PR |
+| Feature→main PRs | Auto-opened when all Stage tasks are closed; includes doc cleanup |
+| Beads coordination | `bd` CLI for task tracking; `bd ready` for task selection |
+| Planning priority guard | Defers planning if higher-priority implementation work is available |
+| PR sync | Closes beads Stage tasks for merged implementation PRs |
+| Failure notifications | SES email on pipeline failure; triggered by hard Jenkins failure or agent-reported errors |
+| Stale task sweep | Resets tasks orphaned by Jenkins crashes back to open on a 4-hour schedule |
+
+See [`docs/agent-workflow-spec.md`](agent-workflow-spec.md) for the full capability descriptions and Majordomo run sequence. See [`docs/FUTURE_WORK.md`](FUTURE_WORK.md) for planned capabilities not yet implemented.

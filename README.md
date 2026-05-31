@@ -1,8 +1,8 @@
 # minordomo
 
-Automated development pipeline. A scheduled **Majordomo** agent ingests GitHub Issues, drives them through planning (via a Planning Agent) and implementation (via Worker agents), and keeps Jira tickets accurate at every step.
+Automated development pipeline. A scheduled **Majordomo** agent ingests GitHub Issues, drives them through planning (via a Planning Agent) and implementation (via Worker agents), and coordinates work via beads.
 
-See [`docs/GETTING_AROUND.md`](docs/GETTING_AROUND.md) for repo structure and stage overview, [`docs/WORKFLOWS.md`](docs/WORKFLOWS.md) for Jira status flows and branching model, and [`CLAUDE.md`](CLAUDE.md) for agent trust model and implementation patterns.
+See [`docs/GETTING_AROUND.md`](docs/GETTING_AROUND.md) for repo structure and stage overview, [`docs/WORKFLOWS.md`](docs/WORKFLOWS.md) for branching model and task prioritization, and [`CLAUDE.md`](CLAUDE.md) for agent trust model and implementation patterns.
 
 ---
 
@@ -15,14 +15,13 @@ GitHub Issues → Majordomo (Jenkins cron)
 ```
 
 Majordomo runs on a schedule. On each run it:
-1. Ingests new GH Issues → creates Jira Epics + Planning Tasks
+1. Ingests new GH Issues → creates Planning Tasks
 2. Launches a Planning Agent for the highest-priority open planning task
-3. Spins off Implementation Tasks from approved plans
-4. Promotes eligible Implementation Tasks to Ready
-5. Launches a Worker Agent to implement the top Ready task
-6. Opens feature → main PRs when all subtasks of an Epic are Done
+3. Spins off beads Stage tasks from approved plans; stages are sequenced via dependency chain
+4. Launches a Worker Agent to implement the top ready Stage task
+5. Opens feature → main PRs when all Stage tasks are closed
 
-Stages 1–4 are implemented. Stage 5 (usage limits/scheduling), Stage 6 (spec evolution), and Stage 7 (failure handling) are not yet implemented.
+The pipeline is fully operational: it ingests GH Issues, drives them through planning and implementation, and opens feature→main PRs. It also includes beads-based task coordination, a planning priority guard, and automatic cleanup of planning artifacts. Planned future work (usage limits, spec evolution, failure handling) is captured in [`docs/FUTURE_WORK.md`](docs/FUTURE_WORK.md).
 
 ---
 
@@ -31,7 +30,6 @@ Stages 1–4 are implemented. Stage 5 (usage limits/scheduling), Stage 6 (spec e
 - Jenkins with the Kubernetes plugin
 - GKE cluster with a node pool Jenkins can schedule pods on
 - Google Artifact Registry repo at `us-east4-docker.pkg.dev/${GCP_PROJECT}/default-gar`
-- Jira Cloud instance with projects `MDOMO`, `CHALK`, `INFRA`, `FSTR`
 - `gh` CLI available in CI (bundled in the Docker image)
 
 ---
@@ -46,11 +44,8 @@ These are provided by the `gcp-setup` repo. Add them in Jenkins → Manage Jenki
 |---|---|---|
 | `claude-code-oauth-token` | Secret text | Claude Code OAuth token (`claude setup-token`) |
 | `jenkins-api-key` | Secret text | Jenkins API key (generate at `<ROOT>/user/<username>/security/`) |
-| `jira-api-key` | Secret text | Jira API token (generate at id.atlassian.com → Service Accounts) |
 | `github-app` | GitHub App | GitHub App providing `GH_TOKEN` at runtime |
 | `jenkins-gke-sa` | Secret file | GCP service account JSON with `roles/artifactregistry.writer` (build jobs only) |
-
-Also add a global environment variable `JIRA_CLOUD_ID` from `https://<domain>.atlassian.net/_edge/tenant_info`.
 
 ### 2. Build and Push the Docker Image
 
@@ -72,7 +67,7 @@ docker push ${GAR_REPO}/minordomo-image:latest
 
 | Job name | Jenkinsfile path | Trigger |
 |---|---|---|
-| `majordomo` | `majordomo/Jenkinsfile` | Manual (for now); cron after Stage 5 |
+| `majordomo` | `majordomo/Jenkinsfile` | Manual trigger; cron scheduling planned as part of Stage 5 |
 | `majordomo-build-runner` | `minordomo-container-builder/Jenkinsfile` | Weekly cron (Sundays ~2 AM); manual as needed |
 | `minordomo-plan` | `minordomo-plan/Jenkinsfile` | Triggered by Majordomo |
 | `minordomo-step` | `minordomo-step/Jenkinsfile` | Triggered by Majordomo |
@@ -99,9 +94,8 @@ allowed_gh_users:        # GitHub users whose issues Majordomo will process
 
 base_branch: bootstrap   # branch that new feature branches are created from
 
-projects:                # repos tracked and their Jira project keys
+projects:                # repos tracked
   - repo: minordomo
-    jira_key: MDOMO
   ...
 
 schedule:                # Stage 5: time-of-day gating (not yet enforced)
@@ -112,7 +106,7 @@ usage:                   # Stage 5: Claude usage limits (not yet enforced)
   weekly_threshold_pct: 50
 ```
 
-To add a new repo: add an entry to `projects` and create the corresponding Jira project.
+To add a new repo: add an entry to `projects`.
 
 ---
 

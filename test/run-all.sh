@@ -66,6 +66,16 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# check-safety
+# ---------------------------------------------------------------------------
+section "check-safety"
+if make check-safety; then
+    ok "safety rules in sync"
+else
+    fail "safety rules out of sync (run shared/generate-safety-rules.sh)"
+fi
+
+# ---------------------------------------------------------------------------
 # bats unit tests
 # ---------------------------------------------------------------------------
 section "bats"

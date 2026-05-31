@@ -1,0 +1,18 @@
+{
+  "type": "result",
+  "subtype": "error_during_execution",
+  "is_error": true,
+  "duration_ms": 5200,
+  "duration_api_ms": 4800,
+  "num_turns": 1,
+  "result": "{\"status\": \"failure\", \"steps\": [{\"step\": \"read_task\", \"status\": \"error\"}], \"errors\": [\"Task not found\"]}",
+  "stop_reason": "stop_sequence",
+  "session_id": "def456",
+  "total_cost_usd": 0.0052,
+  "usage": {
+    "input_tokens": 500,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 1200,
+    "output_tokens": 150
+  }
+}

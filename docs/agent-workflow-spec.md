@@ -2,160 +2,66 @@
 
 ## Overview
 
-A multi-agent system for autonomously picking up, planning, and implementing development tasks. The system is orchestrated by a **Majordomo agent** that runs on a schedule, evaluates work across projects, manages Claude usage limits, and launches **worker agents** to execute implementation tasks. A separate **planning agent** handles ticket grooming through an iterative human Q&A loop.
+A multi-agent system for autonomously picking up, planning, and implementing development tasks. The system is orchestrated by a **Majordomo agent** that runs on a schedule, evaluates work across projects, and launches **worker agents** to execute implementation tasks. A separate **planning agent** handles ticket grooming through an iterative human Q&A loop.
 
-The stages are ordered so that the system can take over building itself as early as possible. After Stage 3, a GH Issue can be filed for the remaining stages and the system will plan and implement them autonomously.
-
-For repo structure and stage overview, see [`GETTING_AROUND.md`](GETTING_AROUND.md). For Jira status flows, branching model, and task prioritization, see [`WORKFLOWS.md`](WORKFLOWS.md).
+For repo structure, see [`GETTING_AROUND.md`](GETTING_AROUND.md). For branching model and task prioritization, see [`WORKFLOWS.md`](WORKFLOWS.md). For planned future work, see [`FUTURE_WORK.md`](FUTURE_WORK.md).
 
 ---
 
-## ✅ Completed Stages
+## Current Capabilities
 
-### Stage 1 — Foundation & Trust Boundaries ✅
+### GH Issue Ingestion
 
-- GH Issue allowlist filter via `shared/config.yaml`
-- Jira project schema (Epic → Story → Task hierarchy, all statuses)
-- Majordomo skeleton as a non-interactive `claude -p` Jenkins job
+Majordomo polls GitHub Issues on a schedule and creates beads tasks (Story + Plan) for each new Issue matching the allowlist in `shared/config.yaml`. Issues with `backlog` or `skip` labels are skipped. A `beads-ingested` label is applied to each Issue as an idempotency gate.
 
-### Stage 2 — GH Issue Ingestion & Minimal Worker ✅
+### Planning Agent Loop
 
-- Majordomo polls GH Issues → creates Jira Epics + Planning Tasks
-- `jira-epic-created` label as idempotency gate
-- Worker agent: reads Jira task, checks out feature/task branch, implements, opens PR, transitions to In Review
+Majordomo identifies open Plan beads tasks and triggers the planning agent Jenkins job. The planning agent researches the task, and either posts questions or produces a spec doc PR. Humans answer questions and approve spec docs via PR review. Before launching a planning agent, Majordomo checks `bd ready` for higher-priority implementation tasks and defers planning if one exists (planning priority guard).
 
-### Stage 3 — Planning Agent Loop ✅
+### Plan Approval Spinoff
 
-- Majordomo identifies Open planning tasks → transitions to In Progress → triggers planning agent Jenkins job
-- Planning agent: reads task, does research, posts questions (→ Needs Input) or produces spec doc PR (→ In Review)
-- Human Q&A flow via Jira comments
-- Plan Approval Spinoff: on Approved planning task, Majordomo reads spec doc and creates one Implementation Task per stage
+When a Plan bead is approved (spec PR merged), Majordomo reads the spec doc from the feature branch and creates one beads Stage task per `## Stage N:` section. Tasks are created in stage order and wired with blocking dependencies (stage N depends on N−1) so `bd ready` surfaces them in sequence.
 
-### Stage 4 — Majordomo Prioritization, Ready Promotion & Feature→Base PRs ✅
+### Task Prioritization & Worker Selection
 
-- Step 6: promotes eligible Open Implementation Tasks to Ready (prior siblings all Done, no sibling In Progress/In Review)
-- Step 7: selects top Ready task using prioritization (continuity → Epic priority → Jira rank), transitions to In Progress, triggers worker
-- Step 8: opens feature→base PR when all Implementation Tasks of an Epic are Done; transitions Epic to In Review
+Unblocked, unclaimed Stage tasks are surfaced by `bd ready`. Majordomo selects a worker target by excluding tasks whose Epic has a Stage sibling `in_progress`, then ranking by: continuity (Epic with at least one Stage task already closed) → Epic priority label (P0 > P1 > P2 > unlabelled). Beads creation order implicitly reflects stage sequence since tasks are created in order during Plan Approval Spinoff.
 
----
+### Worker Agent
 
-## ✦ Handoff Point
+Workers branch from the current feature branch tip, implement the task, and open a PR to the feature branch. Before implementing the first stage of an Epic, the worker merges the base branch into the feature branch to avoid drift.
 
-After Stage 3, file a GH Issue describing Stages 5–7. The Majordomo will ingest it, the Planning Agent will research and produce a spec, and the Worker will implement each stage. The specs below serve as the starting point for that work.
+### PR Sync
 
----
+Majordomo closes the corresponding beads Stage task when implementation PRs are merged.
 
-## Stage 5 — Usage Limits & Scheduling
+### Feature → Main PRs
 
-**Goal:** Respect Claude usage limits and run only at appropriate times.
+When all Stage tasks of an Epic are closed, Majordomo opens a feature→main PR. Before doing so, it reviews planning and research documents for context worth preserving, updates general docs as appropriate, then deletes `docs/planning/<EPIC_KEY>-spec.md` and `docs/research/<EPIC_KEY>/` from the feature branch so planning artifacts do not land on the base branch.
 
-### 5.1 Usage Check
+### Beads Task Coordination
 
-Before launching any worker, Majordomo:
-- Makes an OAuth request to `https://api.anthropic.com/api/oauth/usage` to retrieve weekly usage
-  - Reference implementation: [`claude_quota.py`](https://github.com/slopware/claude-quota/blob/main/claude_quota.py)
-  - **Note:** This endpoint is unofficial and undocumented; verify it works before relying on it and handle gracefully if it changes
-- Checks weekly usage against a configurable threshold (default: **50%**)
-- If usage ≥ threshold → logs decision, exits without launching a worker
+`bd` (beads) serves as the agent-facing task coordination layer. It uses `Story:` / `Plan:` / `Stage N:` bead titles, exposes a dependency graph, and provides `bd ready` for task selection. Beads state is stored in a local Dolt DB and synced to the git remote via `refs/dolt/data`.
 
-### 5.2 Time-of-Day Gating
+### Stale Task Sweep
 
-Majordomo enforces a configurable schedule:
+A dedicated Jenkins pipeline (`minordomo-sweep/Jenkinsfile`) runs `shared/sweep-stale-tasks.sh` on a cron schedule (every 4 hours). It detects beads tasks that have been `in_progress` for more than 12 hours and resets them to `open`, covering both worker and planning agent tasks. Tasks with an open PR are skipped — they are actively in review, not orphaned. Before resetting each stale task, the sweep script attempts to post a comment on the associated GitHub Issue explaining the reset; comment failures are logged but do not block the reset. The job exits 0 even when some tasks encounter errors (partial success is better than aborting the sweep).
 
-Config in `shared/config.yaml`:
-```yaml
-schedule:
-  allowed_days: [Mon, Tue, Wed, Thu, Fri]
-  allowed_hours: ["00:00-08:00", "18:00-23:59"]
-  weekend_override: false
-```
+### Token Usage Reporting
 
-If outside the allowed window → log decision, exit 0 without launching any agents.
-
-### 5.3 Jenkins Scheduling
-
-- Majordomo runs as a Jenkins job on a defined cron schedule (currently triggered manually)
-- Jenkins configured with **no concurrency** (one Majordomo run at a time — already in place via `disableConcurrentBuilds`)
-- Jenkinsfile isolates all scheduling and trigger logic so migration to GH Actions is straightforward
-
-### Acceptance Criteria
-
-- Step 2 no longer emits `"status": "skipped"` — it checks usage and schedule and exits or proceeds accordingly
-- When usage ≥ threshold, Majordomo logs the decision and exits 0 without launching any agents
-- When current time is outside allowed windows, Majordomo logs the decision and exits 0
-- The `schedule` and `usage` config blocks in `shared/config.yaml` are respected
-- `majordomo/Jenkinsfile` has a cron trigger configured
+`shared/report-token-usage.py` summarises input/cache/output tokens and cost per job, written to the Jenkins build log.
 
 ---
 
-## Stage 6 — Spec Evolution
+## Majordomo Run Sequence (Steps 1–9)
 
-**Goal:** Harden the worker with spec update handling so plan changes are captured and propagated.
+The full step-by-step instructions live in `majordomo/system-prompt.md`. Summary:
 
-### 6.1 Spec Update Handling
-
-If implementation of a stage reveals necessary changes to the plan:
-- Worker updates the spec doc (`docs/planning/<EPIC_KEY>-spec.md`) in place
-- Updated spec doc is included in the PR against the feature branch
-- Next stage worker branches from the updated feature branch tip, picking up the revised spec automatically
-
-This already works mechanically (workers branch from feature tip and read the spec); Stage 6 is about making it an explicit documented behavior with test coverage, and ensuring the worker's system prompt instructs it to do so.
-
-### Acceptance Criteria
-
-- Worker system prompt explicitly instructs the agent to update the spec doc when the plan changes during implementation
-- The PR description notes when the spec was updated and summarizes what changed
-- A test or dry-run validates the spec-update path
-
----
-
-## Stage 7 — Failure Handling & Recovery
-
-**Goal:** Ensure no task gets permanently stuck and lost work is minimized.
-
-### 7.1 Worker Crash / Needs Input
-
-If the worker agent crashes or halts awaiting input:
-- Any completed work is committed and pushed to the task branch before exit where possible
-- Worker posts a comment on the Jira ticket describing where it stopped and why
-- Worker transitions ticket to **Ready** (can retry) or **Needs Input** (human answer required)
-- Majordomo will re-queue a **Ready** task on next run; **Needs Input** tasks wait for human intervention
-
-### 7.2 Jenkins Crash (Sweep Job)
-
-If the Jenkins job itself crashes, the worker cannot self-recover. A dedicated sweep job handles this:
-
-- Runs on a regular schedule (e.g. every 4 hours)
-- Finds any Implementation Task in **In Progress** for more than **12 hours**
-- Transitions those tickets back to **Ready**
-- Posts a comment noting the reset and timestamp
-- Majordomo will re-queue on next run
-
-### 7.3 Partial / Silent Failure
-
-For failures not caught by the sweep job (e.g. worker completes and opens a PR but the implementation is incorrect):
-- CI runs on the PR and surfaces test failures
-- Human PR review catches behavioral issues
-- Human closes the PR with feedback, resets ticket to **Ready** or **Needs Input** as appropriate
-
-### 7.4 Planning Agent Failure
-
-Same principles apply to the planning agent:
-- Crash → commit research doc to task branch, post comment, reset to **Open**
-- Needs Input → transition to **Needs Input**, human answers and resets to **Open**
-- Sweep job covers Jenkins-level crashes for planning jobs as well (same 12-hour threshold)
-
-### Acceptance Criteria
-
-- Worker system prompt instructs the agent to commit and push any completed work before exiting on crash or blocker
-- Worker transitions ticket to **Ready** or **Needs Input** (never leaves it **In Progress**) on any exit that isn't a clean PR open
-- A sweep Jenkins job exists, runs on a schedule, finds stale **In Progress** tasks (>12 hours), resets them to **Ready**, and posts a comment
-- Planning agent failure handling mirrors worker failure handling
-
----
-
-## Future Considerations
-
-- **GH Actions migration** — when ready, Jenkinsfile logic moves to workflow YAML; Majordomo, planning agent, worker, and sweep job code remain unchanged
-- **Parallel workers** — Majordomo launches N workers; Jenkins parallel builds; `In Progress` transition is the atomic claim
-- **WIP commits** — if task failure rates or durations warrant it, introduce WIP commits to task branch mid-task to reduce lost work on Jenkins crash
+1. Load config from `shared/config.yaml`
+2. Ingest new GH Issues → create beads Planning Tasks
+3. Sync PR state → close beads Stage tasks for merged implementation PRs
+4. Check for open Planning Tasks → launch planning agent (subject to planning priority guard)
+5. Plan Approval Spinoff → create beads Stage tasks from approved spec docs; wire dependency chain
+6. *(reserved)*
+7. *(reserved)*
+8. Select top ready Stage task via `bd ready` → launch worker
+9. Open feature→main PRs for Epics with all Stage tasks closed (includes doc review/cleanup)
