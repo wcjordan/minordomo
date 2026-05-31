@@ -150,6 +150,16 @@ globalLibraries:
 
 ---
 
+## GitHub Issues
+
+| Task | Repo | Issue |
+|---|---|---|
+| Task 1 — Add shared image, job, and library | `gcp-setup` | [wcjordan/gcp-setup#16](https://github.com/wcjordan/gcp-setup/issues/16) |
+| Task 2 — Remove local Dockerfile.helm | `chalk` | [wcjordan/chalk#302](https://github.com/wcjordan/chalk/issues/302) |
+| Task 3 — Remove local Dockerfile.helm | `minordomo` | [wcjordan/minordomo#238](https://github.com/wcjordan/minordomo/issues/238) |
+
+---
+
 ## Sequencing
 
 1. **Task 1** (gcp-setup PR) — prerequisite; must be merged and weekly job run at least
