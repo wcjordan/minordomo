@@ -207,9 +207,6 @@ case "$1-$2" in
     pr-list)
         echo '[{"number":42}]'
         ;;
-    issue-view)
-        echo '{"comments":[{"body":"Jira Epic: MDOMO-10"}]}'
-        ;;
     issue-comment)
         exit 0
         ;;
@@ -224,7 +221,17 @@ case "$1" in
         echo '[{"id":"minordomo-test-1","started_at":"2020-01-01T00:00:00Z","title":"Stage 1: Test","status":"in_progress"}]'
         ;;
     show)
-        echo '[{"id":"minordomo-test-1","title":"Stage 1: Test","parent":null,"status":"in_progress","description":null}]'
+        case "$2" in
+            minordomo-test-1)
+                echo '[{"id":"minordomo-test-1","title":"Stage 1: Test","parent":"minordomo-story-1","status":"in_progress","description":null}]'
+                ;;
+            minordomo-story-1)
+                echo '[{"id":"minordomo-story-1","title":"Story: Test feature","description":"GH Issue: https://github.com/wcjordan/minordomo/issues/99","parent":null,"status":"open"}]'
+                ;;
+            *)
+                echo '[]'
+                ;;
+        esac
         ;;
     dolt)
         exit 0
