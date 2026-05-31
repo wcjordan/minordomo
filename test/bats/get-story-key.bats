@@ -41,7 +41,8 @@ MOCK
     [ "$status" -eq 0 ]
     [ "$(echo "$output" | sed -n '1p')" = "test-1" ]
     [ "$(echo "$output" | sed -n '2p')" = "42" ]
-    [ "$(echo "$output" | wc -l)" -eq 2 ]
+    [ "$(echo "$output" | sed -n '3p')" = "myrepo" ]
+    [ "$(echo "$output" | wc -l)" -eq 3 ]
 }
 
 # ---------------------------------------------------------------------------
@@ -69,7 +70,8 @@ MOCK
     [ "$status" -eq 0 ]
     [ "$(echo "$output" | sed -n '1p')" = "test-1" ]
     [ "$(echo "$output" | sed -n '2p')" = "99" ]
-    [ "$(echo "$output" | wc -l)" -eq 2 ]
+    [ "$(echo "$output" | sed -n '3p')" = "myrepo" ]
+    [ "$(echo "$output" | wc -l)" -eq 3 ]
 }
 
 # ---------------------------------------------------------------------------
@@ -87,7 +89,8 @@ MOCK
     [ "$status" -eq 0 ]
     [ "$(echo "$output" | sed -n '1p')" = "test-1" ]
     [ "$(echo "$output" | sed -n '2p')" = "55" ]
-    [ "$(echo "$output" | wc -l)" -eq 2 ]
+    [ "$(echo "$output" | sed -n '3p')" = "myrepo" ]
+    [ "$(echo "$output" | wc -l)" -eq 3 ]
 }
 
 # ---------------------------------------------------------------------------
@@ -117,9 +120,39 @@ MOCK
     [ "$status" -eq 0 ]
     [ "$(echo "$output" | sed -n '1p')" = "test-1" ]
     [ "$(echo "$output" | sed -n '2p')" = "77" ]
-    [ "$(echo "$output" | wc -l)" -eq 2 ]
+    [ "$(echo "$output" | sed -n '3p')" = "myrepo" ]
+    [ "$(echo "$output" | wc -l)" -eq 3 ]
     # bd should only be called once (for the task itself, not its parent)
     [ "$(cat "$call_count_file")" = "1" ]
+}
+
+# ---------------------------------------------------------------------------
+# Happy path: repo name extracted from URL differs from 'myrepo' (e.g. gcp-setup)
+# ---------------------------------------------------------------------------
+
+@test "happy path: repo name extracted from URL — gcp-setup" {
+    cat > "$MOCKS/bd" << 'MOCK'
+#!/usr/bin/env bash
+case "$2" in
+    "gcp-1.1")
+        echo '[{"id": "gcp-1.1", "title": "Stage 1: Do something", "description": null, "status": "in_progress", "parent": "gcp-1"}]'
+        ;;
+    "gcp-1")
+        echo '[{"id": "gcp-1", "title": "Story: GCP feature", "description": "GH Issue: https://github.com/wcjordan/gcp-setup/issues/16", "status": "open", "parent": null}]'
+        ;;
+    *)
+        echo "[]"
+        ;;
+esac
+MOCK
+    chmod +x "$MOCKS/bd"
+
+    run "$REPO_ROOT/shared/get-story-key.sh" "gcp-1.1"
+    [ "$status" -eq 0 ]
+    [ "$(echo "$output" | sed -n '1p')" = "gcp-1" ]
+    [ "$(echo "$output" | sed -n '2p')" = "16" ]
+    [ "$(echo "$output" | sed -n '3p')" = "gcp-setup" ]
+    [ "$(echo "$output" | wc -l)" -eq 3 ]
 }
 
 # ---------------------------------------------------------------------------
@@ -143,7 +176,7 @@ esac
 MOCK
     chmod +x "$MOCKS/bd"
 
-    run "$REPO_ROOT/shared/get-story-key.sh" "test-1.1" "myrepo"
+    run "$REPO_ROOT/shared/get-story-key.sh" "test-1.1"
     [ "$status" -ne 0 ]
     echo "$output" | grep -qi "Story"
 }
@@ -169,7 +202,7 @@ esac
 MOCK
     chmod +x "$MOCKS/bd"
 
-    run "$REPO_ROOT/shared/get-story-key.sh" "test-1.1" "myrepo"
+    run "$REPO_ROOT/shared/get-story-key.sh" "test-1.1"
     [ "$status" -ne 0 ]
     echo "$output" | grep -qi "No GH Issue URL"
 }
