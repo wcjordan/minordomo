@@ -7,6 +7,9 @@ pipeline {
         timestamps()
         disableConcurrentBuilds()
     }
+    triggers {
+        cron('H/30 * * * 1-5')
+    }
     stages {
         stage('Majordomo') {
             agent {
