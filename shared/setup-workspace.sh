@@ -12,6 +12,10 @@ set -euo pipefail
 
 MODE="${1:?Usage: source setup-workspace.sh <worker|planning>}"
 
+# Pin BEADS_DIR to the minordomo workspace so bd commands still work after cd.
+export BEADS_DIR
+BEADS_DIR="$(pwd)/.beads"
+
 # Initialize the minordomo beads workspace so we can look up task details before cloning target.
 [ -d .beads ] && chmod 700 .beads
 bd bootstrap
@@ -29,10 +33,6 @@ gh auth setup-git
 # Set git committer identity (required for merge commits).
 git config --global user.name "minordomo"
 git config --global user.email "$(echo "${ROOT_DOMAIN}" | cut -d. -f1)@gmail.com"
-
-# Pin BEADS_DIR to the minordomo workspace so bd commands still work after cd.
-export BEADS_DIR
-BEADS_DIR="$(pwd)/.beads"
 
 # Clone the target repo and cd into it.
 gh repo clone "wcjordan/${REPO}" "${REPO}"
