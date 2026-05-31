@@ -69,6 +69,14 @@ shared/apply-needs-input.sh "<repo>" "<issue_number>" "<beads_task_id>" "<commen
 
 Exits non-zero and logs to stderr identifying the failed step if any step fails.
 
+`shared/planner-error-exit.sh` encapsulates the two-step error exit for the planning agent (post GH comment + reset beads task to open). Usage:
+
+```bash
+shared/planner-error-exit.sh "<beads_task_id>" "<repo>" "<gh_issue_number>" "<comment_body>"
+```
+
+GH comment is best-effort (failure is logged and execution continues); beads reset is required (failure causes non-zero exit).
+
 ---
 
 ## Task Identity & Ordering
