@@ -15,10 +15,10 @@ projects:
 # Stage 5: Schedule gating (not yet enforced)
 schedule:
   allowed_days: [Mon, Tue, Wed, Thu, Fri]
-  allowed_hours: ["00:00-08:00", "18:00-23:59"]
-  weekend_override: false
+  allowed_hours: ["00:00-23:59"]
+  weekend_override: true
   timezone: America/New_York
 
-# Stage 5: Usage limits (not yet enforced)
+# Stage 5: Usage limits
 usage:
-  weekly_threshold_pct: 50
+  weekly_threshold_pct: 85
