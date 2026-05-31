@@ -12,6 +12,13 @@ set -euo pipefail
 
 MODE="${1:?Usage: source setup-workspace.sh <worker|planning>}"
 
+# Initialize the minordomo beads workspace so we can look up task details before cloning target.
+[ -d .beads ] && chmod 700 .beads
+git config beads.role maintainer
+bd bootstrap
+bd dolt show
+bd dolt pull
+
 # Derive EPIC_KEY, GH_ISSUE_NUMBER, and REPO from the Story bead via get-story-key.sh.
 export EPIC_KEY REPO
 { read -r EPIC_KEY; read -r _GH_ISSUE_NUMBER; read -r REPO; } \
