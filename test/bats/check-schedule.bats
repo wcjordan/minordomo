@@ -3,9 +3,34 @@
 
 setup() {
     REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
-    export REPO_ROOT
-    SCRIPT="$REPO_ROOT/shared/check-schedule.py"
+    TMP_DIR="$(mktemp -d)"
+    export REPO_ROOT TMP_DIR
+
+    # Write a known test config (limited hours, no weekend override) so tests
+    # are independent of the production config values in shared/config.yaml.
+    cat > "$TMP_DIR/config.yaml" <<'EOF'
+schedule:
+  allowed_days: [Mon, Tue, Wed, Thu, Fri]
+  allowed_hours: ["00:00-08:00"]
+  weekend_override: false
+  timezone: America/New_York
+EOF
+
+    cp "$REPO_ROOT/shared/check-schedule.py" "$TMP_DIR/check-schedule.py"
+    python3 - "$TMP_DIR/check-schedule.py" "$TMP_DIR" <<'PYEOF'
+import sys, pathlib
+path, config_dir = sys.argv[1], sys.argv[2]
+src = pathlib.Path(path).read_text()
+src = src.replace("os.path.dirname(__file__)", repr(config_dir))
+pathlib.Path(path).write_text(src)
+PYEOF
+
+    SCRIPT="$TMP_DIR/check-schedule.py"
     export SCRIPT
+}
+
+teardown() {
+    rm -rf "$TMP_DIR"
 }
 
 @test "weekday in allowed hours exits 0" {
@@ -30,25 +55,15 @@ setup() {
 }
 
 @test "Saturday with weekend_override true exits 0" {
-    # Temporarily override config via a patched config approach — use env trick
-    # We write a patched config to a temp file and patch the script's load path
-    TMP_DIR="$(mktemp -d)"
-    CONFIG_SRC="$REPO_ROOT/shared/config.yaml"
     python3 -c "
-import yaml, sys
-with open('$CONFIG_SRC') as f:
-    cfg = yaml.safe_load(f)
+import yaml, pathlib, os
+cfg_path = os.environ['TMP_DIR'] + '/config.yaml'
+cfg = yaml.safe_load(open(cfg_path))
 cfg['schedule']['weekend_override'] = True
-with open('$TMP_DIR/config.yaml', 'w') as f:
-    yaml.dump(cfg, f)
+open(cfg_path, 'w').write(yaml.dump(cfg))
 "
-    # Patch: copy script to tmp dir, point it at patched config
-    cp "$SCRIPT" "$TMP_DIR/check-schedule.py"
-    sed -i "s|os.path.dirname(__file__)|'$TMP_DIR'|g" "$TMP_DIR/check-schedule.py"
-
     # Saturday 2026-01-03 at 12:00
-    run python3 "$TMP_DIR/check-schedule.py" --now "2026-01-03T12:00:00"
-    rm -rf "$TMP_DIR"
+    run python3 "$SCRIPT" --now "2026-01-03T12:00:00"
     [ "$status" -eq 0 ]
     echo "$output" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['action']=='proceed', d"
 }
