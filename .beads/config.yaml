@@ -57,7 +57,8 @@ backup:
 # - linear.api_key  → use LINEAR_API_KEY env var instead
 # - github.token    → use GITHUB_TOKEN env var instead
 
-dolt.auto-commit: "off"
+dolt.auto-commit: "on"
 dolt.auto-push: true
 
 sync.remote: "git+https://github.com/wcjordan/minordomo.git"
+
