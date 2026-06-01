@@ -57,6 +57,11 @@ pipeline {
                         bd dolt pull
                         { bd stats && echo "---" && bd list; } | tee /tmp/beads-output.txt
 
+                        USAGE_EXIT=0
+                        USAGE_JSON=$(python3 shared/check-usage.py) || USAGE_EXIT=$?
+                        echo "$USAGE_JSON" > /tmp/usage-check.json
+                        echo "$USAGE_EXIT" > /tmp/usage-check.exit
+
                         CLAUDE_EXIT=0
                         claude -p "$(cat majordomo/system-prompt.md)" --output-format json \
                           > /tmp/claude-output.json || CLAUDE_EXIT=$?

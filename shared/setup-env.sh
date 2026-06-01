@@ -10,6 +10,7 @@ export DOMAIN_ROOT="${ROOT_DOMAIN%%.*}"
 export JENKINS_USERNAME="${DOMAIN_ROOT}@gmail.com"
 export GH_TOKEN="${GH_APP_PSW}"
 export NOTIFICATION_EMAIL="${JENKINS_USERNAME}"
+export SES_SENDER_EMAIL="notifications@${DOMAIN_ROOT}.com"
 export GAR_HOST="us-east4-docker.pkg.dev"
 
 export BASE_BRANCH

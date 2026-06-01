@@ -45,11 +45,12 @@ Run schedule and usage checks. Capture each script's stdout (JSON) and exit code
      emit the run log (status: "success"), and exit 0 — outside the schedule window is expected, not an error.
    - If exit code is 0: record the captured JSON as the `schedule_check` step and continue.
 
-2. Run `python3 shared/check-usage.py`. Set `CLAUDE_CODE_OAUTH_TOKEN` from the environment.
-   Capture the JSON output and exit code.
-   - If exit code is 1: include the captured JSON as the `usage_check` step in the run log,
+2. Read the pre-run usage check results from `/tmp/usage-check.json` (JSON output) and
+   `/tmp/usage-check.exit` (exit code). These were captured before `claude -p` was invoked
+   so that the OAuth token was available to the check script.
+   - If exit code is 1: include the JSON as the `usage_check` step in the run log,
      emit the run log (status: "success"), and exit 0 — over-quota is expected, not an error.
-   - If exit code is 0: record the captured JSON as the `usage_check` step and continue.
+   - If exit code is 0: record the JSON as the `usage_check` step and continue.
 
 ---
 

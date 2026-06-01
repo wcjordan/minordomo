@@ -3,9 +3,27 @@
 
 setup() {
     REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
-    SCRIPT="$REPO_ROOT/shared/check-usage.py"
     TMP_DIR="$(mktemp -d)"
-    export REPO_ROOT SCRIPT TMP_DIR
+    export REPO_ROOT TMP_DIR
+
+    # Write a known test config with a fixed threshold so tests are independent
+    # of the production value in shared/config.yaml.
+    cat > "$TMP_DIR/config.yaml" <<'EOF'
+usage:
+  weekly_threshold_pct: 50
+EOF
+
+    cp "$REPO_ROOT/shared/check-usage.py" "$TMP_DIR/check-usage.py"
+    python3 - "$TMP_DIR/check-usage.py" "$TMP_DIR" <<'PYEOF'
+import sys, pathlib
+path, config_dir = sys.argv[1], sys.argv[2]
+src = pathlib.Path(path).read_text()
+src = src.replace("Path(__file__).parent", "Path(" + repr(config_dir) + ")")
+pathlib.Path(path).write_text(src)
+PYEOF
+
+    SCRIPT="$TMP_DIR/check-usage.py"
+    export SCRIPT
 
     # Write default fixture: 30% utilization (below threshold)
     cat > "$TMP_DIR/response.json" <<'EOF'
