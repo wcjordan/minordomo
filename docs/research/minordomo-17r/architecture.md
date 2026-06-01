@@ -1,8 +1,8 @@
 # Discord PR Notification — Research Notes
 
 ## Feature Summary
-Send a Discord message whenever a PR is opened by minordomo.
-Library specified: discord.js (Node.js).
+Send a Discord message whenever a PR is opened by minordomo (all PRs — per owner clarification on GH issue #273 comment).
+Library specified: discord.js (Node.js), using `WebhookClient`.
 
 ## Codebase Context
 
@@ -12,14 +12,16 @@ Library specified: discord.js (Node.js).
 - Python deps in `minordomo-container-builder/requirements.txt` (boto3, pyyaml, requests)
 - Container rebuilds on a weekly cron (`minordomo-container-builder/Jenkinsfile`)
 - **Important**: Dockerfile changes don't take effect until the builder job runs
+- **Gap mitigation**: `notify-pr-discord.js` wraps `require('discord.js')` in try/catch to exit 0 with warning if module not yet installed
 
 ### Existing Notification Pattern
 - `shared/notify-failure.py` — sends SES email on pipeline failure
   - Reads `NOTIFICATION_EMAIL`, `AWS_ACCESS_KEY_ID`, etc. from env
   - Exits 0 always (notification failures must not break builds)
+  - Same pattern to follow for Discord script
 - `vars/notifyFailure.groovy` — Jenkins shared library calling notify-failure.py
 
-### PR Opening Points
+### PR Opening Points (all three targeted — "all PRs" confirmed by owner)
 Three places in the pipeline open PRs:
 
 1. **Planning agent** (`minordomo-plan/system-prompt.md`):
@@ -32,42 +34,47 @@ Three places in the pipeline open PRs:
 
 3. **Majordomo** (`majordomo/system-prompt.md` Step 9):
    - Opens feature→main PR after all stages are complete
-   - Run log step: `{"step": "check_story_completion", "status": "ok", "epics_checked": N, "prs_opened": N, "epics_skipped": N}`
-   - Step 9.l says "Capture stdout and log the PR URL" but the example doesn't include `pr_url` in the step summary
+   - Current run log step lacks pr_url — Stage 2 adds `pr_urls: [...]` to `check_story_completion`
 
 ### Run Log Location
 - All agents output `--output-format json` to `/tmp/claude-output.json`
 - The run log JSON is in the `result` field (as a markdown-fenced code block)
 - `shared/report-token-usage.py` extracts it to stdout → `/tmp/prompt-output.txt`
+- `shared/check-run-errors.py` parses the same file using two-pass: JSON code block, then last JSON line
+- `notify-pr-discord.js` follows the same parsing pattern
 
-### Jenkinsfile Structure
+### Jenkinsfile Structure & CWD Behavior
 - Planning/worker agents share `shared/agent-pipeline.Jenkinsfile`
-  - Credentials: `claude-code-oauth-token`, `github-app`
-  - Calls claude then report-token-usage
+  - After `source shared/bootstrap.sh`, CWD is the TARGET REPO clone (e.g. `minordomo/`)
+  - Scripts from minordomo are at `../shared/` relative to that CWD
+  - Call: `node ../shared/notify-pr-discord.js /tmp/prompt-output.txt || true`
 - Majordomo uses `majordomo/Jenkinsfile` (standalone)
+  - No target-repo clone; CWD stays at Jenkins workspace root
+  - Call: `node shared/notify-pr-discord.js /tmp/prompt-output.txt || true`
 
-## Design Decisions Pending
+### discord.js Installation
+- Install into `/opt/discord-notify/` in Dockerfile via `npm install --prefix`
+- Set `ENV NODE_PATH=/opt/discord-notify/node_modules` so `require('discord.js')` works
+- Use `WebhookClient` from discord.js v14
 
-### Scope Question (NEEDS HUMAN INPUT)
-"Whenever a PR is opened by minordomo" is ambiguous:
-- **All PRs**: plan spec PR + N stage PRs + feature→main PR = ~5+ notifications per epic
-- **Feature→main only**: just the PR humans actually review and merge (~1 per epic)
+### Jenkins Credential
+- Credential name: `discord-webhook-url` (type: Secret text)
+- Bound as `DISCORD_WEBHOOK_URL` env var
+- If unset: script exits 0 with warning (same as `NOTIFICATION_EMAIL` in notify-failure.py)
+- Out-of-band prereq: credential must be created in Jenkins before notifications fire
 
-This materially changes the implementation:
-- All PRs → wire into `agent-pipeline.Jenkinsfile` (covers planning + worker) AND majordomo
-- Feature→main only → wire only into `majordomo/Jenkinsfile`
+## Design Decisions
 
-### Credential Design
-- Discord Webhook URL is simplest: single env var `DISCORD_WEBHOOK_URL`
-- No bot needed; Discord webhook supports direct HTTP POST
-- discord.js `WebhookClient` accepts a webhook URL directly
-- Pattern: if `DISCORD_WEBHOOK_URL` not set, exit 0 with warning (same as notify-failure.py)
+### Scope: All PRs (confirmed by owner)
+"Whenever a PR is opened by minordomo" = all PRs:
+- Planning spec PR + N stage PRs + feature→main PR (~5+ per epic)
 
-### Container Build Gap
-- If we add discord.js to the Dockerfile, it won't be available until the builder job fires
-- Stage 1 acceptance criteria should include manually triggering the builder job
-- OR the script should gracefully handle `Cannot find module 'discord.js'` at runtime
+### Module Loading
+- discord.js wraps in try/catch for graceful degradation during container-build gap
+- `|| true` on Jenkinsfile call ensures notification failures never break builds
 
-### Majordomo PR URL in Run Log
-- The majordomo system prompt says to "log the PR URL" in step 9 but the example JSON doesn't include `pr_url` in the step schema
-- If wiring majordomo notifications, the system prompt may need updating to emit `pr_url` explicitly
+### Message Format
+```
+New PR opened: <pr_url>
+```
+Simple URL post; Discord auto-embeds the PR preview.
