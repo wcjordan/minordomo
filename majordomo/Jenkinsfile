@@ -59,6 +59,15 @@ pipeline {
                         bd dolt pull
                         { bd stats && echo "---" && bd list; } | tee /tmp/beads-output.txt
 
+                        SCHEDULE_EXIT=0
+                        SCHEDULE_JSON=$(python3 shared/check-schedule.py) || SCHEDULE_EXIT=$?
+                        echo "$SCHEDULE_JSON" > /tmp/schedule-check.json
+                        echo "$SCHEDULE_EXIT" > /tmp/schedule-check.exit
+                        if [ "$SCHEDULE_EXIT" -ne 0 ]; then
+                            echo "$SCHEDULE_JSON" >> /tmp/beads-output.txt
+                            exit 0
+                        fi
+
                         USAGE_EXIT=0
                         USAGE_JSON=$(python3 shared/check-usage.py) || USAGE_EXIT=$?
                         echo "$USAGE_JSON" > /tmp/usage-check.json

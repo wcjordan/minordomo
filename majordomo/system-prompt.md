@@ -40,10 +40,12 @@ Record in the run log:
 
 Run schedule and usage checks. Capture each script's stdout (JSON) and exit code.
 
-1. Run `python3 shared/check-schedule.py`. Capture the JSON output and exit code.
-   - If exit code is 1: include the captured JSON as the `schedule_check` step in the run log,
-     emit the run log (status: "success"), and exit 0 — outside the schedule window is expected, not an error.
-   - If exit code is 0: record the captured JSON as the `schedule_check` step and continue.
+1. Read the pre-run schedule check results from `/tmp/schedule-check.json` (JSON output) and
+   `/tmp/schedule-check.exit` (exit code). These were captured before `claude -p` was invoked;
+   if the exit code had been 1, the Jenkinsfile would have short-circuited before launching claude.
+   - If exit code is 0 (expected): record the JSON as the `schedule_check` step and continue.
+   - If exit code is 1 (unexpected): include the JSON as the `schedule_check` step, emit the run log
+     (status: "success"), and exit 0.
 
 2. Read the pre-run usage check results from `/tmp/usage-check.json` (JSON output) and
    `/tmp/usage-check.exit` (exit code). These were captured before `claude -p` was invoked
@@ -133,12 +135,7 @@ Planning Tasks are beads tasks whose title starts with `"Plan:"`.
 
 1. **Query open Plan beads:**
    ```bash
-   bd list --json | python3 -c "
-   import json, sys
-   tasks = json.load(sys.stdin)
-   plan_tasks = [t for t in tasks if t.get('title', '').startswith('Plan:')]
-   print(json.dumps(plan_tasks))
-   "
+   shared/list-plan-beads.sh
    ```
    For each candidate Plan bead:
    a. Derive `EPIC_KEY`, `GH_ISSUE_NUMBER`, and `repo`:
@@ -157,12 +154,7 @@ Planning Tasks are beads tasks whose title starts with `"Plan:"`.
 2a. **Priority guard — check for higher-priority implementation work in beads:**
    a. Query beads for eligible implementation tasks:
       ```bash
-      bd ready --json | python3 -c "
-      import json, sys
-      tasks = json.load(sys.stdin)
-      impl = [t for t in tasks if not t.get('title','').startswith(('Plan:','Story:'))]
-      print(json.dumps(impl))
-      "
+      shared/list-impl-tasks-ready.sh
       ```
    b. Compute `best_impl_priority`: the minimum `.priority` value across all returned tasks. If no tasks returned, `best_impl_priority = 4`.
    c. `planning_priority` is the selected Plan bead's `.priority` field.
@@ -193,11 +185,7 @@ A Plan bead is considered "approved" when it is in_progress in beads (claimed by
 
 1. **Query in_progress Plan beads:**
    ```bash
-   bd list --status=in_progress --json | python3 -c "
-   import json, sys
-   tasks = json.load(sys.stdin)
-   print(json.dumps([t for t in tasks if t.get('title', '').startswith('Plan:')]))
-   "
+   shared/list-plan-beads.sh --status=in_progress
    ```
 
 2. **For each in_progress Plan bead:**
@@ -256,12 +244,7 @@ Log `{"step": "promote_tasks", "status": "skipped", "message": "replaced by bead
 
 2. **Query ready implementation tasks from beads:**
    ```bash
-   bd ready --json | python3 -c "
-   import json, sys
-   tasks = json.load(sys.stdin)
-   impl = [t for t in tasks if not t.get('title','').startswith(('Plan:','Story:'))]
-   print(json.dumps(impl))
-   "
+   shared/list-impl-tasks-ready.sh
    ```
 
 3. **No ready tasks:** If the list is empty, log `{"step": "launch_worker", "status": "ok", "worker_launched": false, "message": "no ready tasks found"}` and continue to Step 9.
@@ -314,15 +297,11 @@ Log `{"step": "promote_tasks", "status": "skipped", "message": "replaced by bead
 
 ### Step 9: Open Feature → Main PRs for Completed Stories
 
-Initialize: `epics_checked = 0`, `prs_opened = 0`, `epics_skipped = 0`, `epic_errors = []`
+Initialize: `epics_checked = 0`, `prs_opened = 0`, `epics_skipped = 0`, `epic_errors = []`, `opened_pr_urls = []`
 
 1. **Query Story beads:**
    ```bash
-   bd list --json | python3 -c "
-   import json, sys
-   tasks = json.load(sys.stdin)
-   print(json.dumps([t for t in tasks if t.get('title', '').startswith('Story:')]))
-   "
+   shared/list-story-beads.sh
    ```
 
 2. **For each Story bead:**
@@ -406,12 +385,12 @@ Initialize: `epics_checked = 0`, `prs_opened = 0`, `epics_skipped = 0`, `epic_er
         --title "<PR title>" \
         --body "<PR body>"
       ```
-      Capture stdout and log the PR URL.
+      Capture stdout, append the PR URL to `opened_pr_urls`, and log the PR URL.
    m. Increment `prs_opened`.
 
 3. **Log step result:**
    ```json
-   {"step": "check_story_completion", "status": "ok", "epics_checked": <N>, "prs_opened": <N>, "epics_skipped": <N>}
+   {"step": "check_story_completion", "status": "ok", "epics_checked": <N>, "prs_opened": <N>, "epics_skipped": <N>, "pr_urls": <opened_pr_urls>}
    ```
    Append any entries from `epic_errors` to the top-level `errors` array.
 
@@ -483,7 +462,7 @@ At the end of each run, emit a single JSON object to stdout:
     {"step": "create_impl_tasks", "status": "ok", "approved_tasks_processed": 0, "implementation_tasks_created": 0, "beads_subtasks_created": 0},
     {"step": "promote_tasks", "status": "skipped", "message": "replaced by beads dependency graph"},
     {"step": "launch_worker", "status": "ok", "worker_launched": false, "message": "no Ready tasks found"},
-    {"step": "check_story_completion", "status": "ok", "epics_checked": 0, "prs_opened": 0, "epics_skipped": 0},
+    {"step": "check_story_completion", "status": "ok", "epics_checked": 0, "prs_opened": 0, "epics_skipped": 0, "pr_urls": []},
     {"step": "close_completed_epics", "status": "ok", "epics_checked": 0, "epics_closed": 0, "epics_skipped": 0}
   ],
   "errors": []
