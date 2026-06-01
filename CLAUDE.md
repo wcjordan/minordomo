@@ -124,7 +124,7 @@ make test
 Runs shellcheck, bats unit tests (`test/bats/`), and a prompt validation script. Run before committing changes to shell scripts or system prompts.
 
 
-<!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:7510c1e2 -->
+<!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ccf33ec3 -->
 ## Beads Issue Tracker
 
 This project uses **bd (beads)** for issue tracking. Run `bd prime` to see full workflow context and commands.
@@ -144,19 +144,7 @@ bd close <id>         # Complete work
 - Run `bd prime` for detailed command reference and session close protocol
 - Use `bd remember` for persistent knowledge — do NOT use MEMORY.md files
 
-### Beads `bd list` Status Behavior
-
-`bd list --json` without a `--status` flag returns only **open** tasks. Tasks in `in_progress` status (claimed tasks) are excluded from the default listing. To find in-progress tasks, use `bd list --status=in_progress --json`. When looking up a task by title (e.g., to close or update it) that may have been claimed, search across all statuses:
-
-```bash
-# Search open only (default):
-bd list --json | ...
-
-# Search including in_progress:
-{ bd list --json; bd list --status=in_progress --json; } | python3 -c "import sys, json; print(json.dumps([t for batch in [json.loads(l) for l in sys.stdin if l.strip()] for t in batch]))" | ...
-```
-
-**Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote. See https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md for details and anti-patterns.
+**Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote; `.beads/issues.jsonl` is a passive export. See https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md for details and anti-patterns.
 
 ## Session Completion
 
@@ -170,6 +158,7 @@ bd list --json | ...
 4. **PUSH TO REMOTE** - This is MANDATORY:
    ```bash
    git pull --rebase
+   bd dolt push
    git push
    git status  # MUST show "up to date with origin"
    ```
