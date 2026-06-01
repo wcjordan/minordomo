@@ -1,6 +1,7 @@
 # GitHub users whose issues Majordomo will process
 allowed_gh_users:
   - wcjordan
+  - jenkins-flipperkid
 
 # Branch that new feature branches are created from
 base_branch: main
