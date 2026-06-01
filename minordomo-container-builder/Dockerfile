@@ -35,6 +35,13 @@ RUN BEADS_VERSION=1.0.4 \
         | tar -xz -C /usr/local/bin bd \
     && bd --version
 
+# discord.js — used by shared/notify-pr-discord.js for PR notifications
+RUN mkdir -p /opt/discord-notify && \
+    printf '{"name":"discord-notify","version":"1.0.0","dependencies":{"discord.js":"^14.16.3"}}' \
+        > /opt/discord-notify/package.json && \
+    npm install --prefix /opt/discord-notify --omit=dev
+ENV NODE_PATH=/opt/discord-notify/node_modules
+
 # Python dependencies
 COPY minordomo-container-builder/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
