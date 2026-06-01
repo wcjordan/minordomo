@@ -297,7 +297,7 @@ Log `{"step": "promote_tasks", "status": "skipped", "message": "replaced by bead
 
 ### Step 9: Open Feature → Main PRs for Completed Stories
 
-Initialize: `epics_checked = 0`, `prs_opened = 0`, `epics_skipped = 0`, `epic_errors = []`
+Initialize: `epics_checked = 0`, `prs_opened = 0`, `epics_skipped = 0`, `epic_errors = []`, `opened_pr_urls = []`
 
 1. **Query Story beads:**
    ```bash
@@ -385,12 +385,12 @@ Initialize: `epics_checked = 0`, `prs_opened = 0`, `epics_skipped = 0`, `epic_er
         --title "<PR title>" \
         --body "<PR body>"
       ```
-      Capture stdout and log the PR URL.
+      Capture stdout, append the PR URL to `opened_pr_urls`, and log the PR URL.
    m. Increment `prs_opened`.
 
 3. **Log step result:**
    ```json
-   {"step": "check_story_completion", "status": "ok", "epics_checked": <N>, "prs_opened": <N>, "epics_skipped": <N>}
+   {"step": "check_story_completion", "status": "ok", "epics_checked": <N>, "prs_opened": <N>, "epics_skipped": <N>, "pr_urls": <opened_pr_urls>}
    ```
    Append any entries from `epic_errors` to the top-level `errors` array.
 
@@ -462,7 +462,7 @@ At the end of each run, emit a single JSON object to stdout:
     {"step": "create_impl_tasks", "status": "ok", "approved_tasks_processed": 0, "implementation_tasks_created": 0, "beads_subtasks_created": 0},
     {"step": "promote_tasks", "status": "skipped", "message": "replaced by beads dependency graph"},
     {"step": "launch_worker", "status": "ok", "worker_launched": false, "message": "no Ready tasks found"},
-    {"step": "check_story_completion", "status": "ok", "epics_checked": 0, "prs_opened": 0, "epics_skipped": 0},
+    {"step": "check_story_completion", "status": "ok", "epics_checked": 0, "prs_opened": 0, "epics_skipped": 0, "pr_urls": []},
     {"step": "close_completed_epics", "status": "ok", "epics_checked": 0, "epics_closed": 0, "epics_skipped": 0}
   ],
   "errors": []
