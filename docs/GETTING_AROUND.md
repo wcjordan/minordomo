@@ -30,7 +30,8 @@ minordomo/
 │   ├── setup-env.sh         — Derives runtime env vars from Jenkins credentials
 │   ├── setup-claude.sh      — Deploys agent settings
 │   ├── setup-workspace.sh   — Clones repo, checks out feature/task branches
-│   └── notify-failure.py    — Sends SES failure email; always exits 0 (notification failure must not break builds)
+│   ├── notify-failure.py    — Sends SES failure email; always exits 0 (notification failure must not break builds)
+│   └── notify-pr-discord.js — Sends Discord message for each PR URL found in run log; always exits 0
 ├── test/
 │   ├── bats/                — Bats unit tests for shared shell scripts
 │   ├── fixtures/            — Test fixture data
@@ -43,7 +44,8 @@ minordomo/
 │   ├── agent-workflow-spec.md — System capabilities and Majordomo run sequence
 │   ├── FUTURE_WORK.md       — Planned capabilities not yet implemented
 │   └── setup/
-│       └── aws-ses-setup.md — AWS SES setup guide (IAM policy, email verification, Jenkins credentials)
+│       ├── aws-ses-setup.md — AWS SES setup guide (IAM policy, email verification, Jenkins credentials)
+│       └── discord-webhook-setup.md — Discord webhook setup guide (Jenkins credential, channel config)
 ├── CLAUDE.md                — Agent trust model and implementation patterns
 ├── README.md                — Setup and configuration
 └── Makefile                 — `make test`
@@ -66,6 +68,7 @@ The pipeline is fully operational. Key capabilities:
 | Planning priority guard | Defers planning if higher-priority implementation work is available |
 | PR sync | Closes beads Stage tasks for merged implementation PRs |
 | Failure notifications | SES email on pipeline failure; triggered by hard Jenkins failure or agent-reported errors |
+| Discord PR notifications | Discord message for each PR opened by the pipeline; `discord-webhook-url` Jenkins credential required |
 | Stale task sweep | Resets tasks orphaned by Jenkins crashes back to open on a 4-hour schedule |
 
 See [`docs/agent-workflow-spec.md`](agent-workflow-spec.md) for the full capability descriptions and Majordomo run sequence. See [`docs/FUTURE_WORK.md`](FUTURE_WORK.md) for planned capabilities not yet implemented.
