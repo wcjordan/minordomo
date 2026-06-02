@@ -311,8 +311,9 @@ Initialize: `epics_checked = 0`, `prs_opened = 0`, `epics_skipped = 0`, `epic_er
       { read -r EPIC_KEY; read -r GH_ISSUE_NUMBER; read -r REPO; } < <(shared/get-story-key.sh "<story_bead_id>")
       ```
       If EPIC_KEY cannot be derived: append a per-Epic error to `epic_errors`, increment `epics_skipped`, and continue to the next Story.
-   c. **Fetch Stage children:** `bd list --parent "<story_bead_id>" --all --json` — filter to Stage tasks (title starts with `"Stage"`). Separate Plan children from Stage children (Stage children are the Implementation Tasks).
+   c. **Fetch Stage children:** `bd list --parent "<story_bead_id>" --status=open,in_progress,closed --json` — filter to Stage tasks (title starts with `"Stage"`). Separate Plan children from Stage children (Stage children are the Implementation Tasks).
    d. **Skip — no Stage tasks:** If the Stage task list is empty, increment `epics_skipped` (reason: `"no_impl_tasks"`) and continue to the next Story.
+   > **Note:** A Stage task is considered incomplete if its status is `open`, `in_progress`, or `blocked`. Only `closed` tasks count as done.
    e. **Skip — incomplete:** If any Stage task status is not `"closed"`, increment `epics_skipped` (reason: `"impl_tasks_not_done"`) and continue to the next Story.
    f. **Skip — PR exists:**
       ```bash
