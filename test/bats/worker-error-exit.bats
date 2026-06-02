@@ -46,9 +46,25 @@ teardown() {
     rm -rf "$MOCKS"
 }
 
-@test "happy path: all 3 steps succeed" {
+@test "happy path: all 3 steps succeed, needs-input label applied" {
+    gh_label_called="$BATS_TEST_TMPDIR/gh-label-called"
+
+    cat > "$MOCKS/gh" << EOF
+#!/usr/bin/env bash
+if [ "\$1" = "issue" ] && [ "\$2" = "edit" ]; then
+    for arg in "\$@"; do
+        if [ "\$arg" = "needs-input" ]; then
+            touch "$gh_label_called"
+        fi
+    done
+fi
+exit 0
+EOF
+    chmod +x "$MOCKS/gh"
+
     run "$REPO_ROOT/shared/worker-error-exit.sh" "test-1.1" "myrepo" "Worker failed at step 3"
     [ "$status" -eq 0 ]
+    [ -f "$gh_label_called" ]
 }
 
 @test "get-story-key.sh fails: GH comment skipped, beads reset still called" {
@@ -79,6 +95,49 @@ EOF
     [ "$status" -eq 0 ]
     [ -f "$beads_reset_called" ]
     [ ! -f "$gh_called" ]
+}
+
+@test "gh issue edit fails: label failure is best-effort, comment and beads reset still run" {
+    beads_reset_called="$BATS_TEST_TMPDIR/beads-reset-called"
+    gh_comment_called="$BATS_TEST_TMPDIR/gh-comment-called"
+
+    cat > "$MOCKS/bd" << EOF
+#!/usr/bin/env bash
+case "\$1" in
+    "show")
+        case "\$2" in
+            "test-1.1")
+                echo '[{"id": "test-1.1", "title": "Stage 1", "description": null, "status": "in_progress", "parent": "test-1"}]'
+                ;;
+            "test-1")
+                echo '[{"id": "test-1", "title": "Story: My feature", "description": "GH Issue: https://github.com/wcjordan/myrepo/issues/42", "status": "open", "parent": null}]'
+                ;;
+            *) echo "[]" ;;
+        esac
+        ;;
+    "update")
+        touch "$beads_reset_called"
+        exit 0
+        ;;
+    *) exit 0 ;;
+esac
+EOF
+    chmod +x "$MOCKS/bd"
+
+    cat > "$MOCKS/gh" << EOF
+#!/usr/bin/env bash
+if [ "\$1" = "issue" ] && [ "\$2" = "edit" ]; then
+    exit 1
+fi
+touch "$gh_comment_called"
+exit 0
+EOF
+    chmod +x "$MOCKS/gh"
+
+    run "$REPO_ROOT/shared/worker-error-exit.sh" "test-1.1" "myrepo" "Worker failed"
+    [ "$status" -eq 0 ]
+    [ -f "$beads_reset_called" ]
+    [ -f "$gh_comment_called" ]
 }
 
 @test "post-gh-issue-comment.sh fails: logged, beads reset still called" {

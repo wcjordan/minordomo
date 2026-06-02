@@ -26,7 +26,7 @@ else
     echo "ERROR: get-story-key.sh failed for task ${beads_task_id}; skipping GH comment" >&2
 fi
 
-# Step 2: Post GH comment (best-effort; skipped if GH issue number unavailable)
+# Step 2: Post GH comment with needs-input label (best-effort; skipped if GH issue number unavailable)
 if [ -n "$GH_ISSUE_NUMBER" ]; then
     "${SCRIPT_DIR}/post-gh-issue-comment.sh" "$GH_ISSUE_NUMBER" "$repo" "$comment_body" \
         || echo "ERROR: Failed to post GH comment to issue ${GH_ISSUE_NUMBER}" >&2
