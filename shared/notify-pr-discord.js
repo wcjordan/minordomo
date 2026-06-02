@@ -4,8 +4,18 @@
 const fs = require('fs');
 
 const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
-if (!webhookUrl) {
-  process.stderr.write('WARNING: DISCORD_WEBHOOK_URL is not set; skipping Discord notification\n');
+if (webhookUrl === undefined) {
+  process.stderr.write('WARNING: DISCORD_WEBHOOK_URL env var is not set; skipping Discord notification\n');
+  process.exit(0);
+}
+if (webhookUrl === '') {
+  process.stderr.write('WARNING: DISCORD_WEBHOOK_URL is set but empty — ensure the discord-webhook-url Jenkins credential has a valid value\n');
+  process.exit(0);
+}
+const validPrefixes = ['https://discord.com/api/webhooks/', 'https://discordapp.com/api/webhooks/'];
+if (!validPrefixes.some(p => webhookUrl.startsWith(p))) {
+  const preview = webhookUrl.slice(0, 30);
+  process.stderr.write(`WARNING: DISCORD_WEBHOOK_URL does not look like a Discord webhook URL (starts with: "${preview}"); skipping Discord notification\n`);
   process.exit(0);
 }
 

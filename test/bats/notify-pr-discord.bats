@@ -23,7 +23,7 @@ setup() {
 }
 ```
 BATSEOF
-    run env DISCORD_WEBHOOK_URL="https://discord.test/webhook" \
+    run env DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/123/test-token" \
         NODE_PATH="$STUB_DIR" \
         DISCORD_STUB_OUT="$TMPOUT" \
         node "$SCRIPT" "$TMPLOG"
@@ -47,7 +47,7 @@ BATSEOF
 }
 ```
 BATSEOF
-    run env DISCORD_WEBHOOK_URL="https://discord.test/webhook" \
+    run env DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/123/test-token" \
         NODE_PATH="$STUB_DIR" \
         DISCORD_STUB_OUT="$TMPOUT" \
         node "$SCRIPT" "$TMPLOG"
@@ -72,7 +72,7 @@ BATSEOF
 }
 ```
 BATSEOF
-    run env DISCORD_WEBHOOK_URL="https://discord.test/webhook" \
+    run env DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/123/test-token" \
         NODE_PATH="$STUB_DIR" \
         DISCORD_STUB_OUT="$TMPOUT" \
         node "$SCRIPT" "$TMPLOG"
@@ -88,11 +88,30 @@ BATSEOF
     run env -u DISCORD_WEBHOOK_URL NODE_PATH="$STUB_DIR" node "$SCRIPT" "$TMPLOG"
     rm -f "$TMPLOG"
     [ "$status" -eq 0 ]
-    echo "$output" | grep -qi "WARNING"
+    echo "$output" | grep -qi "not set"
+}
+
+@test "exits 0 with warning when DISCORD_WEBHOOK_URL is empty" {
+    TMPLOG="$(mktemp)"
+    echo '{"status":"success","steps":[],"errors":[]}' > "$TMPLOG"
+    run env DISCORD_WEBHOOK_URL="" NODE_PATH="$STUB_DIR" node "$SCRIPT" "$TMPLOG"
+    rm -f "$TMPLOG"
+    [ "$status" -eq 0 ]
+    echo "$output" | grep -qi "empty"
+}
+
+@test "exits 0 with warning when DISCORD_WEBHOOK_URL is not a Discord webhook URL" {
+    TMPLOG="$(mktemp)"
+    echo '{"status":"success","steps":[],"errors":[]}' > "$TMPLOG"
+    run env DISCORD_WEBHOOK_URL="https://example.com/not-a-discord-url" \
+        NODE_PATH="$STUB_DIR" node "$SCRIPT" "$TMPLOG"
+    rm -f "$TMPLOG"
+    [ "$status" -eq 0 ]
+    echo "$output" | grep -qi "does not look like a Discord webhook URL"
 }
 
 @test "exits 0 with warning when run-log file is missing" {
-    run env DISCORD_WEBHOOK_URL="https://discord.test/webhook" \
+    run env DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/123/test-token" \
         NODE_PATH="$STUB_DIR" \
         node "$SCRIPT" "/nonexistent/path/to/prompt-output.txt"
     [ "$status" -eq 0 ]
@@ -113,7 +132,7 @@ BATSEOF
 }
 ```
 BATSEOF
-    run env DISCORD_WEBHOOK_URL="https://discord.test/webhook" \
+    run env DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/123/test-token" \
         NODE_PATH="$TMPDIR_EMPTY" \
         node "$SCRIPT" "$TMPLOG"
     rm -f "$TMPLOG"

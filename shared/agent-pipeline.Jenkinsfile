@@ -55,8 +55,6 @@ timestamps {
                         withCredentials([
                             string(credentialsId: 'claude-code-oauth-token', variable: 'CLAUDE_CODE_OAUTH_TOKEN'),
                             usernamePassword(credentialsId: 'github-app',   usernameVariable: 'GH_APP_USR',    passwordVariable: 'GH_APP_PSW'),
-                            // Prereq: create a Jenkins "Secret text" credential named 'discord-webhook-url' before notifications fire.
-                            string(credentialsId: 'discord-webhook-url', variable: 'DISCORD_WEBHOOK_URL'),
                         ]) {
                             checkout scm
                             container('worker') {
@@ -72,9 +70,17 @@ timestamps {
 
                                     bd dolt pull && bd dolt push
                                     python3 ../shared/report-token-usage.py /tmp/claude-output.json 2>&1 | tee /tmp/prompt-output.txt || true
-                                    node ../shared/notify-pr-discord.js /tmp/prompt-output.txt || true
                                     exit \$CLAUDE_EXIT
                                 """
+                                script {
+                                    try {
+                                        withCredentials([string(credentialsId: 'discord-webhook-url', variable: 'DISCORD_WEBHOOK_URL')]) {
+                                            sh 'node ../shared/notify-pr-discord.js /tmp/prompt-output.txt || true'
+                                        }
+                                    } catch (e) {
+                                        echo "Discord credential not configured; skipping PR notification"
+                                    }
+                                }
                                 def output = sh(
                                     script: 'cat /tmp/beads-output.txt /tmp/prompt-output.txt 2>/dev/null || true',
                                     returnStdout: true
