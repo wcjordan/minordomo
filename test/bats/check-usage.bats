@@ -142,3 +142,124 @@ EOF
     result="$(echo "$output" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d['action'])")"
     [ "$result" = "proceed" ]
 }
+
+@test "approach A fails 403, approach B succeeds: exits 0 with auth_approach 1" {
+    # Kill the default mock and start one that returns 403 when anthropic-beta header is
+    # present (approach A), and 200 otherwise (approach B has no beta header).
+    kill "$MOCK_PID" 2>/dev/null || true
+    sleep 0.1
+
+    cat > "$TMP_DIR/response.json" <<'EOF'
+{"seven_day": {"utilization": 30}}
+EOF
+
+    python3 - <<'PYEOF' &
+import http.server, os
+
+RESPONSE_FILE = os.environ['TMP_DIR'] + '/response.json'
+
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        if 'anthropic-beta' in self.headers:
+            self.send_response(403)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(b'{"error": "forbidden"}')
+        else:
+            body = open(RESPONSE_FILE, 'rb').read()
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(body)
+    def log_message(self, *args): pass
+
+http.server.HTTPServer(('127.0.0.1', 18999), Handler).serve_forever()
+PYEOF
+    MOCK_PID=$!
+    sleep 0.3
+    export MOCK_PID
+
+    run python3 "$SCRIPT"
+    [ "$status" -eq 0 ]
+    action="$(echo "$output" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d['action'])")"
+    [ "$action" = "proceed" ]
+    auth_approach="$(echo "$output" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d.get('auth_approach', 'missing'))")"
+    [ "$auth_approach" = "1" ]
+}
+
+@test "all approaches fail 403: exits 0 fail-open with response body in warning" {
+    kill "$MOCK_PID" 2>/dev/null || true
+    sleep 0.1
+
+    python3 - <<'PYEOF' &
+import http.server
+
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(403)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(b'{"error": "always_forbidden"}')
+    def log_message(self, *args): pass
+
+http.server.HTTPServer(('127.0.0.1', 18999), Handler).serve_forever()
+PYEOF
+    MOCK_PID=$!
+    sleep 0.3
+    export MOCK_PID
+
+    run python3 "$SCRIPT"
+    [ "$status" -eq 0 ]
+    action="$(echo "$output" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d['action'])")"
+    [ "$action" = "proceed" ]
+    warning="$(echo "$output" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d.get('warning', ''))")"
+    [[ "$warning" == *"always_forbidden"* ]]
+}
+
+@test "approach A returns 503: exits 0 fail-open immediately without retrying" {
+    kill "$MOCK_PID" 2>/dev/null || true
+    sleep 0.1
+
+    # Server counts requests; returns 503 on first, 200 on subsequent.
+    # If the script retries, it would succeed and exit 1 (above threshold) or
+    # without the expected warning — we verify it fails open immediately.
+    python3 - <<'PYEOF' &
+import http.server, os
+
+RESPONSE_FILE = os.environ['TMP_DIR'] + '/response.json'
+REQUEST_COUNT = [0]
+
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        REQUEST_COUNT[0] += 1
+        if REQUEST_COUNT[0] == 1:
+            self.send_response(503)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(b'{"error": "service_unavailable"}')
+        else:
+            body = open(RESPONSE_FILE, 'rb').read()
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(body)
+    def log_message(self, *args): pass
+
+http.server.HTTPServer(('127.0.0.1', 18999), Handler).serve_forever()
+PYEOF
+    MOCK_PID=$!
+    sleep 0.3
+    export MOCK_PID
+
+    cat > "$TMP_DIR/response.json" <<'EOF'
+{"seven_day": {"utilization": 75}}
+EOF
+
+    run python3 "$SCRIPT"
+    [ "$status" -eq 0 ]
+    action="$(echo "$output" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d['action'])")"
+    [ "$action" = "proceed" ]
+    warning="$(echo "$output" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d.get('warning', ''))")"
+    [[ "$warning" == *"503"* ]]
+    [[ "$warning" == *"service_unavailable"* ]]
+}
