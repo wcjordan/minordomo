@@ -20,10 +20,8 @@ comment_body="$4"
 SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
 
 if [ -n "${gh_issue_number}" ]; then
-    gh issue edit "${gh_issue_number}" --repo "wcjordan/${repo}" --add-label needs-input \
-        || { echo "Failed to apply needs-input label to issue ${gh_issue_number}" >&2; }
-    gh issue comment "${gh_issue_number}" --repo "wcjordan/${repo}" --body "${comment_body}" \
-        || { echo "Failed to post comment to issue ${gh_issue_number}" >&2; }
+    "${SCRIPT_DIR}/post-gh-issue-comment.sh" "${gh_issue_number}" "${repo}" "${comment_body}" \
+        || { echo "Failed to post GH comment to issue ${gh_issue_number}" >&2; }
 fi
 
 "${SCRIPT_DIR}/beads-write.sh" update "${beads_task_id}" --status open \
