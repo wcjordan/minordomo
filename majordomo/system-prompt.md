@@ -311,19 +311,25 @@ Initialize: `epics_checked = 0`, `prs_opened = 0`, `epics_skipped = 0`, `epic_er
       { read -r EPIC_KEY; read -r GH_ISSUE_NUMBER; read -r REPO; } < <(shared/get-story-key.sh "<story_bead_id>")
       ```
       If EPIC_KEY cannot be derived: append a per-Epic error to `epic_errors`, increment `epics_skipped`, and continue to the next Story.
-   c. **Fetch Stage children:** `bd list --parent "<story_bead_id>" --all --json` — filter to Stage tasks (title starts with `"Stage"`). Separate Plan children from Stage children (Stage children are the Implementation Tasks).
+   c. **Fetch Stage children:** `bd list --parent "<story_bead_id>" --status=open,in_progress,closed --json` — filter to Stage tasks (title starts with `"Stage"`). Separate Plan children from Stage children (Stage children are the Implementation Tasks).
    d. **Skip — no Stage tasks:** If the Stage task list is empty, increment `epics_skipped` (reason: `"no_impl_tasks"`) and continue to the next Story.
+   > **Note:** A Stage task is considered incomplete if its status is `open`, `in_progress`, or `blocked`. Only `closed` tasks count as done.
    e. **Skip — incomplete:** If any Stage task status is not `"closed"`, increment `epics_skipped` (reason: `"impl_tasks_not_done"`) and continue to the next Story.
-   f. **Skip — PR exists:**
+   f. **Skip — open task PRs:**
+      ```bash
+      shared/check-open-task-prs.sh "<repo>" "<EPIC_KEY>"
+      ```
+      If the script exits 0 (open `task/` PR found), increment `epics_skipped` (reason: `"task_prs_unmerged"`) and continue to the next Story.
+   g. **Skip — PR exists:**
       ```bash
       gh pr list --repo wcjordan/<repo> --base <base_branch> --head feature/<EPIC_KEY> --state all --json number
       ```
       If the returned JSON array is non-empty, increment `epics_skipped` (reason: `"pr_already_open"`) and continue to the next Story.
-   g. **Extract GH Issue description:** Fetch the GH Issue body for the "what and why" narrative:
+   h. **Extract GH Issue description:** Fetch the GH Issue body for the "what and why" narrative:
       ```bash
       gh issue view "$GH_ISSUE_NUMBER" --repo "wcjordan/<repo>" --json body
       ```
-   h. **Delete planning and research docs from the feature branch:** Clean up planning artifacts before opening the PR so they do not land on the base branch when the PR is squash-merged. After this sub-step, `/tmp/spinoff-<EPIC_KEY>` is guaranteed to exist, which also satisfies the precondition for step i.
+   i. **Delete planning and research docs from the feature branch:** Clean up planning artifacts before opening the PR so they do not land on the base branch when the PR is squash-merged. After this sub-step, `/tmp/spinoff-<EPIC_KEY>` is guaranteed to exist, which also satisfies the precondition for step j.
 
       **1. Ensure `/tmp/spinoff-<EPIC_KEY>` is ready.** If the directory does not exist (e.g. this container did not run Step 6), clone it:
       ```bash
@@ -356,13 +362,13 @@ Initialize: `epics_checked = 0`, `prs_opened = 0`, `epics_skipped = 0`, `epic_er
 
       **5. On any error** in this sub-step (clone, checkout, push, or unexpected failure): append a per-Epic error to `epic_errors`, increment `epics_skipped`, and continue to the next Story (do not open a PR for a branch in an uncertain state).
 
-   i. **Read commit messages from the feature branch:** Run:
+   j. **Read commit messages from the feature branch:** Run:
       ```bash
       git -C /tmp/spinoff-<EPIC_KEY> log <base_branch>..feature/<EPIC_KEY> --format="%s%n%b" --no-merges
       ```
       Collect the output as implementation context — commit messages capture what was actually built, trade-offs made, and edge cases handled.
-   j. **Collect task summaries from beads:** For each Stage task (from step 2c), strip the `"Stage N: "` prefix from its title to get the one-line task summary. Use the beads task order (dependency chain order) as the task ordering.
-   k. **Build PR title and body** — these will become the squash-merge commit subject and body when the PR is merged, so write them as a good commit message: the title is the one-line subject (imperative mood, ≤72 chars, no trailing period) and the body explains what and why at a level useful to someone reading `git log` months later.
+   k. **Collect task summaries from beads:** For each Stage task (from step 2c), strip the `"Stage N: "` prefix from its title to get the one-line task summary. Use the beads task order (dependency chain order) as the task ordering.
+   l. **Build PR title and body** — these will become the squash-merge commit subject and body when the PR is merged, so write them as a good commit message: the title is the one-line subject (imperative mood, ≤72 chars, no trailing period) and the body explains what and why at a level useful to someone reading `git log` months later.
       - **PR title:** Rewrite the GH Issue title as an imperative-mood commit subject line (e.g. "Add X", "Implement Y") rather than using it verbatim if it reads as a noun phrase.
       - **PR body:**
       ```
@@ -376,7 +382,7 @@ Initialize: `epics_checked = 0`, `prs_opened = 0`, `epics_skipped = 0`, `epic_er
 
       <bullet list: one `- **<title>:** <one-line summary>` line per Stage task, in dependency-chain order>
       ```
-   l. **Open PR:**
+   m. **Open PR:**
       ```bash
       gh pr create \
         --repo wcjordan/<repo> \
@@ -386,7 +392,7 @@ Initialize: `epics_checked = 0`, `prs_opened = 0`, `epics_skipped = 0`, `epic_er
         --body "<PR body>"
       ```
       Capture stdout, append the PR URL to `opened_pr_urls`, and log the PR URL.
-   m. Increment `prs_opened`.
+   n. Increment `prs_opened`.
 
 3. **Log step result:**
    ```json
