@@ -6,7 +6,8 @@ Exits 1 (skip) when utilization >= threshold.
 
 Reads usage.weekly_threshold_pct from shared/config.yaml (default: 50).
 Reads CLAUDE_CODE_OAUTH_TOKEN from the environment.
-CLAUDE_USAGE_API_URL env var overrides the default endpoint.
+CLAUDE_USAGE_API_URL env var overrides the endpoint (used in tests).
+CLAUDE_ORG_ID env var provides the org ID for the claude.ai endpoint.
 """
 
 import json
@@ -19,7 +20,6 @@ from pathlib import Path
 import yaml
 
 CONFIG_PATH = Path(__file__).parent / "config.yaml"
-DEFAULT_API_URL = "https://api.anthropic.com/api/oauth/usage"
 
 
 def load_threshold():
@@ -39,16 +39,21 @@ def fail_open(warning):
 def main():
     threshold = load_threshold()
     token = os.environ.get("CLAUDE_CODE_OAUTH_TOKEN", "")
-    api_url = os.environ.get("CLAUDE_USAGE_API_URL", DEFAULT_API_URL)
 
     if not token:
         fail_open("CLAUDE_CODE_OAUTH_TOKEN not set")
+
+    api_url = os.environ.get("CLAUDE_USAGE_API_URL", "")
+    if not api_url:
+        org_id = os.environ.get("CLAUDE_ORG_ID", "")
+        if not org_id:
+            fail_open("CLAUDE_ORG_ID not set and CLAUDE_USAGE_API_URL not set")
+        api_url = f"https://claude.ai/api/organizations/{org_id}/usage"
 
     req = urllib.request.Request(
         api_url,
         headers={
             "Authorization": f"Bearer {token}",
-            "anthropic-beta": "oauth-2025-04-20",
         },
     )
 
