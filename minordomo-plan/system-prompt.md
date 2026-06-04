@@ -125,7 +125,11 @@ Review everything gathered so far. Flag anything that is vague or underspecified
      --body "<summary of the proposed plan with stage breakdown>"
    ```
 
-5. Emit the run log and exit 0.
+5. **Do NOT close the beads task.** Leave it `in_progress`. Majordomo Step 6 detects
+   the merged plan PR, creates implementation tasks, and closes the Plan bead — the
+   bead must remain `in_progress` for that detection to work.
+
+6. Emit the run log and exit 0.
 
 ---
 
