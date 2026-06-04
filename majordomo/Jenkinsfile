@@ -40,6 +40,8 @@ pipeline {
                 JENKINS_API_KEY         = credentials('jenkins-api-key')
                 // Prereq: create a Jenkins "Secret text" credential named 'discord-webhook-url' before notifications fire.
                 DISCORD_WEBHOOK_URL     = credentials('discord-webhook-url')
+                // Prereq: create a Jenkins "Secret text" credential named 'claude-org-id'.
+                CLAUDE_ORG_ID           = credentials('claude-org-id')
             }
             options {
                 timeout(time: 60, unit: 'MINUTES')
