@@ -75,7 +75,10 @@ timestamps {
                                 script {
                                     try {
                                         withCredentials([string(credentialsId: 'discord-webhook-url', variable: 'DISCORD_WEBHOOK_URL')]) {
-                                            sh 'node ../shared/notify-pr-discord.js /tmp/prompt-output.txt || true'
+                                            // Use Groovy interpolation to explicitly pass the value to the container process.
+                                            // withCredentials inside container() does not reliably inject env vars via
+                                            // the Kubernetes plugin's remoting layer; interpolation bypasses this.
+                                            sh "DISCORD_WEBHOOK_URL='${DISCORD_WEBHOOK_URL}' node ../shared/notify-pr-discord.js /tmp/prompt-output.txt || true"
                                         }
                                     } catch (e) {
                                         echo "Discord credential not configured; skipping PR notification"
