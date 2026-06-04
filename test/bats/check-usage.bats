@@ -25,9 +25,9 @@ PYEOF
     SCRIPT="$TMP_DIR/check-usage.py"
     export SCRIPT
 
-    # Write default fixture: 30% utilization (below threshold)
+    # Write default fixture: 30% utilization (below threshold), full response shape
     cat > "$TMP_DIR/response.json" <<'EOF'
-{"seven_day": {"utilization": 30}}
+{"five_hour": {"utilization": 10, "tokens": 1000}, "seven_day": {"utilization": 30, "tokens": 5000}, "account_id": "org-abc123"}
 EOF
 
     python3 - <<'PYEOF' &
@@ -61,7 +61,7 @@ teardown() {
 
 @test "utilization below threshold (30%) exits 0 with action proceed" {
     cat > "$TMP_DIR/response.json" <<'EOF'
-{"seven_day": {"utilization": 30}}
+{"five_hour": {"utilization": 5, "tokens": 500}, "seven_day": {"utilization": 30, "tokens": 3000}, "account_id": "org-abc123"}
 EOF
     run python3 "$SCRIPT"
     [ "$status" -eq 0 ]
@@ -71,7 +71,7 @@ EOF
 
 @test "utilization at threshold (50%) exits 1 with action exit" {
     cat > "$TMP_DIR/response.json" <<'EOF'
-{"seven_day": {"utilization": 50}}
+{"five_hour": {"utilization": 20, "tokens": 2000}, "seven_day": {"utilization": 50, "tokens": 5000}, "account_id": "org-abc123"}
 EOF
     run python3 "$SCRIPT"
     [ "$status" -eq 1 ]
@@ -81,7 +81,7 @@ EOF
 
 @test "utilization above threshold (75%) exits 1 with action exit" {
     cat > "$TMP_DIR/response.json" <<'EOF'
-{"seven_day": {"utilization": 75}}
+{"five_hour": {"utilization": 60, "tokens": 6000}, "seven_day": {"utilization": 75, "tokens": 7500}, "account_id": "org-abc123"}
 EOF
     run python3 "$SCRIPT"
     [ "$status" -eq 1 ]
@@ -135,10 +135,20 @@ EOF
 
 @test "response missing seven_day.utilization exits 0 fail-open with warning" {
     cat > "$TMP_DIR/response.json" <<'EOF'
-{"other_field": {"utilization": 30}}
+{"five_hour": {"utilization": 10, "tokens": 1000}, "other_field": {"utilization": 30}}
 EOF
     run python3 "$SCRIPT"
     [ "$status" -eq 0 ]
     result="$(echo "$output" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d['action'])")"
     [ "$result" = "proceed" ]
+}
+
+@test "CLAUDE_ORG_ID not set and no URL override exits 0 fail-open with warning" {
+    unset CLAUDE_USAGE_API_URL
+    unset CLAUDE_ORG_ID
+    run python3 "$SCRIPT"
+    [ "$status" -eq 0 ]
+    result="$(echo "$output" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d['action'], d.get('warning',''))")"
+    [[ "$result" == "proceed"* ]]
+    [[ "$result" == *"CLAUDE_ORG_ID"* ]]
 }
