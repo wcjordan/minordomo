@@ -105,6 +105,16 @@ shared/jenkins-trigger.sh minordomo-step "<beads_impl_id>"
 
 ---
 
+## Jenkinsfile sh Step CWD Behavior
+
+Each `sh` step in a Jenkinsfile resets the working directory to the **workspace root** — a `cd` inside one `sh` block does not carry over to subsequent `sh` calls. This matters when calling scripts with relative paths.
+
+Example: in `shared/agent-pipeline.Jenkinsfile`, `setup-workspace.sh` does a `cd "${REPO}"` inside a `sh` block. A later, separate `sh` step runs from the workspace root again, not from `${REPO}`. So paths like `../shared/notify-pr-discord.js` (which would be correct relative to the repo subdir) must instead be `shared/notify-pr-discord.js` (relative to workspace root) in separate `sh` steps.
+
+When adding `sh` steps that call scripts with relative paths, verify which CWD they run from. If in doubt, use an absolute path or the `dir()` step.
+
+---
+
 ## Hard Rules for All Agents
 
 - **Never merge PRs directly.** Workers and Majordomo open PRs; humans merge them.
