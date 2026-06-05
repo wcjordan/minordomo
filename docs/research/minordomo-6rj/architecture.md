@@ -4,17 +4,23 @@
 
 Issue: https://github.com/wcjordan/minordomo/issues/281
 Title: "Introduce a Librarian job / functionality to periodically keep docs up to date"
-Issue body: **empty** — needs clarification before spec can be written.
+
+## Requirements (from GH issue comments)
+
+1. **Scope**: `docs/**/*.md`, `README.md`, `CLAUDE.md` — NOT system prompts
+2. **Schedule**: Daily cron
+3. **"Up to date"**: Both structural drift (broken references, missing entries) AND content drift (descriptions that don't match actual behavior)
+4. **Suggestion system**: Agents write to `docs/suggestions/`; the Librarian integrates suggestions into docs
 
 ## Existing Patterns
 
 ### Relevant Existing Jobs
 
-- **minordomo-sweep/**: Cron job (every 4 hours), runs `shared/sweep-stale-tasks.sh` to reset orphaned beads tasks. No Claude involved.
-- **majordomo/**: Orchestration job; in Step 9, Majordomo reviews planning/research docs before opening feature→main PRs and updates general docs as appropriate. Only runs when a story is complete.
-- **minordomo-plan/** and **minordomo-step/**: Agent jobs (parameterized). Use Claude.
+- **minordomo-sweep/**: Cron job (every 4 hours), runs `shared/sweep-stale-tasks.sh`, no Claude.
+- **majordomo/**: Orchestration job with Claude; in Step 9, reviews planning/research docs, updates general docs, deletes `docs/planning/<EPIC_KEY>-spec.md` and `docs/research/<EPIC_KEY>/` before feature→main PR. Does NOT touch `docs/suggestions/`.
+- **minordomo-plan/** and **minordomo-step/**: Agent jobs (parameterized, run with target-repo clone). Use `shared/agent-pipeline.Jenkinsfile` via `AGENT_MODE`.
 
-### Docs That Exist
+### Docs That Exist (in scope for Librarian)
 
 General docs (landing on `main`):
 - `README.md`
@@ -23,51 +29,65 @@ General docs (landing on `main`):
 - `docs/WORKFLOWS.md` — branching model, status flows, task prioritization
 - `docs/agent-workflow-spec.md` — detailed capability descriptions and Majordomo run sequence
 - `docs/FUTURE_WORK.md` — planned future capabilities
+- `docs/setup/*.md` — setup guides
 
-System prompts (in-tree, treated as code):
-- `majordomo/system-prompt.md`
-- `minordomo-plan/system-prompt.md`
-- `minordomo-step/system-prompt.md`
+### Docs Excluded from Librarian Review
 
-### Gap in Current Coverage
+- `docs/research/<EPIC_KEY>/` — ephemeral per-Epic research, deleted by Majordomo Step 9
+- `docs/planning/<EPIC_KEY>-spec.md` — ephemeral spec docs, deleted by Majordomo Step 9
+- `docs/suggestions/` — read and integrated by Librarian, not reviewed for drift
 
-Majordomo Step 9 updates general docs only when a feature story completes. Between feature completions, docs can drift from the codebase — e.g., if scripts are added/removed without updating GETTING_AROUND.md, or if the Majordomo run sequence changes without updating agent-workflow-spec.md.
+### Majordomo Step 9 Behavior
 
-## Proposed Librarian Architecture
+Step 9 deletes:
+- `docs/planning/<EPIC_KEY>-spec.md`
+- `docs/research/<EPIC_KEY>/`
 
-A new Jenkins job `minordomo-librarian/`:
-- Runs on a cron schedule (frequency TBD)
-- Uses Claude to review docs vs. codebase
-- Identifies drift: missing entries, outdated descriptions, references to removed files/scripts
-- Opens a PR against `main` (not direct commits — following hard rule)
-- PR contains doc updates as a commit
+It does NOT delete `docs/suggestions/` — suggestions should land on `main` so the Librarian can read them.
 
-### Jenkinsfile Pattern
+## Architecture Decision: Librarian Job
 
-Should follow `minordomo-sweep/Jenkinsfile` structure (standalone pipeline, no AGENT_MODE) but use Claude instead of a shell script.
+### Structure
 
-Alternatively, could use `shared/agent-pipeline.Jenkinsfile` with a new AGENT_MODE='librarian'.
+New `minordomo-librarian/` directory containing:
+- `Jenkinsfile` — standalone pipeline (NOT using `shared/agent-pipeline.Jenkinsfile`, which is for parameterized worker/planning agents)
+- `system-prompt.md` — Librarian agent instructions
 
-### Key Design Questions (needs-input)
+The Jenkinsfile pattern closely follows `majordomo/Jenkinsfile`:
+- Daily cron trigger
+- `CLAUDE_CODE_OAUTH_TOKEN` + `GH_APP` credentials
+- `source shared/setup-env.sh` + `source shared/setup-claude.sh`
+- Runs Claude with system prompt
+- Token usage reporting via `shared/report-token-usage.py`
+- `check-run-errors.py` to flag agent-reported errors
 
-1. **Scope**: Which files should the Librarian maintain?
-   - Narrow: `docs/*.md`, `README.md`, `CLAUDE.md` (general docs only)
-   - Wide: also system prompts (`majordomo/system-prompt.md`, etc.)
+### Librarian System Prompt Design
 
-2. **Schedule/trigger**: How often, and what triggers it?
-   - Weekly cron
-   - Daily cron
-   - After each merge to main (event-driven)
-   - Both cron and event-driven
+The Librarian:
+1. **Idempotency guard**: Check for any open PR from a `librarian/` branch to main. If one exists, exit cleanly (no duplicate PRs).
+2. **Drift detection**: Review `docs/**/*.md`, `README.md`, `CLAUDE.md` for:
+   - Structural drift: references to files/scripts that no longer exist; newly added files/scripts not yet documented
+   - Content drift: descriptions that no longer match current code behavior
+3. **Suggestions integration**: Read all files in `docs/suggestions/`; integrate relevant suggestions into appropriate docs; delete the suggestion files after integration.
+4. **PR or exit**: If changes made → create branch `librarian/YYYY-MM-DD`, commit, push, open PR to main. If no changes → exit cleanly.
 
-3. **Definition of "up to date"**: What should it check?
-   - Structural consistency: GETTING_AROUND.md lists match actual files/scripts
-   - Content drift: doc descriptions match actual code behavior
-   - Both
+### Suggestion-Writing System
 
-## Implementation Stages (Draft, Pending Clarification)
+- `docs/suggestions/.gitkeep` establishes the directory in git.
+- Plan and step agents writing notes about minordomo infrastructure write suggestion files to `docs/suggestions/`.
+- Scope: Suggestions are only written by agents working on MINORDOMO issues (target repo = minordomo). Agents working on chalk, gcp-setup, forester cannot write to minordomo's docs/suggestions/ (they are cd'd into the target repo clone).
+- Suggestion files: `suggestion-<beads-task-id>-<brief>.md`, Markdown format describing what should be documented and where.
+- Suggestions reach `main` via the normal PR flow (task branch → feature branch → main). Majordomo Step 9 does not delete `docs/suggestions/`.
 
-Rough stage breakdown (likely 2–3 stages):
-- Stage 1: New Jenkinsfile + system prompt skeleton + supporting shared scripts
-- Stage 2: Claude-based doc review and PR-opening logic
-- Stage 3: Tests (bats/shellcheck) + integration into shared agent infrastructure
+### validate-prompts.py Updates Needed
+
+- Add `"minordomo-librarian"` to `VALID_JOB_NAMES`
+- Add `"minordomo-librarian/"` to `REPO_DIRS`
+
+## Stage Breakdown
+
+### Stage 1: Librarian job infrastructure
+Create `minordomo-librarian/Jenkinsfile` + `system-prompt.md`, update `test/validate-prompts.py`, update `docs/GETTING_AROUND.md` + `docs/agent-workflow-spec.md`.
+
+### Stage 2: Suggestion-writing system
+Create `docs/suggestions/.gitkeep`, update `minordomo-plan/system-prompt.md` and `minordomo-step/system-prompt.md` with suggestion-writing instructions.
