@@ -27,3 +27,6 @@ gh issue comment "${issue_number}" --repo "wcjordan/${repo}" --body "${comment_b
 
 "${SCRIPT_DIR}/beads-write.sh" update "${beads_task_id}" --status open \
     || { echo "Failed to reset beads task ${beads_task_id} to open" >&2; exit 1; }
+
+discord_send_script="${DISCORD_SEND_SCRIPT:-${SCRIPT_DIR}/discord-send.js}"
+node "${discord_send_script}" "Human input requested: https://github.com/wcjordan/${repo}/issues/${issue_number}" || true
