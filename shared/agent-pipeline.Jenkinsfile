@@ -58,30 +58,25 @@ timestamps {
                         ]) {
                             checkout scm
                             container('worker') {
-                                sh """
-                                    set -euo pipefail
-
-                                    source shared/bootstrap.sh ${AGENT_MODE}
-
-                                    { bd stats && echo "---" && bd list; } | tee /tmp/beads-output.txt
-                                    CLAUDE_EXIT=0
-                                    claude -p "\$(cat ${agentPromptPath})" --output-format json \\
-                                      > /tmp/claude-output.json || CLAUDE_EXIT=\$?
-
-                                    bd dolt pull && bd dolt push
-                                    python3 ../shared/report-token-usage.py /tmp/claude-output.json 2>&1 | tee /tmp/prompt-output.txt || true
-                                    exit \$CLAUDE_EXIT
-                                """
                                 script {
-                                    try {
-                                        withCredentials([string(credentialsId: 'discord-webhook-url', variable: 'DISCORD_WEBHOOK_URL')]) {
-                                            // Use Groovy interpolation to explicitly pass the value to the container process.
-                                            // withCredentials inside container() does not reliably inject env vars via
-                                            // the Kubernetes plugin's remoting layer; interpolation bypasses this.
-                                            sh "DISCORD_WEBHOOK_URL='${DISCORD_WEBHOOK_URL}' node shared/notify-pr-discord.js /tmp/prompt-output.txt || true"
-                                        }
-                                    } catch (e) {
-                                        echo "Discord credential not configured; skipping PR notification"
+                                    withCredentials([string(credentialsId: 'discord-webhook-url', variable: 'DISCORD_WEBHOOK_URL')]) {
+                                        sh """
+                                            set -euo pipefail
+                                            export DISCORD_WEBHOOK_URL='\${DISCORD_WEBHOOK_URL}'
+
+                                            source shared/bootstrap.sh ${AGENT_MODE}
+
+                                            { bd stats && echo "---" && bd list; } | tee /tmp/beads-output.txt
+                                            CLAUDE_EXIT=0
+                                            claude -p "\$(cat ${agentPromptPath})" --output-format json \\
+                                            > /tmp/claude-output.json || CLAUDE_EXIT=\$?
+
+                                            bd dolt pull && bd dolt push
+                                            python3 ../shared/report-token-usage.py /tmp/claude-output.json 2>&1 | tee /tmp/prompt-output.txt || true
+
+                                            DISCORD_WEBHOOK_URL='\${DISCORD_WEBHOOK_URL}' node shared/notify-pr-discord.js /tmp/prompt-output.txt || true"
+                                            exit \$CLAUDE_EXIT
+                                        """
                                     }
                                 }
                                 def output = sh(

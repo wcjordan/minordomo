@@ -2,6 +2,8 @@
 'use strict';
 
 const fs = require('fs');
+const path = require('path');
+const { spawnSync } = require('child_process');
 
 const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
 if (webhookUrl === undefined) {
@@ -16,14 +18,6 @@ const validPrefixes = ['https://discord.com/api/webhooks/', 'https://discordapp.
 if (!validPrefixes.some(p => webhookUrl.startsWith(p))) {
   const preview = webhookUrl.slice(0, 30);
   process.stderr.write(`WARNING: DISCORD_WEBHOOK_URL does not look like a Discord webhook URL (starts with: "${preview}"); skipping Discord notification\n`);
-  process.exit(0);
-}
-
-let WebhookClient;
-try {
-  ({ WebhookClient } = require('discord.js'));
-} catch (e) {
-  process.stderr.write('WARNING: discord.js module is not available; skipping Discord notification\n');
   process.exit(0);
 }
 
@@ -84,14 +78,13 @@ if (prUrls.length === 0) {
   process.exit(0);
 }
 
-(async () => {
-  const client = new WebhookClient({ url: webhookUrl });
-  for (const url of prUrls) {
-    try {
-      await client.send(`New PR opened: ${url}`);
-    } catch (e) {
-      process.stderr.write(`WARNING: Failed to send Discord notification for ${url}: ${e.message}\n`);
-    }
+const discordSendScript = process.env.DISCORD_SEND_SCRIPT || path.join(__dirname, 'discord-send.js');
+
+for (const url of prUrls) {
+  const result = spawnSync('node', [discordSendScript, `New PR opened: ${url}`], { stdio: 'inherit' });
+  if (result.error) {
+    process.stderr.write(`WARNING: Failed to spawn discord-send.js for ${url}: ${result.error.message}\n`);
   }
-  process.exit(0);
-})();
+}
+
+process.exit(0);
