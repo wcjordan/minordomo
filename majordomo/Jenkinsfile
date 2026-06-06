@@ -81,9 +81,15 @@ pipeline {
 
                         bd dolt pull && bd dolt push
                         python3 shared/report-token-usage.py /tmp/claude-output.json 2>&1 | tee /tmp/prompt-output.txt || true
-                        node shared/notify-pr-discord.js /tmp/prompt-output.txt || true
                         exit $CLAUDE_EXIT
                     '''
+                    script {
+                        try {
+                            sh "DISCORD_WEBHOOK_URL='${DISCORD_WEBHOOK_URL}' node shared/notify-pr-discord.js /tmp/prompt-output.txt || true"
+                        } catch (e) {
+                            echo "Discord credential not configured; skipping PR notification"
+                        }
+                    }
                 }
             }
             post {
