@@ -19,14 +19,6 @@ if (!validPrefixes.some(p => webhookUrl.startsWith(p))) {
   process.exit(0);
 }
 
-let WebhookClient;
-try {
-  ({ WebhookClient } = require('discord.js'));
-} catch (e) {
-  process.stderr.write('WARNING: discord.js module is not available; skipping Discord notification\n');
-  process.exit(0);
-}
-
 const logPath = process.argv[2];
 if (!logPath) {
   process.stderr.write('WARNING: No run-log path provided; skipping Discord notification\n');
@@ -84,14 +76,27 @@ if (prUrls.length === 0) {
   process.exit(0);
 }
 
+const stubOut = process.env.DISCORD_STUB_OUT;
+
+async function sendWebhook(url, content) {
+  if (stubOut) {
+    fs.appendFileSync(stubOut, content + '\n');
+    return;
+  }
+  try {
+    await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
+    });
+  } catch (e) {
+    process.stderr.write(`WARNING: Failed to send Discord notification: ${e.message}\n`);
+  }
+}
+
 (async () => {
-  const client = new WebhookClient({ url: webhookUrl });
   for (const url of prUrls) {
-    try {
-      await client.send(`New PR opened: ${url}`);
-    } catch (e) {
-      process.stderr.write(`WARNING: Failed to send Discord notification for ${url}: ${e.message}\n`);
-    }
+    await sendWebhook(webhookUrl, `New PR opened: ${url}`);
   }
   process.exit(0);
 })();
