@@ -5,7 +5,8 @@ setup() {
     REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
     export REPO_ROOT
     SCRIPT="$REPO_ROOT/shared/apply-needs-input.sh"
-    export SCRIPT
+    DISCORD_SEND_STUB="$REPO_ROOT/test/fixtures/discord-send-stub.js"
+    export SCRIPT DISCORD_SEND_STUB
 
     MOCKS="$BATS_TEST_TMPDIR/mocks"
     mkdir -p "$MOCKS"
@@ -95,4 +96,62 @@ EOF
     [ "$status" -ne 0 ]
     [ ! -f "$BATS_TEST_TMPDIR/gh-was-called" ]
     [ ! -f "$BATS_TEST_TMPDIR/bd-was-called" ]
+}
+
+@test "sends Discord notification when DISCORD_WEBHOOK_URL is set and all three steps succeed" {
+    DISCORD_STUB_OUT="$BATS_TEST_TMPDIR/discord-out.txt"
+    run env DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/123/test-token" \
+        DISCORD_SEND_SCRIPT="$DISCORD_SEND_STUB" \
+        DISCORD_STUB_OUT="$DISCORD_STUB_OUT" \
+        "$SCRIPT" myrepo 42 beads-123 "Please clarify X"
+    [ "$status" -eq 0 ]
+    grep -qF "Human input requested: https://github.com/wcjordan/myrepo/issues/42" "$DISCORD_STUB_OUT"
+}
+
+@test "does not fail when DISCORD_WEBHOOK_URL is unset" {
+    run env -u DISCORD_WEBHOOK_URL \
+        DISCORD_SEND_SCRIPT="$DISCORD_SEND_STUB" \
+        "$SCRIPT" myrepo 42 beads-123 "Please clarify X"
+    [ "$status" -eq 0 ]
+}
+
+@test "required steps run even when Discord send fails" {
+    FAILING_DISCORD_STUB="$BATS_TEST_TMPDIR/failing-discord-send.js"
+    cat > "$FAILING_DISCORD_STUB" << 'EOF'
+#!/usr/bin/env node
+process.exit(1);
+EOF
+
+    LABEL_CALLED="$BATS_TEST_TMPDIR/label-called"
+    COMMENT_CALLED="$BATS_TEST_TMPDIR/comment-called"
+    BEADS_RESET_CALLED="$BATS_TEST_TMPDIR/beads-reset-called"
+
+    cat > "$MOCKS/gh" << MOCKEOF
+#!/usr/bin/env bash
+if [ "\$1" = "issue" ] && [ "\$2" = "edit" ]; then
+    touch "$LABEL_CALLED"
+fi
+if [ "\$1" = "issue" ] && [ "\$2" = "comment" ]; then
+    touch "$COMMENT_CALLED"
+fi
+exit 0
+MOCKEOF
+    chmod +x "$MOCKS/gh"
+
+    cat > "$MOCKS/bd" << MOCKEOF
+#!/usr/bin/env bash
+if [ "\$1" = "update" ]; then
+    touch "$BEADS_RESET_CALLED"
+fi
+exit 0
+MOCKEOF
+    chmod +x "$MOCKS/bd"
+
+    run env DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/123/test-token" \
+        DISCORD_SEND_SCRIPT="$FAILING_DISCORD_STUB" \
+        "$SCRIPT" myrepo 42 beads-123 "Please clarify X"
+    [ "$status" -eq 0 ]
+    [ -f "$LABEL_CALLED" ]
+    [ -f "$COMMENT_CALLED" ]
+    [ -f "$BEADS_RESET_CALLED" ]
 }

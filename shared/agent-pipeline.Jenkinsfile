@@ -58,20 +58,33 @@ timestamps {
                         ]) {
                             checkout scm
                             container('worker') {
-                                sh """
-                                    set -euo pipefail
+                                script {
+                                    def discordWebhookUrl = ''
+                                    try {
+                                        withCredentials([string(credentialsId: 'discord-webhook-url', variable: 'DISCORD_WEBHOOK_URL')]) {
+                                            // Capture here; withCredentials inside container() does not reliably
+                                            // inject env vars via the Kubernetes plugin's remoting layer.
+                                            discordWebhookUrl = DISCORD_WEBHOOK_URL
+                                        }
+                                    } catch (e) {
+                                        echo "Discord credential not configured; agent will run without DISCORD_WEBHOOK_URL"
+                                    }
+                                    sh """
+                                        set -euo pipefail
+                                        export DISCORD_WEBHOOK_URL='${discordWebhookUrl}'
 
-                                    source shared/bootstrap.sh ${AGENT_MODE}
+                                        source shared/bootstrap.sh ${AGENT_MODE}
 
-                                    { bd stats && echo "---" && bd list; } | tee /tmp/beads-output.txt
-                                    CLAUDE_EXIT=0
-                                    claude -p "\$(cat ${agentPromptPath})" --output-format json \\
-                                      > /tmp/claude-output.json || CLAUDE_EXIT=\$?
+                                        { bd stats && echo "---" && bd list; } | tee /tmp/beads-output.txt
+                                        CLAUDE_EXIT=0
+                                        claude -p "\$(cat ${agentPromptPath})" --output-format json \\
+                                          > /tmp/claude-output.json || CLAUDE_EXIT=\$?
 
-                                    bd dolt pull && bd dolt push
-                                    python3 ../shared/report-token-usage.py /tmp/claude-output.json 2>&1 | tee /tmp/prompt-output.txt || true
-                                    exit \$CLAUDE_EXIT
-                                """
+                                        bd dolt pull && bd dolt push
+                                        python3 ../shared/report-token-usage.py /tmp/claude-output.json 2>&1 | tee /tmp/prompt-output.txt || true
+                                        exit \$CLAUDE_EXIT
+                                    """
+                                }
                                 script {
                                     try {
                                         withCredentials([string(credentialsId: 'discord-webhook-url', variable: 'DISCORD_WEBHOOK_URL')]) {
