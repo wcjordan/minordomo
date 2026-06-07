@@ -105,19 +105,19 @@ Add an `INTERACTIVE_MODE` build parameter to `minordomo-step/Jenkinsfile`. When 
 
 ### Description
 
-Write `shared/discord-stop-hook.js`. The script:
+Write `shared/claude-stop-hook.js`. The script:
 
 1. Parses hook JSON from stdin and reads the last assistant message from the transcript at `transcript_path`.
 2. If no `NEEDS_INPUT:` prefix: writes `"Confirmed, please proceed."` to stdout and exits code `2` (asyncRewake — Claude wakes and continues).
 3. If `NEEDS_INPUT:` prefix: calls `shared/apply-needs-input.sh` with the question text (existing needs-input flow — GH issue comment, beads reset, exit). This preserves today's blocked-agent behaviour as the Story 1 fallback.
 
-Update `shared/agent-settings.json` to add the Stop hook with `asyncRewake: true`. Update `minordomo-step/system-prompt.md` to describe the `NEEDS_INPUT:` convention and remove the instructions that directly invoke `apply-needs-input.sh` (the hook now handles that path).
+Update `shared/agent-settings.json` to add the Stop hook with `asyncRewake: true`, pointing to `shared/claude-stop-hook.js`. Update `minordomo-step/system-prompt.md` to describe the `NEEDS_INPUT:` convention and remove the instructions that directly invoke `apply-needs-input.sh` (the hook now handles that path).
 
 ### Acceptance Criteria
 
 - When Claude's last message has no `NEEDS_INPUT:` prefix, the hook exits immediately with `"Confirmed, please proceed."` and Claude continues.
 - When Claude's last message starts with `NEEDS_INPUT:`, the hook invokes `apply-needs-input.sh` and exits 0 (run ends, GH issue labelled, beads reset — same as today).
-- Hook script passes shellcheck. Manual test: run hook with a dummy transcript file and verify both branches.
+- Hook script passes shellcheck. Manual test: run `claude-stop-hook.js` with a dummy transcript file and verify both branches.
 - `make test` passes.
 
 ---
@@ -149,7 +149,7 @@ Completes the interactive loop. Replaces the `apply-needs-input.sh` fallback in 
 
 ### Description
 
-Extend `shared/discord-stop-hook.js` to replace the `apply-needs-input.sh` fallback with Discord Q&A:
+Extend `shared/claude-stop-hook.js` to replace the `apply-needs-input.sh` fallback with Discord Q&A:
 
 1. Extract the question text (everything after `NEEDS_INPUT:`).
 2. POST the question to `DISCORD_CHANNEL_ID` using `DISCORD_BOT_TOKEN` via the Discord REST API.
