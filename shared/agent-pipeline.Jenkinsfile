@@ -68,7 +68,7 @@ timestamps {
                                         if (isInteractiveWorker) {
                                             sh """
                                                 set -euo pipefail
-                                                export DISCORD_WEBHOOK_URL='\${DISCORD_WEBHOOK_URL}'
+                                                export DISCORD_WEBHOOK_URL="\${DISCORD_WEBHOOK_URL}"
 
                                                 source shared/bootstrap.sh worker
 
@@ -87,13 +87,13 @@ timestamps {
                                                     python3 shared/check-run-errors.py /tmp/prompt-output.txt
                                                 fi
 
-                                                DISCORD_WEBHOOK_URL='\${DISCORD_WEBHOOK_URL}' node shared/notify-pr-discord.js /tmp/prompt-output.txt || true
+                                                DISCORD_WEBHOOK_URL="\${DISCORD_WEBHOOK_URL}" node shared/notify-pr-discord.js /tmp/prompt-output.txt || true
                                                 exit \$CLAUDE_EXIT
                                             """
                                         } else {
                                             sh """
                                                 set -euo pipefail
-                                                export DISCORD_WEBHOOK_URL='\${DISCORD_WEBHOOK_URL}'
+                                                export DISCORD_WEBHOOK_URL="\${DISCORD_WEBHOOK_URL}"
 
                                                 source shared/bootstrap.sh ${AGENT_MODE}
 
@@ -105,7 +105,7 @@ timestamps {
                                                 bd dolt pull && bd dolt push
                                                 python3 shared/report-token-usage.py /tmp/claude-output.json 2>&1 | tee /tmp/prompt-output.txt || true
 
-                                                DISCORD_WEBHOOK_URL='\${DISCORD_WEBHOOK_URL}' node shared/notify-pr-discord.js /tmp/prompt-output.txt || true"
+                                                DISCORD_WEBHOOK_URL="\${DISCORD_WEBHOOK_URL}" node shared/notify-pr-discord.js /tmp/prompt-output.txt || true"
                                                 exit \$CLAUDE_EXIT
                                             """
                                         }
