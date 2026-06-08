@@ -8,7 +8,7 @@ def agentPromptPath = (AGENT_MODE == 'planning') ? '../minordomo-plan/system-pro
 
 properties([parameters([
     string(name: 'BEADS_TASK_ID', description: 'Beads task ID for this pipeline run', trim: true),
-    booleanParam(name: 'INTERACTIVE_MODE', defaultValue: true, description: 'Run worker interactively via tmux (worker stage only)')
+    booleanParam(name: 'INTERACTIVE_MODE', defaultValue: false, description: 'Run worker interactively via tmux (worker stage only)')
 ])])
 
 def isInteractiveWorker = (AGENT_MODE == 'worker' && params.INTERACTIVE_MODE)
