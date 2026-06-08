@@ -23,8 +23,8 @@ bd dolt show
 bd dolt pull
 
 # Derive EPIC_KEY, GH_ISSUE_NUMBER, and REPO from the Story bead via get-story-key.sh.
-export EPIC_KEY REPO
-{ read -r EPIC_KEY; read -r _GH_ISSUE_NUMBER; read -r REPO; } \
+export EPIC_KEY REPO GH_ISSUE_NUMBER
+{ read -r EPIC_KEY; read -r GH_ISSUE_NUMBER; read -r REPO; } \
     < <("$(dirname "${BASH_SOURCE[0]}")/get-story-key.sh" "${BEADS_TASK_ID}")
 
 # Wire up git credential helper so plain git commands can auth via GH_TOKEN.
