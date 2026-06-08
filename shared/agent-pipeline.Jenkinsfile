@@ -8,10 +8,11 @@ def agentPromptPath = (AGENT_MODE == 'planning') ? '../minordomo-plan/system-pro
 
 properties([parameters([
     string(name: 'BEADS_TASK_ID', description: 'Beads task ID for this pipeline run', trim: true),
-    booleanParam(name: 'INTERACTIVE_MODE', defaultValue: false, description: 'Run worker interactively via tmux (worker stage only)')
+    booleanParam(name: 'INTERACTIVE_MODE', defaultValue: true, description: 'Run worker interactively via tmux (worker stage only)')
 ])])
 
-env.INTERACTIVE_MODE = params.INTERACTIVE_MODE ? 'true' : 'false'
+def isInteractiveWorker = (AGENT_MODE == 'worker' && params.INTERACTIVE_MODE)
+env.INTERACTIVE_MODE = isInteractiveWorker ? 'true' : 'false'
 
 def workerPodYaml = """
 apiVersion: v1
@@ -48,8 +49,6 @@ spec:
         cpu: "500m"
         memory: "512Mi"
 """
-
-def isInteractiveWorker = (AGENT_MODE == 'worker' && params.INTERACTIVE_MODE)
 
 timestamps {
     try {
