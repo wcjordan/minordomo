@@ -8,7 +8,7 @@ def agentPromptPath = (AGENT_MODE == 'planning') ? '../minordomo-plan/system-pro
 
 properties([parameters([
     string(name: 'BEADS_TASK_ID', description: 'Beads task ID for this pipeline run', trim: true),
-    booleanParam(name: 'INTERACTIVE_MODE', defaultValue: true, description: 'Run worker interactively via tmux (worker stage only)')
+    booleanParam(name: 'INTERACTIVE_MODE', defaultValue: false, description: 'Run worker interactively via tmux (worker stage only)')
 ])])
 
 def isInteractiveWorker = (AGENT_MODE == 'worker' && params.INTERACTIVE_MODE)
@@ -104,7 +104,7 @@ timestamps {
                                                 bd dolt pull && bd dolt push
                                                 python3 shared/report-token-usage.py /tmp/claude-output.json 2>&1 | tee /tmp/prompt-output.txt || true
 
-                                                DISCORD_WEBHOOK_URL="\${DISCORD_WEBHOOK_URL}" node shared/notify-pr-discord.js /tmp/prompt-output.txt || true"
+                                                DISCORD_WEBHOOK_URL="\${DISCORD_WEBHOOK_URL}" node shared/notify-pr-discord.js /tmp/prompt-output.txt || true
                                                 exit \$CLAUDE_EXIT
                                             """
                                         }
