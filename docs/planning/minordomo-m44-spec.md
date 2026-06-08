@@ -14,6 +14,8 @@ Full design context: `docs/plan/interactive-step-agent-plan.md` — Story 1 sect
 
 Add an `INTERACTIVE_MODE` boolean build parameter (default `false`) to `shared/agent-pipeline.Jenkinsfile`. The GH issue says to add it to `minordomo-step/Jenkinsfile`, but `properties()` must be called from inside the pipeline definition in `shared/agent-pipeline.Jenkinsfile` — that is where all other parameters are already defined. Add it there alongside `BEADS_TASK_ID`.
 
+Also add `tmux` to the `apt-get install` block in `minordomo-container-builder/Dockerfile` — it is not present in the base image but is required by the interactive path.
+
 Branch on `params.INTERACTIVE_MODE` in the worker stage's `sh` step:
 
 - **`INTERACTIVE_MODE=false`** (default): run `claude -p "$(cat ...)" --output-format json > /tmp/claude-output.json` exactly as today. Keep the 120-minute `timeout()` wrapper.
