@@ -72,9 +72,9 @@ timestamps {
                                             > /tmp/claude-output.json || CLAUDE_EXIT=\$?
 
                                             bd dolt pull && bd dolt push
-                                            python3 shared/report-token-usage.py /tmp/claude-output.json 2>&1 | tee /tmp/prompt-output.txt || true
+                                            python3 ../shared/report-token-usage.py /tmp/claude-output.json 2>&1 | tee /tmp/prompt-output.txt || true
 
-                                            DISCORD_WEBHOOK_URL='\${DISCORD_WEBHOOK_URL}' node shared/notify-pr-discord.js /tmp/prompt-output.txt || true"
+                                            DISCORD_WEBHOOK_URL='\${DISCORD_WEBHOOK_URL}' node ../shared/notify-pr-discord.js /tmp/prompt-output.txt || true
                                             exit \$CLAUDE_EXIT
                                         """
                                     }
