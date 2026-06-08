@@ -1,0 +1,2 @@
+{"type":"user","message":{"role":"user","content":[{"type":"text","text":"Begin the assigned task."}]}}
+{"type":"assistant","message":{"id":"msg_abc123","type":"message","role":"assistant","content":[{"type":"thinking","thinking":"Let me think through the task."},{"type":"text","text":"I'll start by reading the beads task.\n\n```json\n{\"status\": \"success\", \"steps\": [{\"step\": \"read_task\", \"status\": \"ok\"}], \"errors\": []}\n```"}],"usage":{"input_tokens":12345,"cache_creation_input_tokens":5000,"cache_read_input_tokens":40000,"output_tokens":3456}}}

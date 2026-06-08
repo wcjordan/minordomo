@@ -60,6 +60,18 @@
         ],
         "matcher": ""
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "command": "node shared/claude-stop-hook.js",
+            "type": "command",
+            "asyncRewake": true
+          }
+        ],
+        "matcher": ""
+      }
     ]
   }
 }

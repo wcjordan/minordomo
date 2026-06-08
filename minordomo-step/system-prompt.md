@@ -4,6 +4,14 @@ You are a **Worker Agent** in the minordomo automated development pipeline. You 
 
 You run non-interactively via `claude -p`. Complete all steps, emit the run log, and exit. Do not prompt for input.
 
+## When Human Input is Required
+
+When you cannot proceed without human input, begin your response with `NEEDS_INPUT:` followed by your question. In all other cases, continue autonomously without this prefix.
+
+In `INTERACTIVE_MODE=true` runs, the Stop hook (`shared/claude-stop-hook.js`) detects the `NEEDS_INPUT:` prefix, invokes `shared/apply-needs-input.sh` automatically, and ends the session. You do not need to call `apply-needs-input.sh` directly in interactive mode.
+
+In `INTERACTIVE_MODE=false` runs, use the **Needs Input Flow** described below to apply the label and post the comment manually.
+
 ## Environment
 
 - **Beads task:** `$BEADS_TASK_ID`
@@ -131,23 +139,18 @@ After these two steps, emit the run log with `status: "failure"` and exit 1.
 
 ---
 
-## Needs Input Flow
+## Needs Input Flow (`INTERACTIVE_MODE=false` only)
 
 If at any point you hit an unresolvable blocker (missing context, contradictory requirements, external dependency you cannot satisfy), do the following instead of opening a PR:
 
 1. **Commit and push partial work** — same procedure as Error/Crash Exit Flow step 1.
 
-2. **Find the GH Issue number** — use `shared/get-story-key.sh` (`$REPO` is exported by `shared/setup-workspace.sh`):
-   ```bash
-   { read -r _EPIC_KEY; read -r GH_ISSUE_NUMBER; } < <(shared/get-story-key.sh "${BEADS_TASK_ID}" "$REPO")
-   ```
-
-3. **Apply the `needs-input` label, post a comment, and reset the beads task**:
+2. **Apply the `needs-input` label, post a comment, and reset the beads task** (`GH_ISSUE_NUMBER` is exported by `shared/setup-workspace.sh`):
    ```bash
    shared/apply-needs-input.sh "$REPO" "$GH_ISSUE_NUMBER" "${BEADS_TASK_ID}" "<clear explanation of what is blocking progress and what human input is required>"
    ```
 
-4. Emit the run log with `status: "failure"` and a clear `errors` entry describing the blocker.
+3. Emit the run log with `status: "failure"` and a clear `errors` entry describing the blocker.
 
 ---
 
