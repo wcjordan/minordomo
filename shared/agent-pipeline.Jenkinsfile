@@ -7,8 +7,11 @@ def agentPromptPath = (AGENT_MODE == 'planning') ? '../minordomo-plan/system-pro
                                                   : '../minordomo-step/system-prompt.md'
 
 properties([parameters([
-    string(name: 'BEADS_TASK_ID', description: 'Beads task ID for this pipeline run', trim: true)
+    string(name: 'BEADS_TASK_ID', description: 'Beads task ID for this pipeline run', trim: true),
+    booleanParam(name: 'INTERACTIVE_MODE', defaultValue: false, description: 'Run worker interactively via tmux (worker stage only)')
 ])])
+
+env.INTERACTIVE_MODE = params.INTERACTIVE_MODE ? 'true' : 'false'
 
 def workerPodYaml = """
 apiVersion: v1
@@ -46,12 +49,14 @@ spec:
         memory: "512Mi"
 """
 
+def isInteractiveWorker = (AGENT_MODE == 'worker' && params.INTERACTIVE_MODE)
+
 timestamps {
     try {
         podTemplate(yaml: workerPodYaml) {
             node(POD_LABEL) {
                 stage(agentStageName) {
-                    timeout(time: 120, unit: 'MINUTES') {
+                    def stageBody = {
                         withCredentials([
                             string(credentialsId: 'claude-code-oauth-token', variable: 'CLAUDE_CODE_OAUTH_TOKEN'),
                             usernamePassword(credentialsId: 'github-app',   usernameVariable: 'GH_APP_USR',    passwordVariable: 'GH_APP_PSW'),
@@ -60,23 +65,44 @@ timestamps {
                             container('worker') {
                                 script {
                                     withCredentials([string(credentialsId: 'discord-webhook-url', variable: 'DISCORD_WEBHOOK_URL')]) {
-                                        sh """
-                                            set -euo pipefail
-                                            export DISCORD_WEBHOOK_URL='\${DISCORD_WEBHOOK_URL}'
+                                        if (isInteractiveWorker) {
+                                            sh """
+                                                set -euo pipefail
+                                                export DISCORD_WEBHOOK_URL='\${DISCORD_WEBHOOK_URL}'
 
-                                            source shared/bootstrap.sh ${AGENT_MODE}
+                                                source shared/bootstrap.sh worker
 
-                                            { bd stats && echo "---" && bd list; } | tee /tmp/beads-output.txt
-                                            CLAUDE_EXIT=0
-                                            claude -p "\$(cat ${agentPromptPath})" --output-format json \\
-                                            > /tmp/claude-output.json || CLAUDE_EXIT=\$?
+                                                { bd stats && echo "---" && bd list; } | tee /tmp/beads-output.txt
+                                                CLAUDE_EXIT=0
+                                                cat '${agentPromptPath}' > /tmp/system-prompt.md
+                                                tmux new-session -- claude --system-prompt-file /tmp/system-prompt.md || CLAUDE_EXIT=\$?
+                                                echo '{}' > /tmp/claude-output.json
 
-                                            bd dolt pull && bd dolt push
-                                            python3 shared/report-token-usage.py /tmp/claude-output.json 2>&1 | tee /tmp/prompt-output.txt || true
+                                                bd dolt pull && bd dolt push
+                                                python3 shared/report-token-usage.py /tmp/claude-output.json 2>&1 | tee /tmp/prompt-output.txt || true
 
-                                            DISCORD_WEBHOOK_URL='\${DISCORD_WEBHOOK_URL}' node shared/notify-pr-discord.js /tmp/prompt-output.txt || true"
-                                            exit \$CLAUDE_EXIT
-                                        """
+                                                DISCORD_WEBHOOK_URL='\${DISCORD_WEBHOOK_URL}' node shared/notify-pr-discord.js /tmp/prompt-output.txt || true
+                                                exit \$CLAUDE_EXIT
+                                            """
+                                        } else {
+                                            sh """
+                                                set -euo pipefail
+                                                export DISCORD_WEBHOOK_URL='\${DISCORD_WEBHOOK_URL}'
+
+                                                source shared/bootstrap.sh ${AGENT_MODE}
+
+                                                { bd stats && echo "---" && bd list; } | tee /tmp/beads-output.txt
+                                                CLAUDE_EXIT=0
+                                                claude -p "\$(cat ${agentPromptPath})" --output-format json \\
+                                                > /tmp/claude-output.json || CLAUDE_EXIT=\$?
+
+                                                bd dolt pull && bd dolt push
+                                                python3 shared/report-token-usage.py /tmp/claude-output.json 2>&1 | tee /tmp/prompt-output.txt || true
+
+                                                DISCORD_WEBHOOK_URL='\${DISCORD_WEBHOOK_URL}' node shared/notify-pr-discord.js /tmp/prompt-output.txt || true"
+                                                exit \$CLAUDE_EXIT
+                                            """
+                                        }
                                     }
                                 }
                                 def output = sh(
@@ -90,6 +116,14 @@ timestamps {
                                 ) == 1
                                 if (hasErrors) currentBuild.result = 'FAILURE'
                             }
+                        }
+                    }
+
+                    if (isInteractiveWorker) {
+                        stageBody()
+                    } else {
+                        timeout(time: 120, unit: 'MINUTES') {
+                            stageBody()
                         }
                     }
                 }
