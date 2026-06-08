@@ -11,7 +11,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         gnupg \
         make \
         shellcheck \
-        tmux \
     && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
@@ -22,6 +21,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get update \
     && apt-get install -y --no-install-recommends gh \
     && rm -rf /var/lib/apt/lists/*
+
+# Verify script (util-linux) >= 2.37 for -e (exit-code propagation) support
+RUN script --version \
+    | awk '/util-linux/{ split($NF, v, "."); if (v[1]+0 > 2 || (v[1]+0 == 2 && v[2]+0 >= 37)) exit 0; exit 1 }' \
+    || { echo "ERROR: script (util-linux) >= 2.37 required for -e flag"; exit 1; }
 
 # Claude Code CLI
 RUN curl -fsSL https://claude.ai/install.sh | bash
