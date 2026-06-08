@@ -8,7 +8,7 @@ def agentPromptPath = (AGENT_MODE == 'planning') ? '../minordomo-plan/system-pro
 
 properties([parameters([
     string(name: 'BEADS_TASK_ID', description: 'Beads task ID for this pipeline run', trim: true),
-    booleanParam(name: 'INTERACTIVE_MODE', defaultValue: false, description: 'Run worker interactively via tmux (worker stage only)')
+    booleanParam(name: 'INTERACTIVE_MODE', defaultValue: false, description: 'Run worker interactively (worker stage only)')
 ])])
 
 def isInteractiveWorker = (AGENT_MODE == 'worker' && params.INTERACTIVE_MODE)
@@ -74,7 +74,7 @@ timestamps {
                                                 { bd stats && echo "---" && bd list; } | tee /tmp/beads-output.txt
                                                 CLAUDE_EXIT=0
                                                 cat '${agentPromptPath}' > /tmp/system-prompt.md
-                                                tmux new-session -- claude --system-prompt-file /tmp/system-prompt.md || CLAUDE_EXIT=\$?
+                                                script -q -e -c "claude --system-prompt-file /tmp/system-prompt.md" /dev/null || CLAUDE_EXIT=\$?
 
                                                 bd dolt pull && bd dolt push
                                                 TRANSCRIPT_PATH=\$(cat /tmp/claude-transcript-path.txt 2>/dev/null || echo "")
