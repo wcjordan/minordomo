@@ -61,3 +61,42 @@ setup() {
     rm -f "$TMPFILE"
     [ "$status" -eq 0 ]
 }
+
+# --- --transcript flag (Claude Code JSONL transcript mode) ---
+
+@test "--transcript: exits 0 for success transcript fixture" {
+    run python3 "$SCRIPT" --transcript "$REPO_ROOT/test/fixtures/claude-transcript-success.jsonl"
+    [ "$status" -eq 0 ]
+}
+
+@test "--transcript: exits 1 when assistant text contains failure status" {
+    TMPFILE="$(mktemp)"
+    printf '%s\n' \
+        '{"type":"user","message":{"role":"user","content":[{"type":"text","text":"go"}]}}' \
+        '{"type":"assistant","message":{"content":[{"type":"text","text":"```json\n{\"status\": \"failure\", \"errors\": [\"something broke\"]}\n```"}],"usage":{"input_tokens":1,"output_tokens":1,"cache_read_input_tokens":0}}}' \
+        > "$TMPFILE"
+    run python3 "$SCRIPT" --transcript "$TMPFILE"
+    rm -f "$TMPFILE"
+    [ "$status" -eq 1 ]
+}
+
+@test "--transcript: ignores non-assistant entries when scanning for errors" {
+    TMPFILE="$(mktemp)"
+    printf '%s\n' \
+        '{"type":"user","message":{"role":"user","content":[{"type":"text","text":"```json\n{\"status\":\"failure\",\"errors\":[\"x\"]}\n```"}]}}' \
+        '{"type":"assistant","message":{"content":[{"type":"text","text":"all good"}],"usage":{"input_tokens":1,"output_tokens":1,"cache_read_input_tokens":0}}}' \
+        > "$TMPFILE"
+    run python3 "$SCRIPT" --transcript "$TMPFILE"
+    rm -f "$TMPFILE"
+    [ "$status" -eq 0 ]
+}
+
+@test "--transcript: accepts an extra positional arg (ignored in transcript mode)" {
+    run python3 "$SCRIPT" --transcript "$REPO_ROOT/test/fixtures/claude-transcript-success.jsonl" /tmp/prompt-output.txt
+    [ "$status" -eq 0 ]
+}
+
+@test "--transcript: exits 0 when transcript does not exist" {
+    run python3 "$SCRIPT" --transcript "/nonexistent/transcript.jsonl"
+    [ "$status" -eq 0 ]
+}

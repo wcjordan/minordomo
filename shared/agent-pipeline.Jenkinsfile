@@ -76,10 +76,16 @@ timestamps {
                                                 CLAUDE_EXIT=0
                                                 cat '${agentPromptPath}' > /tmp/system-prompt.md
                                                 tmux new-session -- claude --system-prompt-file /tmp/system-prompt.md || CLAUDE_EXIT=\$?
-                                                echo '{}' > /tmp/claude-output.json
 
                                                 bd dolt pull && bd dolt push
-                                                python3 shared/report-token-usage.py /tmp/claude-output.json 2>&1 | tee /tmp/prompt-output.txt || true
+                                                TRANSCRIPT_PATH=\$(cat /tmp/claude-transcript-path.txt 2>/dev/null || echo "")
+                                                if [ -n "\$TRANSCRIPT_PATH" ]; then
+                                                    python3 shared/report-token-usage.py --transcript "\$TRANSCRIPT_PATH" 2>&1 | tee /tmp/prompt-output.txt || true
+                                                    python3 shared/check-run-errors.py --transcript "\$TRANSCRIPT_PATH" /tmp/prompt-output.txt
+                                                else
+                                                    python3 shared/report-token-usage.py /tmp/claude-output.json 2>&1 | tee /tmp/prompt-output.txt || true
+                                                    python3 shared/check-run-errors.py /tmp/prompt-output.txt
+                                                fi
 
                                                 DISCORD_WEBHOOK_URL='\${DISCORD_WEBHOOK_URL}' node shared/notify-pr-discord.js /tmp/prompt-output.txt || true
                                                 exit \$CLAUDE_EXIT

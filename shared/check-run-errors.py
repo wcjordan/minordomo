@@ -13,10 +13,14 @@ errors using two strategies:
    object. Handles compact single-line JSON output (e.g. the test-fixture format
    where the claude result field is a single-line JSON string).
 
+With --transcript <path>: reads the Claude Code JSONL transcript instead, collects
+all assistant text entries, and runs the same has_errors() check on the combined text.
+
 Exits 1 if errors are detected, 0 otherwise. Exits 0 on any read/parse error
 so a missing or malformed log never falsely fails a build.
 """
 
+import argparse
 import json
 import re
 import sys
@@ -46,13 +50,53 @@ def has_errors(content):
     return False
 
 
+def read_transcript_text(path):
+    """Collect all assistant text content from a Claude Code JSONL transcript."""
+    parts = []
+    try:
+        with open(path) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if entry.get('type') != 'assistant':
+                    continue
+                msg = entry.get('message', {})
+                content = msg.get('content', [])
+                if isinstance(content, list):
+                    text = ''.join(
+                        c.get('text', '') for c in content
+                        if isinstance(c, dict) and c.get('type') == 'text'
+                    )
+                    if text:
+                        parts.append(text)
+                elif isinstance(content, str) and content:
+                    parts.append(content)
+    except Exception:
+        return ''
+    return '\n'.join(parts)
+
+
 def main():
-    if len(sys.argv) < 2:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('file', nargs='?', help='path to run log file')
+    parser.add_argument('--transcript', metavar='PATH', help='Claude Code JSONL transcript file')
+    args = parser.parse_args()
+
+    if args.transcript:
+        content = read_transcript_text(args.transcript)
+        sys.exit(1 if has_errors(content) else 0)
+
+    if not args.file:
         print("Usage: check-run-errors.py <path-to-run-log>", file=sys.stderr)
         sys.exit(0)
 
     try:
-        content = open(sys.argv[1]).read()
+        content = open(args.file).read()
         sys.exit(1 if has_errors(content) else 0)
     except Exception:
         sys.exit(0)
