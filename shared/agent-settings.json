@@ -39,7 +39,17 @@
     ]
   },
   "hooks": {
-    "PreBashCommand": "~/.claude/hooks/pre-bash-guard.sh",
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "~/.claude/hooks/pre-bash-guard.sh",
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash"
+      }
+    ],
     "PreCompact": [
       {
         "hooks": [
