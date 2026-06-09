@@ -6,4 +6,5 @@ set -euo pipefail
 
 mkdir -p ~/.claude/hooks
 cp shared/agent-settings.json ~/.claude/settings.json
+cp shared/.claude.json.example ~/.claude.json
 cp shared/pre-bash-guard.sh ~/.claude/hooks/pre-bash-guard.sh
