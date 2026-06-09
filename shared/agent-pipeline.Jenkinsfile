@@ -18,6 +18,8 @@ def workerPodYaml = """
 apiVersion: v1
 kind: Pod
 spec:
+  securityContext:
+    fsGroup: 1000
   containers:
   - name: worker
     image: ${GAR_REPO}/minordomo-image:latest
@@ -36,6 +38,8 @@ def majordomoPodYaml = """
 apiVersion: v1
 kind: Pod
 spec:
+  securityContext:
+    fsGroup: 1000
   containers:
   - name: majordomo
     image: ${GAR_REPO}/minordomo-image:latest
