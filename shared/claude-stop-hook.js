@@ -56,7 +56,7 @@ process.stdin.on('end', () => {
 
   const trimmed = lastAssistantText.trim();
 
-  // Step 3: branch on NEEDS_INPUT: prefix
+  // Step 3: branch on NEEDS_INPUT: prefix or successful run log
   if (trimmed.startsWith('NEEDS_INPUT:')) {
     const question = trimmed.slice('NEEDS_INPUT:'.length).trim();
     const repo = process.env.REPO || '';
@@ -64,8 +64,21 @@ process.stdin.on('end', () => {
     const beadsTaskId = process.env.BEADS_TASK_ID || '';
     spawnSync('shared/apply-needs-input.sh', [repo, ghIssueNumber, beadsTaskId, question], { stdio: 'inherit' });
     process.exit(0);
-  } else {
-    process.stdout.write('Confirmed, please proceed.');
-    process.exit(2);
   }
+
+  // Check if the last message contains a successful run log JSON anywhere — exit 0 to allow clean shutdown
+  try {
+    const jsonMatch = trimmed.match(/\{[\s\S]*"status"\s*:\s*"success"[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (parsed.status === 'success') {
+        process.exit(0);
+      }
+    }
+  } catch (_) {
+    // not a run log — fall through to confirmation prompt
+  }
+
+  process.stdout.write('Confirmed, please proceed.');
+  process.exit(2);
 });

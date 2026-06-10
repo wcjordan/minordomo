@@ -104,6 +104,35 @@ STUB
     [ "$status" -eq 0 ]
 }
 
+@test "successful run log JSON in last message: exits 0" {
+    node -e "
+const fs = require('fs');
+const runLog = {run_id:'jenkins-42',timestamp:'2026-06-10T00:00:00Z',beads_task_id:'minordomo-123.1',status:'success',steps:[],errors:[]};
+const lines = [
+  JSON.stringify({type:'user',message:{role:'user',content:[{type:'text',text:'Do the task'}]}}),
+  JSON.stringify({type:'assistant',message:{role:'assistant',content:[{type:'text',text:JSON.stringify(runLog)}]}})
+];
+fs.writeFileSync('$TRANSCRIPT', lines.join('\n') + '\n');
+"
+    run env INTERACTIVE_MODE=true node "$SCRIPT" <<< "$(make_hook_input)"
+    [ "$status" -eq 0 ]
+}
+
+@test "failed run log JSON in last message: exits 2 with confirm message" {
+    node -e "
+const fs = require('fs');
+const runLog = {run_id:'jenkins-42',timestamp:'2026-06-10T00:00:00Z',beads_task_id:'minordomo-123.1',status:'failure',steps:[],errors:['something broke']};
+const lines = [
+  JSON.stringify({type:'user',message:{role:'user',content:[{type:'text',text:'Do the task'}]}}),
+  JSON.stringify({type:'assistant',message:{role:'assistant',content:[{type:'text',text:JSON.stringify(runLog)}]}})
+];
+fs.writeFileSync('$TRANSCRIPT', lines.join('\n') + '\n');
+"
+    run env INTERACTIVE_MODE=true node "$SCRIPT" <<< "$(make_hook_input)"
+    [ "$status" -eq 2 ]
+    [ "$output" = "Confirmed, please proceed." ]
+}
+
 @test "exits 1 on invalid JSON input" {
     run env INTERACTIVE_MODE=true node "$SCRIPT" <<< "not-json"
     [ "$status" -eq 1 ]
