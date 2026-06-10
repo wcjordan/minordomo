@@ -1,5 +1,6 @@
 {
   "hasCompletedOnboarding": true,
+  "bypassPermissionsModeAccepted": true,
   "projects": {
     "/home/jenkins/agent/workspace/minordomo-step_main/minordomo": {
       "allowedTools": [],
