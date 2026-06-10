@@ -78,7 +78,7 @@ timestamps {
                                                 { bd stats && echo "---" && bd list; } | tee /tmp/beads-output.txt
                                                 CLAUDE_EXIT=0
                                                 cat '${agentPromptPath}' > /tmp/system-prompt.md
-                                                script -q -e -c shared/run-claude.sh /dev/null || CLAUDE_EXIT=\$?
+                                                bash shared/run-claude.sh || CLAUDE_EXIT=\$?
 
                                                 bd dolt pull && bd dolt push
                                                 TRANSCRIPT_PATH=\$(cat /tmp/claude-transcript-path.txt 2>/dev/null || echo "")
