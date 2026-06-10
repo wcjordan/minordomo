@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
+pwd
+
 # script(1) allocates a PTY so claude runs in interactive mode.
 # The prompt file is read inside the -c subshell so its content never
 # passes through shell quoting — arbitrary markdown/code in the prompt
