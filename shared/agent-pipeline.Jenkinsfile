@@ -78,11 +78,7 @@ timestamps {
                                                 { bd stats && echo "---" && bd list; } | tee /tmp/beads-output.txt
                                                 CLAUDE_EXIT=0
                                                 cat '${agentPromptPath}' > /tmp/system-prompt.md
-                                                python3 ../shared/stream-transcript.py "\$PWD" &
-                                                STREAM_PID=\$!
-                                                bash ../shared/run-claude.sh > /dev/null 2>&1 || CLAUDE_EXIT=\$?
-                                                kill \$STREAM_PID 2>/dev/null || true
-                                                wait \$STREAM_PID 2>/dev/null || true
+                                                bash ../shared/run-claude.sh || CLAUDE_EXIT=\$?
 
                                                 cd ../
                                                 bd dolt pull && bd dolt push

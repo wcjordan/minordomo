@@ -1,12 +1,18 @@
 #!/bin/bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 rm -f /tmp/claude-session-done
+
+# Stream transcript alongside claude; suppress raw PTY output (escape codes).
+python3 "$SCRIPT_DIR/stream-transcript.py" "$PWD" &
+STREAM_PID=$!
 
 # Run claude in a PTY so interactive mode works. script(1) allocates the PTY;
 # the prompt is read inside the -c subshell so arbitrary content never passes
 # through shell quoting on the command line.
-script -q -e -c 'PROMPT=$(cat /tmp/system-prompt.md); exec claude --dangerously-skip-permissions "$PROMPT"' /dev/null &
+script -q -e -c 'PROMPT=$(cat /tmp/system-prompt.md); exec claude --dangerously-skip-permissions "$PROMPT"' /dev/null > /dev/null 2>&1 &
 SCRIPT_PID=$!
 echo "$SCRIPT_PID" > /tmp/claude-script-pid
 
@@ -28,6 +34,8 @@ MONITOR_PID=$!
 wait "$SCRIPT_PID" || CLAUDE_EXIT=$?
 kill "$MONITOR_PID" 2>/dev/null || true
 wait "$MONITOR_PID" 2>/dev/null || true
+kill "$STREAM_PID" 2>/dev/null || true
+wait "$STREAM_PID" 2>/dev/null || true
 
 CLAUDE_EXIT=${CLAUDE_EXIT:-0}
 rm -f /tmp/claude-script-pid
