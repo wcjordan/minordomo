@@ -78,7 +78,9 @@ timestamps {
                                                 { bd stats && echo "---" && bd list; } | tee /tmp/beads-output.txt
                                                 CLAUDE_EXIT=0
                                                 cat '${agentPromptPath}' > /tmp/system-prompt.md
-                                                script -q -e -c "claude --dangerously-skip-permissions --append-system-prompt-file /tmp/system-prompt.md" /dev/null || CLAUDE_EXIT=\$?
+                                                printf '%s\n' '#!/bin/bash' 'PROMPT=\$(cat /tmp/system-prompt.md)' 'exec claude --dangerously-skip-permissions "\$PROMPT"' > /tmp/run-claude.sh
+                                                chmod +x /tmp/run-claude.sh
+                                                script -q -e -c /tmp/run-claude.sh /dev/null || CLAUDE_EXIT=\$?
 
                                                 bd dolt pull && bd dolt push
                                                 TRANSCRIPT_PATH=\$(cat /tmp/claude-transcript-path.txt 2>/dev/null || echo "")
