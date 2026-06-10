@@ -63,9 +63,10 @@ process.stdin.on('end', () => {
     const ghIssueNumber = process.env.GH_ISSUE_NUMBER || '';
     const beadsTaskId = process.env.BEADS_TASK_ID || '';
     spawnSync('shared/apply-needs-input.sh', [repo, ghIssueNumber, beadsTaskId, question], { stdio: 'inherit' });
-    process.exit(0);
-  } else {
-    process.stdout.write('Confirmed, please proceed.');
-    process.exit(2);
   }
+  // Signal run-claude.sh to terminate the session (works for both completion
+  // and needs-input — in both cases there is nothing more for Claude to do).
+  // Exit 0 allows Claude to stop; the monitor in run-claude.sh does the kill.
+  fs.writeFileSync('/tmp/claude-session-done', '1');
+  process.exit(0);
 });
