@@ -61,4 +61,3 @@ dolt.auto-commit: "on"
 dolt.auto-push: true
 
 sync.remote: "git+https://github.com/wcjordan/minordomo.git"
-

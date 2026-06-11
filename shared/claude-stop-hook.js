@@ -9,11 +9,6 @@ const { spawnSync } = require('child_process');
 // Fallback to __dirname so the hook still works when run outside an agent container.
 const SHARED_DIR = process.env.SHARED || __dirname;
 
-// Write the session-done sentinel first — before any guard or parsing — so
-// run-claude.sh's background monitor can terminate the session even if the
-// hook later errors out or INTERACTIVE_MODE isn't propagated into the container.
-fs.writeFileSync('/tmp/claude-session-done', '1');
-
 // Scope guard — no further logic needed for non-interactive runs.
 if (process.env.INTERACTIVE_MODE !== 'true') {
   process.exit(0);
@@ -66,7 +61,10 @@ process.stdin.on('end', () => {
     }
   } catch (e) {
     process.stderr.write(`claude-stop-hook: failed to read transcript: ${e.message}\n`);
-    // session-done already written; exit 0 so the monitor can still terminate cleanly
+
+    // Write the session-done sentinel so run-claude.sh's background monitor terminates the session
+    // Exit 0 allows Claude to stop; the monitor in run-claude.sh does the kill.
+    fs.writeFileSync('/tmp/claude-session-done', '1');
     process.exit(0);
   }
 
@@ -80,6 +78,9 @@ process.stdin.on('end', () => {
     const beadsTaskId = process.env.BEADS_TASK_ID || '';
     spawnSync(`${SHARED_DIR}/apply-needs-input.sh`, [repo, ghIssueNumber, beadsTaskId, question], { stdio: 'inherit' });
   }
+
+  // Write the session-done sentinel so run-claude.sh's background monitor terminates the session
   // Exit 0 allows Claude to stop; the monitor in run-claude.sh does the kill.
+  fs.writeFileSync('/tmp/claude-session-done', '1');
   process.exit(0);
 });
