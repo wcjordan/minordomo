@@ -50,11 +50,17 @@ STUB
     [ -z "$output" ]
 }
 
-@test "no NEEDS_INPUT prefix: exits 2 and writes confirm message to stdout" {
+@test "no NEEDS_INPUT prefix: exits 0" {
     make_transcript "I have completed the implementation."
     run env INTERACTIVE_MODE=true node "$SCRIPT" <<< "$(make_hook_input)"
-    [ "$status" -eq 2 ]
-    [ "$output" = "Confirmed, please proceed." ]
+    [ "$status" -eq 0 ]
+}
+
+@test "no NEEDS_INPUT prefix: writes session-done sentinel" {
+    make_transcript "All done."
+    rm -f /tmp/claude-session-done
+    env INTERACTIVE_MODE=true node "$SCRIPT" <<< "$(make_hook_input)" || true
+    [ -f /tmp/claude-session-done ]
 }
 
 @test "no NEEDS_INPUT prefix: writes transcript path to /tmp file" {
@@ -101,6 +107,34 @@ STUB
     cd "$FAKE_CWD"
     run env INTERACTIVE_MODE=true REPO=r GH_ISSUE_NUMBER=1 BEADS_TASK_ID=t \
         node "$SCRIPT" <<< "$(make_hook_input)"
+    [ "$status" -eq 0 ]
+}
+
+@test "successful run log JSON in last message: exits 0" {
+    node -e "
+const fs = require('fs');
+const runLog = {run_id:'jenkins-42',timestamp:'2026-06-10T00:00:00Z',beads_task_id:'minordomo-123.1',status:'success',steps:[],errors:[]};
+const lines = [
+  JSON.stringify({type:'user',message:{role:'user',content:[{type:'text',text:'Do the task'}]}}),
+  JSON.stringify({type:'assistant',message:{role:'assistant',content:[{type:'text',text:JSON.stringify(runLog)}]}})
+];
+fs.writeFileSync('$TRANSCRIPT', lines.join('\n') + '\n');
+"
+    run env INTERACTIVE_MODE=true node "$SCRIPT" <<< "$(make_hook_input)"
+    [ "$status" -eq 0 ]
+}
+
+@test "failed run log JSON in last message: exits 0" {
+    node -e "
+const fs = require('fs');
+const runLog = {run_id:'jenkins-42',timestamp:'2026-06-10T00:00:00Z',beads_task_id:'minordomo-123.1',status:'failure',steps:[],errors:['something broke']};
+const lines = [
+  JSON.stringify({type:'user',message:{role:'user',content:[{type:'text',text:'Do the task'}]}}),
+  JSON.stringify({type:'assistant',message:{role:'assistant',content:[{type:'text',text:JSON.stringify(runLog)}]}})
+];
+fs.writeFileSync('$TRANSCRIPT', lines.join('\n') + '\n');
+"
+    run env INTERACTIVE_MODE=true node "$SCRIPT" <<< "$(make_hook_input)"
     [ "$status" -eq 0 ]
 }
 

@@ -12,6 +12,7 @@ STREAM_PID=$!
 # Run claude in a PTY so interactive mode works. script(1) allocates the PTY;
 # the prompt is read inside the -c subshell so arbitrary content never passes
 # through shell quoting on the command line.
+# shellcheck disable=SC2016  # single quotes intentional: expansion happens in the script(1) subshell
 script -q -e -c 'PROMPT=$(cat /tmp/system-prompt.md); exec claude --dangerously-skip-permissions "$PROMPT"' /dev/null > /dev/null 2>&1 &
 SCRIPT_PID=$!
 echo "$SCRIPT_PID" > /tmp/claude-script-pid
