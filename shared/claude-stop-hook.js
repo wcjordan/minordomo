@@ -2,15 +2,12 @@
 'use strict';
 
 const fs = require('fs');
-const path = require('path');
 const { spawnSync } = require('child_process');
 
-// BEADS_DIR is exported by setup-workspace.sh before cd-ing into the target repo,
-// so it always points to the workspace root's .beads dir regardless of CWD.
-// Use it to locate infrastructure scripts even when running inside a target repo.
-const SHARED_DIR = process.env.BEADS_DIR
-  ? path.join(path.dirname(process.env.BEADS_DIR), 'shared')
-  : path.join(__dirname);  // fallback: same dir as this script
+// SHARED is exported by setup-workspace.sh before cd-ing into the target repo,
+// so it always points to the infrastructure shared/ dir regardless of CWD.
+// Fallback to __dirname so the hook still works when run outside an agent container.
+const SHARED_DIR = process.env.SHARED || __dirname;
 
 // Write the session-done sentinel first — before any guard or parsing — so
 // run-claude.sh's background monitor can terminate the session even if the
@@ -81,7 +78,7 @@ process.stdin.on('end', () => {
     const repo = process.env.REPO || '';
     const ghIssueNumber = process.env.GH_ISSUE_NUMBER || '';
     const beadsTaskId = process.env.BEADS_TASK_ID || '';
-    spawnSync(path.join(SHARED_DIR, 'apply-needs-input.sh'), [repo, ghIssueNumber, beadsTaskId, question], { stdio: 'inherit' });
+    spawnSync(`${SHARED_DIR}/apply-needs-input.sh`, [repo, ghIssueNumber, beadsTaskId, question], { stdio: 'inherit' });
   }
   // Exit 0 allows Claude to stop; the monitor in run-claude.sh does the kill.
   process.exit(0);

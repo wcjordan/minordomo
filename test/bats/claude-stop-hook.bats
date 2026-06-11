@@ -79,7 +79,7 @@ STUB
     setup_fake_cwd
     make_transcript "NEEDS_INPUT: What is the API endpoint URL?"
     run env INTERACTIVE_MODE=true REPO=myrepo GH_ISSUE_NUMBER=42 BEADS_TASK_ID=beads-123 \
-        BEADS_DIR="$FAKE_CWD/.beads" \
+        SHARED="$FAKE_CWD/shared" \
         node "$SCRIPT" <<< "$(make_hook_input)"
     [ "$status" -eq 0 ]
 }
@@ -88,7 +88,7 @@ STUB
     setup_fake_cwd
     make_transcript "NEEDS_INPUT: What is the API endpoint URL?"
     env INTERACTIVE_MODE=true REPO=myrepo GH_ISSUE_NUMBER=42 BEADS_TASK_ID=beads-123 \
-        BEADS_DIR="$FAKE_CWD/.beads" \
+        SHARED="$FAKE_CWD/shared" \
         node "$SCRIPT" <<< "$(make_hook_input)"
     [ -f "$STUB_OUT" ]
     # Each arg on its own line
@@ -102,7 +102,7 @@ STUB
     setup_fake_cwd
     make_transcript "NEEDS_INPUT: Please clarify scope."
     env INTERACTIVE_MODE=true REPO=r GH_ISSUE_NUMBER=1 BEADS_TASK_ID=t \
-        BEADS_DIR="$FAKE_CWD/.beads" \
+        SHARED="$FAKE_CWD/shared" \
         node "$SCRIPT" <<< "$(make_hook_input)"
     [ "$(cat /tmp/claude-transcript-path.txt)" = "$TRANSCRIPT" ]
 }
@@ -111,7 +111,7 @@ STUB
     setup_fake_cwd
     make_transcript "  NEEDS_INPUT: What branch should I target?"
     run env INTERACTIVE_MODE=true REPO=r GH_ISSUE_NUMBER=1 BEADS_TASK_ID=t \
-        BEADS_DIR="$FAKE_CWD/.beads" \
+        SHARED="$FAKE_CWD/shared" \
         node "$SCRIPT" <<< "$(make_hook_input)"
     [ "$status" -eq 0 ]
 }
