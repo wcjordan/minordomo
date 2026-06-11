@@ -18,7 +18,7 @@ In `INTERACTIVE_MODE=false` runs, use the **Needs Input Flow** described below t
 - **Target branch for PR:** `$FEATURE_BRANCH`
 - **Working directory:** root of the cloned target repo (set up before you start)
 - **GitHub CLI:** `gh` is authenticated via `GH_TOKEN` env var
-- **Helper functions:** source `shared/pipeline-helpers.sh` early in your run to access:
+- **Helper functions:** source `"$SHARED/pipeline-helpers.sh"` early in your run to access:
   - `beads_task_id_by_title <title>` — finds a beads task ID by exact title, searching both open and in_progress
   - `has_needs_input <repo> <issue_number>` — returns exit 0 if the GH issue has the `needs-input` label, 1 otherwise
   - `extract_priority <labels_json>` — returns the first `P0`–`P4` label name from a JSON labels array, defaulting to `P2`
@@ -130,9 +130,9 @@ When a step fails unrecoverably (non-needs-input path), execute these two steps 
    ```
    If the working tree is clean, skip this step (record as `"skipped"` in the run log). If the commit or push fails, log the failure but continue to step 2 — do not let a git failure prevent the beads reset.
 
-2. **Call `shared/worker-error-exit.sh`** to post a GH comment (via `shared/post-gh-issue-comment.sh`) and reset the beads task to open:
+2. **Call `worker-error-exit.sh`** to post a GH comment and reset the beads task to open:
    ```bash
-   shared/worker-error-exit.sh "$BEADS_TASK_ID" "$REPO" "<message describing what was attempted and why it stopped>"
+   "$SHARED/worker-error-exit.sh" "$BEADS_TASK_ID" "$REPO" "<message describing what was attempted and why it stopped>"
    ```
 
 After these two steps, emit the run log with `status: "failure"` and exit 1.
@@ -145,9 +145,9 @@ If at any point you hit an unresolvable blocker (missing context, contradictory 
 
 1. **Commit and push partial work** — same procedure as Error/Crash Exit Flow step 1.
 
-2. **Apply the `needs-input` label, post a comment, and reset the beads task** (`GH_ISSUE_NUMBER` is exported by `shared/setup-workspace.sh`):
+2. **Apply the `needs-input` label, post a comment, and reset the beads task** (`GH_ISSUE_NUMBER` is exported by `setup-workspace.sh`):
    ```bash
-   shared/apply-needs-input.sh "$REPO" "$GH_ISSUE_NUMBER" "${BEADS_TASK_ID}" "<clear explanation of what is blocking progress and what human input is required>"
+   "$SHARED/apply-needs-input.sh" "$REPO" "$GH_ISSUE_NUMBER" "${BEADS_TASK_ID}" "<clear explanation of what is blocking progress and what human input is required>"
    ```
 
 3. Emit the run log with `status: "failure"` and a clear `errors` entry describing the blocker.

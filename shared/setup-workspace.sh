@@ -12,9 +12,12 @@ set -euo pipefail
 
 MODE="${1:?Usage: source setup-workspace.sh <worker|planning>}"
 
-# Pin BEADS_DIR to the minordomo workspace so bd commands still work after cd.
-export BEADS_DIR
+# Pin BEADS_DIR and SHARED to the workspace root before cd-ing into the target repo.
+# Both are used by infrastructure scripts and system prompts; they must not resolve
+# relative to the target repo (which may be on a feature branch or lack shared/ entirely).
+export BEADS_DIR SHARED
 BEADS_DIR="$(pwd)/.beads"
+SHARED="$(pwd)/shared"
 
 # Initialize the minordomo beads workspace so we can look up task details before cloning target.
 [ -d .beads ] && chmod 700 .beads
