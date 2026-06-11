@@ -56,10 +56,16 @@ STUB
     [ "$status" -eq 0 ]
 }
 
-@test "no NEEDS_INPUT prefix: writes session-done sentinel" {
+@test "writes session-done sentinel before scope guard (INTERACTIVE_MODE=true)" {
     make_transcript "All done."
     rm -f /tmp/claude-session-done
     env INTERACTIVE_MODE=true node "$SCRIPT" <<< "$(make_hook_input)" || true
+    [ -f /tmp/claude-session-done ]
+}
+
+@test "writes session-done sentinel even when INTERACTIVE_MODE is unset" {
+    rm -f /tmp/claude-session-done
+    env -u INTERACTIVE_MODE node "$SCRIPT" <<< '{"transcript_path":"/nonexistent"}' || true
     [ -f /tmp/claude-session-done ]
 }
 

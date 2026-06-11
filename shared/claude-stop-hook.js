@@ -4,7 +4,12 @@
 const fs = require('fs');
 const { spawnSync } = require('child_process');
 
-// Step 0: scope guard — no-op for non-interactive runs
+// Write the session-done sentinel first — before any guard or parsing — so
+// run-claude.sh's background monitor can terminate the session even if the
+// hook later errors out or INTERACTIVE_MODE isn't propagated into the container.
+fs.writeFileSync('/tmp/claude-session-done', '1');
+
+// Scope guard — no further logic needed for non-interactive runs.
 if (process.env.INTERACTIVE_MODE !== 'true') {
   process.exit(0);
 }
@@ -30,33 +35,34 @@ process.stdin.on('end', () => {
   // Step 1: persist transcript path for Stage 3 log analysis scripts
   fs.writeFileSync('/tmp/claude-transcript-path.txt', transcriptPath);
 
-  // Always signal completion so run-claude.sh's background monitor can
-  // terminate the session. Written before the INTERACTIVE_MODE guard so
-  // it lands even if that env var isn't propagated into the container.
-  fs.writeFileSync('/tmp/claude-session-done', '1');
-
   // Step 2: read last assistant message from JSONL transcript
   let lastAssistantText = '';
-  const lines = fs.readFileSync(transcriptPath, 'utf8').split('\n');
-  for (const line of lines) {
-    if (!line.trim()) continue;
-    try {
-      const entry = JSON.parse(line);
-      if (entry.type === 'assistant') {
-        const content = entry.message && entry.message.content;
-        if (Array.isArray(content)) {
-          const text = content
-            .filter(c => c.type === 'text')
-            .map(c => c.text || '')
-            .join('');
-          lastAssistantText = text;
-        } else if (typeof content === 'string') {
-          lastAssistantText = content;
+  try {
+    const lines = fs.readFileSync(transcriptPath, 'utf8').split('\n');
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      try {
+        const entry = JSON.parse(line);
+        if (entry.type === 'assistant') {
+          const content = entry.message && entry.message.content;
+          if (Array.isArray(content)) {
+            const text = content
+              .filter(c => c.type === 'text')
+              .map(c => c.text || '')
+              .join('');
+            lastAssistantText = text;
+          } else if (typeof content === 'string') {
+            lastAssistantText = content;
+          }
         }
+      } catch (_) {
+        // skip malformed lines
       }
-    } catch (_) {
-      // skip malformed lines
     }
+  } catch (e) {
+    process.stderr.write(`claude-stop-hook: failed to read transcript: ${e.message}\n`);
+    // session-done already written; exit 0 so the monitor can still terminate cleanly
+    process.exit(0);
   }
 
   const trimmed = lastAssistantText.trim();
