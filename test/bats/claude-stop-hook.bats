@@ -78,8 +78,8 @@ STUB
 @test "NEEDS_INPUT prefix: exits 0" {
     setup_fake_cwd
     make_transcript "NEEDS_INPUT: What is the API endpoint URL?"
-    cd "$FAKE_CWD"
     run env INTERACTIVE_MODE=true REPO=myrepo GH_ISSUE_NUMBER=42 BEADS_TASK_ID=beads-123 \
+        BEADS_DIR="$FAKE_CWD/.beads" \
         node "$SCRIPT" <<< "$(make_hook_input)"
     [ "$status" -eq 0 ]
 }
@@ -87,8 +87,8 @@ STUB
 @test "NEEDS_INPUT prefix: invokes apply-needs-input.sh with correct args" {
     setup_fake_cwd
     make_transcript "NEEDS_INPUT: What is the API endpoint URL?"
-    cd "$FAKE_CWD"
     env INTERACTIVE_MODE=true REPO=myrepo GH_ISSUE_NUMBER=42 BEADS_TASK_ID=beads-123 \
+        BEADS_DIR="$FAKE_CWD/.beads" \
         node "$SCRIPT" <<< "$(make_hook_input)"
     [ -f "$STUB_OUT" ]
     # Each arg on its own line
@@ -101,8 +101,8 @@ STUB
 @test "NEEDS_INPUT prefix: writes transcript path before invoking apply-needs-input.sh" {
     setup_fake_cwd
     make_transcript "NEEDS_INPUT: Please clarify scope."
-    cd "$FAKE_CWD"
     env INTERACTIVE_MODE=true REPO=r GH_ISSUE_NUMBER=1 BEADS_TASK_ID=t \
+        BEADS_DIR="$FAKE_CWD/.beads" \
         node "$SCRIPT" <<< "$(make_hook_input)"
     [ "$(cat /tmp/claude-transcript-path.txt)" = "$TRANSCRIPT" ]
 }
@@ -110,8 +110,8 @@ STUB
 @test "handles leading whitespace before NEEDS_INPUT" {
     setup_fake_cwd
     make_transcript "  NEEDS_INPUT: What branch should I target?"
-    cd "$FAKE_CWD"
     run env INTERACTIVE_MODE=true REPO=r GH_ISSUE_NUMBER=1 BEADS_TASK_ID=t \
+        BEADS_DIR="$FAKE_CWD/.beads" \
         node "$SCRIPT" <<< "$(make_hook_input)"
     [ "$status" -eq 0 ]
 }
