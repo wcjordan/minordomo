@@ -21,11 +21,6 @@
       "allowedTools": [],
       "hasTrustDialogAccepted": true,
       "hasCompletedProjectOnboarding": true
-    },
-    "/home/jenkins/agent/workspace/rdomo-step_interactive_autostart/minordomo": {
-      "allowedTools": [],
-      "hasTrustDialogAccepted": true,
-      "hasCompletedProjectOnboarding": true
     }
   }
 }
