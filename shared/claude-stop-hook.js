@@ -30,6 +30,11 @@ process.stdin.on('end', () => {
   // Step 1: persist transcript path for Stage 3 log analysis scripts
   fs.writeFileSync('/tmp/claude-transcript-path.txt', transcriptPath);
 
+  // Always signal completion so run-claude.sh's background monitor can
+  // terminate the session. Written before the INTERACTIVE_MODE guard so
+  // it lands even if that env var isn't propagated into the container.
+  fs.writeFileSync('/tmp/claude-session-done', '1');
+
   // Step 2: read last assistant message from JSONL transcript
   let lastAssistantText = '';
   const lines = fs.readFileSync(transcriptPath, 'utf8').split('\n');
@@ -64,9 +69,6 @@ process.stdin.on('end', () => {
     const beadsTaskId = process.env.BEADS_TASK_ID || '';
     spawnSync('shared/apply-needs-input.sh', [repo, ghIssueNumber, beadsTaskId, question], { stdio: 'inherit' });
   }
-  // Signal run-claude.sh to terminate the session (works for both completion
-  // and needs-input — in both cases there is nothing more for Claude to do).
   // Exit 0 allows Claude to stop; the monitor in run-claude.sh does the kill.
-  fs.writeFileSync('/tmp/claude-session-done', '1');
   process.exit(0);
 });

@@ -11,6 +11,7 @@ run-claude.sh output and let this script provide the visible log.
 
 import json
 import os
+import re
 import sys
 import time
 
@@ -19,7 +20,9 @@ FIND_TIMEOUT  = 60   # seconds to wait for transcript file to appear
 
 
 def transcript_dir(project_dir: str) -> str:
-    escaped = project_dir.lstrip('/').replace('/', '-')
+    # Claude Code escapes the project path by replacing every non-alphanumeric,
+    # non-hyphen character (including leading /, _, etc.) with a hyphen.
+    escaped = re.sub(r'[^a-zA-Z0-9-]', '-', project_dir)
     return os.path.expanduser(f'~/.claude/projects/{escaped}')
 
 
