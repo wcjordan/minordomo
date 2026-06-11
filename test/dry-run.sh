@@ -102,6 +102,8 @@ source shared/setup-claude.sh
     && pass "settings.json created" || fail "settings.json missing"
 [ -f "$HOME/.claude/hooks/pre-bash-guard.sh" ] \
     && pass "pre-bash-guard.sh installed" || fail "pre-bash-guard.sh missing"
+[ -f "$HOME/.claude/hooks/claude-stop-hook.js" ] \
+    && pass "claude-stop-hook.js installed" || fail "claude-stop-hook.js missing"
 
 # ---------------------------------------------------------------------------
 # Step 3: setup-workspace.sh (planning mode)

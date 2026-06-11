@@ -78,8 +78,9 @@ timestamps {
                                                 { bd stats && echo "---" && bd list; } | tee /tmp/beads-output.txt
                                                 CLAUDE_EXIT=0
                                                 cat '${agentPromptPath}' > /tmp/system-prompt.md
-                                                script -q -e -c "claude --dangerously-skip-permissions --append-system-prompt-file /tmp/system-prompt.md" /dev/null || CLAUDE_EXIT=\$?
+                                                bash ../shared/run-claude.sh || CLAUDE_EXIT=\$?
 
+                                                cd ../
                                                 bd dolt pull && bd dolt push
                                                 TRANSCRIPT_PATH=\$(cat /tmp/claude-transcript-path.txt 2>/dev/null || echo "")
                                                 if [ -n "\$TRANSCRIPT_PATH" ]; then
@@ -105,6 +106,7 @@ timestamps {
                                                 claude -p "\$(cat ${agentPromptPath})" --output-format json \\
                                                 > /tmp/claude-output.json || CLAUDE_EXIT=\$?
 
+                                                cd ../
                                                 bd dolt pull && bd dolt push
                                                 python3 shared/report-token-usage.py /tmp/claude-output.json 2>&1 | tee /tmp/prompt-output.txt || true
 

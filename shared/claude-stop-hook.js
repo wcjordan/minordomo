@@ -4,7 +4,12 @@
 const fs = require('fs');
 const { spawnSync } = require('child_process');
 
-// Step 0: scope guard — no-op for non-interactive runs
+// SHARED is exported by setup-workspace.sh before cd-ing into the target repo,
+// so it always points to the infrastructure shared/ dir regardless of CWD.
+// Fallback to __dirname so the hook still works when run outside an agent container.
+const SHARED_DIR = process.env.SHARED || __dirname;
+
+// Scope guard — no further logic needed for non-interactive runs.
 if (process.env.INTERACTIVE_MODE !== 'true') {
   process.exit(0);
 }
@@ -32,26 +37,35 @@ process.stdin.on('end', () => {
 
   // Step 2: read last assistant message from JSONL transcript
   let lastAssistantText = '';
-  const lines = fs.readFileSync(transcriptPath, 'utf8').split('\n');
-  for (const line of lines) {
-    if (!line.trim()) continue;
-    try {
-      const entry = JSON.parse(line);
-      if (entry.type === 'assistant') {
-        const content = entry.message && entry.message.content;
-        if (Array.isArray(content)) {
-          const text = content
-            .filter(c => c.type === 'text')
-            .map(c => c.text || '')
-            .join('');
-          lastAssistantText = text;
-        } else if (typeof content === 'string') {
-          lastAssistantText = content;
+  try {
+    const lines = fs.readFileSync(transcriptPath, 'utf8').split('\n');
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      try {
+        const entry = JSON.parse(line);
+        if (entry.type === 'assistant') {
+          const content = entry.message && entry.message.content;
+          if (Array.isArray(content)) {
+            const text = content
+              .filter(c => c.type === 'text')
+              .map(c => c.text || '')
+              .join('');
+            lastAssistantText = text;
+          } else if (typeof content === 'string') {
+            lastAssistantText = content;
+          }
         }
+      } catch (_) {
+        // skip malformed lines
       }
-    } catch (_) {
-      // skip malformed lines
     }
+  } catch (e) {
+    process.stderr.write(`claude-stop-hook: failed to read transcript: ${e.message}\n`);
+
+    // Write the session-done sentinel so run-claude.sh's background monitor terminates the session
+    // Exit 0 allows Claude to stop; the monitor in run-claude.sh does the kill.
+    fs.writeFileSync('/tmp/claude-session-done', '1');
+    process.exit(0);
   }
 
   const trimmed = lastAssistantText.trim();
@@ -62,10 +76,11 @@ process.stdin.on('end', () => {
     const repo = process.env.REPO || '';
     const ghIssueNumber = process.env.GH_ISSUE_NUMBER || '';
     const beadsTaskId = process.env.BEADS_TASK_ID || '';
-    spawnSync('shared/apply-needs-input.sh', [repo, ghIssueNumber, beadsTaskId, question], { stdio: 'inherit' });
-    process.exit(0);
-  } else {
-    process.stdout.write('Confirmed, please proceed.');
-    process.exit(2);
+    spawnSync(`${SHARED_DIR}/apply-needs-input.sh`, [repo, ghIssueNumber, beadsTaskId, question], { stdio: 'inherit' });
   }
+
+  // Write the session-done sentinel so run-claude.sh's background monitor terminates the session
+  // Exit 0 allows Claude to stop; the monitor in run-claude.sh does the kill.
+  fs.writeFileSync('/tmp/claude-session-done', '1');
+  process.exit(0);
 });

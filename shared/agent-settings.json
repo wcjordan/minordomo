@@ -76,7 +76,7 @@
       {
         "hooks": [
           {
-            "command": "node shared/claude-stop-hook.js",
+            "command": "node ~/.claude/hooks/claude-stop-hook.js",
             "type": "command",
             "asyncRewake": true
           }
