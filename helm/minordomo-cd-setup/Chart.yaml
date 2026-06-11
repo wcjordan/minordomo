@@ -1,6 +1,0 @@
-apiVersion: v2
-name: minordomo-cd-setup
-description: Helm chart for creating k8s secrets used by Jenkins for continuous delivery
-type: application
-version: 0.1.0
-appVersion: 1.0.0
