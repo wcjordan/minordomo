@@ -63,10 +63,10 @@ STUB
     [ -f /tmp/claude-session-done ]
 }
 
-@test "writes session-done sentinel even when INTERACTIVE_MODE is unset" {
+@test "does not write session-done sentinel when INTERACTIVE_MODE is unset" {
     rm -f /tmp/claude-session-done
     env -u INTERACTIVE_MODE node "$SCRIPT" <<< '{"transcript_path":"/nonexistent"}' || true
-    [ -f /tmp/claude-session-done ]
+    [ ! -f /tmp/claude-session-done ]
 }
 
 @test "no NEEDS_INPUT prefix: writes transcript path to /tmp file" {
