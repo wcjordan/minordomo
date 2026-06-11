@@ -95,6 +95,8 @@ MOCK
     [ "$REPO" = "minordomo" ]
     [ "$EPIC_KEY" = "minordomo-100" ]
     [ "$FEATURE_BRANCH" = "feature/minordomo-100" ]
+    # SHARED must point to the infrastructure shared/, not the cloned repo's.
+    [[ "$SHARED" == */shared ]] && [[ "$SHARED" != *"/minordomo/shared" ]]
 }
 
 @test "planning mode: creates feature branch on remote when absent" {

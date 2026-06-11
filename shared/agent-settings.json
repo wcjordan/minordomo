@@ -1,4 +1,5 @@
 {
+  "theme": "dark",
   "model": "claude-sonnet-4-6",
   "advisorModel": "claude-opus-4-7",
   "effortLevel": "medium",
@@ -38,7 +39,17 @@
     ]
   },
   "hooks": {
-    "PreBashCommand": "~/.claude/hooks/pre-bash-guard.sh",
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "~/.claude/hooks/pre-bash-guard.sh",
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash"
+      }
+    ],
     "PreCompact": [
       {
         "hooks": [
@@ -65,7 +76,7 @@
       {
         "hooks": [
           {
-            "command": "node shared/claude-stop-hook.js",
+            "command": "node ~/.claude/hooks/claude-stop-hook.js",
             "type": "command",
             "asyncRewake": true
           }

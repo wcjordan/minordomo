@@ -1,0 +1,26 @@
+{
+  "hasCompletedOnboarding": true,
+  "bypassPermissionsModeAccepted": true,
+  "projects": {
+    "/home/jenkins/agent/workspace/minordomo-step_main/minordomo": {
+      "allowedTools": [],
+      "hasTrustDialogAccepted": true,
+      "hasCompletedProjectOnboarding": true
+    },
+    "/home/jenkins/agent/workspace/minordomo-step_main/chalk": {
+      "allowedTools": [],
+      "hasTrustDialogAccepted": true,
+      "hasCompletedProjectOnboarding": true
+    },
+    "/home/jenkins/agent/workspace/minordomo-step_main/forester": {
+      "allowedTools": [],
+      "hasTrustDialogAccepted": true,
+      "hasCompletedProjectOnboarding": true
+    },
+    "/home/jenkins/agent/workspace/minordomo-step_main/gcp-setup": {
+      "allowedTools": [],
+      "hasTrustDialogAccepted": true,
+      "hasCompletedProjectOnboarding": true
+    }
+  }
+}

@@ -50,11 +50,23 @@ STUB
     [ -z "$output" ]
 }
 
-@test "no NEEDS_INPUT prefix: exits 2 and writes confirm message to stdout" {
+@test "no NEEDS_INPUT prefix: exits 0" {
     make_transcript "I have completed the implementation."
     run env INTERACTIVE_MODE=true node "$SCRIPT" <<< "$(make_hook_input)"
-    [ "$status" -eq 2 ]
-    [ "$output" = "Confirmed, please proceed." ]
+    [ "$status" -eq 0 ]
+}
+
+@test "writes session-done sentinel before scope guard (INTERACTIVE_MODE=true)" {
+    make_transcript "All done."
+    rm -f /tmp/claude-session-done
+    env INTERACTIVE_MODE=true node "$SCRIPT" <<< "$(make_hook_input)" || true
+    [ -f /tmp/claude-session-done ]
+}
+
+@test "does not write session-done sentinel when INTERACTIVE_MODE is unset" {
+    rm -f /tmp/claude-session-done
+    env -u INTERACTIVE_MODE node "$SCRIPT" <<< '{"transcript_path":"/nonexistent"}' || true
+    [ ! -f /tmp/claude-session-done ]
 }
 
 @test "no NEEDS_INPUT prefix: writes transcript path to /tmp file" {
@@ -66,8 +78,8 @@ STUB
 @test "NEEDS_INPUT prefix: exits 0" {
     setup_fake_cwd
     make_transcript "NEEDS_INPUT: What is the API endpoint URL?"
-    cd "$FAKE_CWD"
     run env INTERACTIVE_MODE=true REPO=myrepo GH_ISSUE_NUMBER=42 BEADS_TASK_ID=beads-123 \
+        SHARED="$FAKE_CWD/shared" \
         node "$SCRIPT" <<< "$(make_hook_input)"
     [ "$status" -eq 0 ]
 }
@@ -75,8 +87,8 @@ STUB
 @test "NEEDS_INPUT prefix: invokes apply-needs-input.sh with correct args" {
     setup_fake_cwd
     make_transcript "NEEDS_INPUT: What is the API endpoint URL?"
-    cd "$FAKE_CWD"
     env INTERACTIVE_MODE=true REPO=myrepo GH_ISSUE_NUMBER=42 BEADS_TASK_ID=beads-123 \
+        SHARED="$FAKE_CWD/shared" \
         node "$SCRIPT" <<< "$(make_hook_input)"
     [ -f "$STUB_OUT" ]
     # Each arg on its own line
@@ -89,8 +101,8 @@ STUB
 @test "NEEDS_INPUT prefix: writes transcript path before invoking apply-needs-input.sh" {
     setup_fake_cwd
     make_transcript "NEEDS_INPUT: Please clarify scope."
-    cd "$FAKE_CWD"
     env INTERACTIVE_MODE=true REPO=r GH_ISSUE_NUMBER=1 BEADS_TASK_ID=t \
+        SHARED="$FAKE_CWD/shared" \
         node "$SCRIPT" <<< "$(make_hook_input)"
     [ "$(cat /tmp/claude-transcript-path.txt)" = "$TRANSCRIPT" ]
 }
@@ -98,9 +110,37 @@ STUB
 @test "handles leading whitespace before NEEDS_INPUT" {
     setup_fake_cwd
     make_transcript "  NEEDS_INPUT: What branch should I target?"
-    cd "$FAKE_CWD"
     run env INTERACTIVE_MODE=true REPO=r GH_ISSUE_NUMBER=1 BEADS_TASK_ID=t \
+        SHARED="$FAKE_CWD/shared" \
         node "$SCRIPT" <<< "$(make_hook_input)"
+    [ "$status" -eq 0 ]
+}
+
+@test "successful run log JSON in last message: exits 0" {
+    node -e "
+const fs = require('fs');
+const runLog = {run_id:'jenkins-42',timestamp:'2026-06-10T00:00:00Z',beads_task_id:'minordomo-123.1',status:'success',steps:[],errors:[]};
+const lines = [
+  JSON.stringify({type:'user',message:{role:'user',content:[{type:'text',text:'Do the task'}]}}),
+  JSON.stringify({type:'assistant',message:{role:'assistant',content:[{type:'text',text:JSON.stringify(runLog)}]}})
+];
+fs.writeFileSync('$TRANSCRIPT', lines.join('\n') + '\n');
+"
+    run env INTERACTIVE_MODE=true node "$SCRIPT" <<< "$(make_hook_input)"
+    [ "$status" -eq 0 ]
+}
+
+@test "failed run log JSON in last message: exits 0" {
+    node -e "
+const fs = require('fs');
+const runLog = {run_id:'jenkins-42',timestamp:'2026-06-10T00:00:00Z',beads_task_id:'minordomo-123.1',status:'failure',steps:[],errors:['something broke']};
+const lines = [
+  JSON.stringify({type:'user',message:{role:'user',content:[{type:'text',text:'Do the task'}]}}),
+  JSON.stringify({type:'assistant',message:{role:'assistant',content:[{type:'text',text:JSON.stringify(runLog)}]}})
+];
+fs.writeFileSync('$TRANSCRIPT', lines.join('\n') + '\n');
+"
+    run env INTERACTIVE_MODE=true node "$SCRIPT" <<< "$(make_hook_input)"
     [ "$status" -eq 0 ]
 }
 
