@@ -2,8 +2,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SESSION_DONE_FILE="${CLAUDE_SESSION_DONE_FILE:-/tmp/claude-session-done}"
 
-rm -f /tmp/claude-session-done
+rm -f "$SESSION_DONE_FILE"
 
 # Stream transcript alongside claude; suppress raw PTY output (escape codes).
 python3 "$SCRIPT_DIR/stream-transcript.py" "$PWD" &
@@ -22,7 +23,7 @@ echo "$SCRIPT_PID" > /tmp/claude-script-pid
 # appears, giving the hook a moment to finish its own cleanup first.
 (
     while kill -0 "$SCRIPT_PID" 2>/dev/null; do
-        if [ -f /tmp/claude-session-done ]; then
+        if [ -f "$SESSION_DONE_FILE" ]; then
             sleep 0.5
             kill "$SCRIPT_PID" 2>/dev/null || true
             exit 0
@@ -43,7 +44,7 @@ rm -f /tmp/claude-script-pid
 
 # SIGTERM exit (143) triggered by monitor means the stop hook declared done —
 # not a crash. Treat it as success.
-if [ "${CLAUDE_EXIT}" -eq 143 ] && [ -f /tmp/claude-session-done ]; then
+if [ "${CLAUDE_EXIT}" -eq 143 ] && [ -f "$SESSION_DONE_FILE" ]; then
     exit 0
 fi
 exit "${CLAUDE_EXIT}"
