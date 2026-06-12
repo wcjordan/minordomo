@@ -180,6 +180,16 @@ Use `BUILD_TAG` env var for `run_id` if set; otherwise use the current UTC times
 
 Set `status` to `"failure"` and populate `errors` if any step fails fatally. Otherwise `"success"`.
 
+### Error detail requirements
+
+When a step fails, the `message` field on that step entry must be descriptive enough to diagnose the failure without reading the streaming log:
+
+- **Command failure** (non-zero exit): include the command, exit code, and first 20 lines of combined stdout/stderr output. Example: `"make test exited 2: FAIL minordomo/shared/bats/pipeline-helpers.bats (line 42)\n  expected: ...\n  got: ..."`
+- **Claude killed by external signal**: if you receive SIGTERM or SIGKILL while running (i.e., you are being shut down externally, not a subprocess you launched), emit the run log immediately with the last completed step, `status: "failure"`, and an error entry that names the signal and the step that was in progress. Example: `"Claude process killed (SIGTERM) during commit_push step"`
+- **Non-command failure** (missing file, bad JSON, logical error, etc.): describe what was expected, what was found instead, and where. Example: `"spec doc not found at docs/planning/MDOMO-36-spec.md — feature branch checked out but file absent"`
+
+Each entry in `errors` should be a concise one-line summary matching the failing step's `message` — enough to identify the failure type and location at a glance.
+
 ### Additional Step Names (Error/Crash and Needs Input Flows)
 
 Both the Error/Crash Exit Flow and the Needs Input Flow emit additional steps:
@@ -201,11 +211,33 @@ Example run log when the Error/Crash Exit Flow fires (spec doc missing):
   "status": "failure",
   "steps": [
     {"step": "read_task", "status": "ok", "stage_number": 3},
-    {"step": "read_spec", "status": "error", "message": "spec doc not found: docs/planning/minordomo-abc-spec.md"},
+    {"step": "read_spec", "status": "error", "message": "spec doc not found at docs/planning/minordomo-abc-spec.md — feature branch checked out but file absent"},
     {"step": "commit_partial", "status": "skipped", "message": "working tree was clean"},
     {"step": "gh_comment", "status": "ok"},
     {"step": "beads_reset", "status": "ok"}
   ],
-  "errors": ["spec doc not found: docs/planning/minordomo-abc-spec.md"]
+  "errors": ["spec doc not found at docs/planning/minordomo-abc-spec.md — feature branch checked out but file absent"]
+}
+```
+
+Example run log when `git push` is rejected:
+
+```json
+{
+  "run_id": "jenkins-minordomo-step-main-43",
+  "timestamp": "2026-05-01T15:10:00Z",
+  "beads_task_id": "minordomo-abc.4",
+  "status": "failure",
+  "steps": [
+    {"step": "read_task", "status": "ok", "stage_number": 4},
+    {"step": "read_spec", "status": "ok", "spec_doc_path": "docs/planning/minordomo-abc-spec.md"},
+    {"step": "implement", "status": "ok", "spec_updated": false},
+    {"step": "tests", "status": "ok", "message": "all tests passed"},
+    {"step": "commit_push", "status": "error", "message": "git push exited 1: remote: error: GH006: Protected branch update failed for refs/heads/task/minordomo-abc.4\nremote: error: Required status check 'ci/test' is expected.\nTo https://github.com/wcjordan/minordomo.git\n ! [remote rejected] task/minordomo-abc.4 -> task/minordomo-abc.4 (protected branch hook declined)"},
+    {"step": "commit_partial", "status": "skipped", "message": "working tree was clean — commit had already succeeded before push failed"},
+    {"step": "gh_comment", "status": "ok"},
+    {"step": "beads_reset", "status": "ok"}
+  ],
+  "errors": ["git push exited 1: remote rejected task/minordomo-abc.4 — branch protection: required status check 'ci/test' not satisfied"]
 }
 ```
