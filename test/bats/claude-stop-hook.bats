@@ -9,6 +9,9 @@ setup() {
 
     TRANSCRIPT="$BATS_TEST_TMPDIR/transcript.jsonl"
     export TRANSCRIPT
+
+    export CLAUDE_SESSION_DONE_FILE="$BATS_TEST_TMPDIR/claude-session-done"
+    export CLAUDE_TRANSCRIPT_PATH_FILE="$BATS_TEST_TMPDIR/claude-transcript-path.txt"
 }
 
 make_transcript() {
@@ -58,21 +61,21 @@ STUB
 
 @test "writes session-done sentinel before scope guard (INTERACTIVE_MODE=true)" {
     make_transcript "All done."
-    rm -f /tmp/claude-session-done
+    rm -f "$CLAUDE_SESSION_DONE_FILE"
     env INTERACTIVE_MODE=true node "$SCRIPT" <<< "$(make_hook_input)" || true
-    [ -f /tmp/claude-session-done ]
+    [ -f "$CLAUDE_SESSION_DONE_FILE" ]
 }
 
 @test "does not write session-done sentinel when INTERACTIVE_MODE is unset" {
-    rm -f /tmp/claude-session-done
+    rm -f "$CLAUDE_SESSION_DONE_FILE"
     env -u INTERACTIVE_MODE node "$SCRIPT" <<< '{"transcript_path":"/nonexistent"}' || true
-    [ ! -f /tmp/claude-session-done ]
+    [ ! -f "$CLAUDE_SESSION_DONE_FILE" ]
 }
 
 @test "no NEEDS_INPUT prefix: writes transcript path to /tmp file" {
     make_transcript "All done."
     env INTERACTIVE_MODE=true node "$SCRIPT" <<< "$(make_hook_input)" || true
-    [ "$(cat /tmp/claude-transcript-path.txt)" = "$TRANSCRIPT" ]
+    [ "$(cat "$CLAUDE_TRANSCRIPT_PATH_FILE")" = "$TRANSCRIPT" ]
 }
 
 @test "NEEDS_INPUT prefix: exits 0" {
@@ -104,7 +107,7 @@ STUB
     env INTERACTIVE_MODE=true REPO=r GH_ISSUE_NUMBER=1 BEADS_TASK_ID=t \
         SHARED="$FAKE_CWD/shared" \
         node "$SCRIPT" <<< "$(make_hook_input)"
-    [ "$(cat /tmp/claude-transcript-path.txt)" = "$TRANSCRIPT" ]
+    [ "$(cat "$CLAUDE_TRANSCRIPT_PATH_FILE")" = "$TRANSCRIPT" ]
 }
 
 @test "handles leading whitespace before NEEDS_INPUT" {
