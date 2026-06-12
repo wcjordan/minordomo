@@ -21,7 +21,7 @@ SHARED="$(pwd)/shared"
 
 # Initialize the minordomo beads workspace so we can look up task details before cloning target.
 [ -d .beads ] && chmod 700 .beads
-bd bootstrap
+bd bootstrap -- --silent
 bd dolt show
 bd dolt pull
 
