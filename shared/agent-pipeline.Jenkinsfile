@@ -84,6 +84,9 @@ timestamps {
                                                 bd dolt pull && bd dolt push
                                                 TRANSCRIPT_PATH=\$(cat /tmp/claude-transcript-path.txt 2>/dev/null || echo "")
                                                 if [ -n "\$TRANSCRIPT_PATH" ]; then
+                                                    echo "=== Raw Transcript ==="
+                                                    cat "\$TRANSCRIPT_PATH" || true
+                                                    echo "=== End Transcript ==="
                                                     python3 shared/report-token-usage.py --transcript "\$TRANSCRIPT_PATH" 2>&1 | tee /tmp/prompt-output.txt || true
                                                     python3 shared/check-run-errors.py --transcript "\$TRANSCRIPT_PATH" /tmp/prompt-output.txt
                                                 else
