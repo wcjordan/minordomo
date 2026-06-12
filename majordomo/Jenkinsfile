@@ -8,7 +8,7 @@ pipeline {
         disableConcurrentBuilds()
     }
     triggers {
-        cron('H/30 * * * 1-5')
+        cron(env.BRANCH_NAME == 'main' ? 'H/30 * * * 1-5' : '')
     }
     stages {
         stage('Majordomo') {
