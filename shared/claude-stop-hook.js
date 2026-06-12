@@ -8,6 +8,8 @@ const { spawnSync } = require('child_process');
 // so it always points to the infrastructure shared/ dir regardless of CWD.
 // Fallback to __dirname so the hook still works when run outside an agent container.
 const SHARED_DIR = process.env.SHARED || __dirname;
+const SESSION_DONE_FILE = process.env.CLAUDE_SESSION_DONE_FILE || '/tmp/claude-session-done';
+const TRANSCRIPT_PATH_FILE = process.env.CLAUDE_TRANSCRIPT_PATH_FILE || '/tmp/claude-transcript-path.txt';
 
 // Scope guard — no further logic needed for non-interactive runs.
 if (process.env.INTERACTIVE_MODE !== 'true') {
@@ -33,7 +35,7 @@ process.stdin.on('end', () => {
   }
 
   // Step 1: persist transcript path for Stage 3 log analysis scripts
-  fs.writeFileSync('/tmp/claude-transcript-path.txt', transcriptPath);
+  fs.writeFileSync(TRANSCRIPT_PATH_FILE, transcriptPath);
 
   // Step 2: read last assistant message from JSONL transcript
   let lastAssistantText = '';
@@ -64,7 +66,7 @@ process.stdin.on('end', () => {
 
     // Write the session-done sentinel so run-claude.sh's background monitor terminates the session
     // Exit 0 allows Claude to stop; the monitor in run-claude.sh does the kill.
-    fs.writeFileSync('/tmp/claude-session-done', '1');
+    fs.writeFileSync(SESSION_DONE_FILE, '1');
     process.exit(0);
   }
 
@@ -81,6 +83,6 @@ process.stdin.on('end', () => {
 
   // Write the session-done sentinel so run-claude.sh's background monitor terminates the session
   // Exit 0 allows Claude to stop; the monitor in run-claude.sh does the kill.
-  fs.writeFileSync('/tmp/claude-session-done', '1');
+  fs.writeFileSync(SESSION_DONE_FILE, '1');
   process.exit(0);
 });
