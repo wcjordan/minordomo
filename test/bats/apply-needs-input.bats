@@ -7,6 +7,9 @@ setup() {
     SCRIPT="$REPO_ROOT/shared/apply-needs-input.sh"
     DISCORD_SEND_STUB="$REPO_ROOT/test/fixtures/discord-send-stub.js"
     export SCRIPT DISCORD_SEND_STUB
+    export DISCORD_SEND_SCRIPT="$DISCORD_SEND_STUB"
+    export DISCORD_STUB_OUT="$BATS_TEST_TMPDIR/discord-out.txt"
+    unset DISCORD_WEBHOOK_URL
 
     MOCKS="$BATS_TEST_TMPDIR/mocks"
     mkdir -p "$MOCKS"
@@ -30,6 +33,8 @@ EOF
 @test "happy path: all three steps succeed" {
     run "$SCRIPT" myrepo 42 beads-123 "Please clarify X"
     [ "$status" -eq 0 ]
+    grep -qF "Human input requested: https://github.com/wcjordan/myrepo/issues/42" \
+        "$DISCORD_STUB_OUT"
 }
 
 @test "failure on label step: gh issue edit fails -> exits non-zero" {
@@ -99,10 +104,8 @@ EOF
 }
 
 @test "sends Discord notification when DISCORD_WEBHOOK_URL is set and all three steps succeed" {
-    DISCORD_STUB_OUT="$BATS_TEST_TMPDIR/discord-out.txt"
     run env DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/123/test-token" \
         DISCORD_SEND_SCRIPT="$DISCORD_SEND_STUB" \
-        DISCORD_STUB_OUT="$DISCORD_STUB_OUT" \
         "$SCRIPT" myrepo 42 beads-123 "Please clarify X"
     [ "$status" -eq 0 ]
     grep -qF "Human input requested: https://github.com/wcjordan/myrepo/issues/42" "$DISCORD_STUB_OUT"
