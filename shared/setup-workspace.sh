@@ -99,5 +99,3 @@ if [[ "$MODE" == "planning" ]]; then
 else
     git checkout -b "task/${BEADS_TASK_ID}"
 fi
-
-bd stats
