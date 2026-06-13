@@ -8,7 +8,7 @@ pipeline {
         disableConcurrentBuilds()
     }
     triggers {
-        cron('H/30 * * * 1-5')
+        cron(env.BRANCH_NAME == 'main' ? 'H/30 * * * 1-5' : '')
     }
     stages {
         stage('Majordomo') {
@@ -56,10 +56,10 @@ pipeline {
 
                         gh auth setup-git
                         [ -d .beads ] && chmod 700 .beads
-                        bd bootstrap
+                        bd bootstrap -- --silent
                         bd dolt show
                         bd dolt pull
-                        { bd stats && echo "---" && bd list; } | tee /tmp/beads-output.txt
+                        bd list | tee /tmp/beads-output.txt
 
                         SCHEDULE_EXIT=0
                         SCHEDULE_JSON=$(python3 shared/check-schedule.py) || SCHEDULE_EXIT=$?
@@ -152,10 +152,10 @@ pipeline {
 
                         gh auth setup-git
                         [ -d .beads ] && chmod 700 .beads
-                        bd bootstrap
+                        bd bootstrap -- --silent
                         bd dolt show
                         bd dolt pull
-                        { bd stats && echo "---" && bd list; } | tee /tmp/beads-output.txt
+                        bd list | tee /tmp/beads-output.txt
                     '''
                 }
             }

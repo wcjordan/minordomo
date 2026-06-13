@@ -75,7 +75,7 @@ timestamps {
 
                                                 source shared/bootstrap.sh worker
 
-                                                { bd stats && echo "---" && bd list; } | tee /tmp/beads-output.txt
+                                                bd list | tee /tmp/beads-output.txt
                                                 CLAUDE_EXIT=0
                                                 cat '${agentPromptPath}' > /tmp/system-prompt.md
                                                 bash ../shared/run-claude.sh || CLAUDE_EXIT=\$?
@@ -83,16 +83,8 @@ timestamps {
                                                 cd ../
                                                 bd dolt pull && bd dolt push
                                                 TRANSCRIPT_PATH=\$(cat /tmp/claude-transcript-path.txt 2>/dev/null || echo "")
-                                                if [ -n "\$TRANSCRIPT_PATH" ]; then
-                                                    echo "=== Raw Transcript ==="
-                                                    cat "\$TRANSCRIPT_PATH" || true
-                                                    echo "=== End Transcript ==="
-                                                    python3 shared/report-token-usage.py --transcript "\$TRANSCRIPT_PATH" 2>&1 | tee /tmp/prompt-output.txt || true
-                                                    python3 shared/check-run-errors.py --transcript "\$TRANSCRIPT_PATH" /tmp/prompt-output.txt
-                                                else
-                                                    python3 shared/report-token-usage.py /tmp/claude-output.json 2>&1 | tee /tmp/prompt-output.txt || true
-                                                    python3 shared/check-run-errors.py /tmp/prompt-output.txt
-                                                fi
+                                                python3 shared/report-token-usage.py --transcript "\$TRANSCRIPT_PATH" 2>&1 | tee /tmp/prompt-output.txt || true
+                                                python3 shared/check-run-errors.py --transcript "\$TRANSCRIPT_PATH" /tmp/prompt-output.txt
 
                                                 DISCORD_WEBHOOK_URL="\${DISCORD_WEBHOOK_URL}" node shared/notify-pr-discord.js /tmp/prompt-output.txt || true
                                                 exit \$CLAUDE_EXIT
@@ -104,7 +96,7 @@ timestamps {
 
                                                 source shared/bootstrap.sh ${AGENT_MODE}
 
-                                                { bd stats && echo "---" && bd list; } | tee /tmp/beads-output.txt
+                                                bd list | tee /tmp/beads-output.txt
                                                 CLAUDE_EXIT=0
                                                 claude -p "\$(cat ${agentPromptPath})" --output-format json \\
                                                 > /tmp/claude-output.json || CLAUDE_EXIT=\$?
@@ -159,10 +151,10 @@ timestamps {
 
                                     gh auth setup-git
                                     [ -d .beads ] && chmod 700 .beads
-                                    bd bootstrap
+                                    bd bootstrap -- --silent
                                     bd dolt show
                                     bd dolt pull
-                                    { bd stats && echo "---" && bd list; } | tee /tmp/beads-output.txt
+                                    bd list | tee /tmp/beads-output.txt
                                 '''
                                 def beadsOutput = sh(
                                     script: 'cat /tmp/beads-output.txt 2>/dev/null || true',

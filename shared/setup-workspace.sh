@@ -21,7 +21,7 @@ SHARED="$(pwd)/shared"
 
 # Initialize the minordomo beads workspace so we can look up task details before cloning target.
 [ -d .beads ] && chmod 700 .beads
-bd bootstrap
+bd bootstrap -- --silent
 bd dolt show
 bd dolt pull
 
@@ -34,8 +34,12 @@ export EPIC_KEY REPO GH_ISSUE_NUMBER
 gh auth setup-git
 
 # Set git committer identity (required for merge commits).
-git config --global user.name "minordomo"
-git config --global user.email "$(echo "${ROOT_DOMAIN}" | cut -d. -f1)@gmail.com"
+# Use env vars rather than --global so local test runs don't overwrite the user's git config.
+export GIT_AUTHOR_NAME="minordomo"
+export GIT_COMMITTER_NAME="minordomo"
+export GIT_AUTHOR_EMAIL GIT_COMMITTER_EMAIL
+GIT_AUTHOR_EMAIL="$(echo "${ROOT_DOMAIN}" | cut -d. -f1)@gmail.com"
+GIT_COMMITTER_EMAIL="${GIT_AUTHOR_EMAIL}"
 
 # Clone the target repo and cd into it.
 gh repo clone "wcjordan/${REPO}" "${REPO}"
@@ -99,5 +103,3 @@ if [[ "$MODE" == "planning" ]]; then
 else
     git checkout -b "task/${BEADS_TASK_ID}"
 fi
-
-bd stats
