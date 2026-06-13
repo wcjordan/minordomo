@@ -46,6 +46,10 @@ When all Stage tasks of an Epic are closed, Majordomo opens a feature→main PR.
 
 A dedicated Jenkins pipeline (`minordomo-sweep/Jenkinsfile`) runs `shared/sweep-stale-tasks.sh` on a cron schedule (every 4 hours). It detects beads tasks that have been `in_progress` for more than 12 hours and resets them to `open`, covering both worker and planning agent tasks. Tasks with an open PR are skipped — they are actively in review, not orphaned. Before resetting each stale task, the sweep script attempts to post a comment on the associated GitHub Issue explaining the reset; comment failures are logged but do not block the reset. The job exits 0 even when some tasks encounter errors (partial success is better than aborting the sweep).
 
+### Documentation Librarian
+
+A dedicated Jenkins pipeline (`minordomo-librarian/Jenkinsfile`) runs daily on a cron schedule (`H H * * *`). It detects and repairs documentation drift in `docs/**/*.md`, `README.md`, and `CLAUDE.md` (excluding `docs/research/`, `docs/planning/`, and `docs/suggestions/`). Drift detection covers two types: **structural drift** (references to files or scripts that no longer exist; newly added files not yet documented) and **content drift** (descriptions that no longer match current code behavior). The Librarian also reads suggestion files written by pipeline agents to `docs/suggestions/`, integrates them into the appropriate documentation files, and deletes the suggestion files after integrating them. If any changes are needed, it creates a `librarian/YYYY-MM-DD` branch, commits all changes, pushes, and opens a PR to `main`. If no changes are needed or an open librarian PR already exists, it exits cleanly without creating a PR.
+
 ### Token Usage Reporting
 
 `shared/report-token-usage.py` summarises input/cache/output tokens and cost per job, written to the Jenkins build log.
