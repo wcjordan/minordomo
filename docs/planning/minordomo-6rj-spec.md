@@ -51,9 +51,9 @@ Also update `test/validate-prompts.py` to add `"minordomo-librarian"` to `VALID_
 
 ### Description
 
-Establish the `docs/suggestions/` directory and update the planning and worker agent system prompts to instruct agents to write suggestion files there when working on minordomo issues. Suggestion files describe documentation improvements, gotchas, or corrections the agent noticed during its run; the Librarian integrates them on its next daily pass.
+Update the planning and worker agent system prompts to instruct agents to write suggestion files to `docs/suggestions/` when working on minordomo issues. Suggestion files describe documentation improvements, gotchas, or corrections the agent noticed during its run; the Librarian integrates them on its next daily pass.
 
-Add a `docs/suggestions/.gitkeep` to establish the directory in git. Update `minordomo-plan/system-prompt.md` and `minordomo-step/system-prompt.md` to include a "Suggestion Writing" section that:
+Note: `docs/suggestions/.gitkeep` was already created in Stage 1 (the Librarian system prompt references this directory, and the validate-prompts.py path checker requires it to exist on disk). Update `minordomo-plan/system-prompt.md` and `minordomo-step/system-prompt.md` to include a "Suggestion Writing" section that:
 - Explains when to write a suggestion (noticed a documentation gap, correction, or gotcha relevant to the minordomo pipeline)
 - Specifies the file naming convention: `suggestion-<beads-task-id>-<brief-slug>.md`
 - Specifies the file format: Markdown, starting with a one-line summary of what to document, then a body with the suggested content and the target document(s) where it belongs
@@ -62,7 +62,6 @@ Add a `docs/suggestions/.gitkeep` to establish the directory in git. Update `min
 
 ### Acceptance Criteria
 
-- `docs/suggestions/.gitkeep` exists
 - `minordomo-plan/system-prompt.md` includes a suggestion-writing section with: when to write, naming convention (`suggestion-<beads-task-id>-<slug>.md`), file format, and scope note (minordomo issues only)
 - `minordomo-step/system-prompt.md` includes the same suggestion-writing section
 - Both system prompts reference `docs/suggestions/` as a path (so `validate-prompts.py` verifies it exists on disk)

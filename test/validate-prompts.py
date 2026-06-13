@@ -12,6 +12,7 @@ REPO_DIRS = (
     "shared/",
     "minordomo-plan/",
     "minordomo-step/",
+    "minordomo-librarian/",
     "minordomo-container-builder/",
     "docs/",
 )
@@ -21,6 +22,7 @@ VALID_JOB_NAMES = {
     "majordomo",
     "minordomo-plan",
     "minordomo-step",
+    "minordomo-librarian",
     "minordomo-container-builder",
 }
 

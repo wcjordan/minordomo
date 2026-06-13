@@ -17,6 +17,9 @@ minordomo/
 ├── minordomo-step/
 │   ├── Jenkinsfile          — Worker agent job (parameterized: BEADS_TASK_ID)
 │   └── system-prompt.md     — Worker agent instructions
+├── minordomo-librarian/
+│   ├── Jenkinsfile          — Librarian job (daily cron, 60 min timeout)
+│   └── system-prompt.md     — Librarian agent instructions
 ├── minordomo-sweep/
 │   └── Jenkinsfile          — Stale task sweep job (cron: every 4 hours, 15 min timeout)
 ├── minordomo-container-builder/
@@ -70,5 +73,6 @@ The pipeline is fully operational. Key capabilities:
 | Failure notifications | SES email on pipeline failure; triggered by hard Jenkins failure or agent-reported errors |
 | Discord PR notifications | Discord message for each PR opened by the pipeline; `discord-webhook-url` Jenkins credential required |
 | Stale task sweep | Resets tasks orphaned by Jenkins crashes back to open on a 4-hour schedule |
+| Documentation Librarian | Daily cron job: detects structural and content drift in docs, integrates agent suggestions from `docs/suggestions/`, opens a PR to main when changes are needed |
 
 See [`docs/agent-workflow-spec.md`](agent-workflow-spec.md) for the full capability descriptions and Majordomo run sequence. See [`docs/FUTURE_WORK.md`](FUTURE_WORK.md) for planned capabilities not yet implemented.

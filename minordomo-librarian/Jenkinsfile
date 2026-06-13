@@ -1,0 +1,87 @@
+// Librarian job: daily documentation drift detection and suggestion integration.
+// NOTE: A Jenkins pipeline job must be manually created in the Jenkins UI,
+// pointing to minordomo-librarian/Jenkinsfile in this repo. It is not auto-created.
+
+def GAR_HOST = 'us-east4-docker.pkg.dev'
+def GAR_REPO = "${GAR_HOST}/${env.GCP_PROJECT}/default-gar"
+
+pipeline {
+    agent none
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+    }
+    triggers {
+        cron(env.BRANCH_NAME == 'main' ? 'H H * * *' : '')
+    }
+    stages {
+        stage('Librarian') {
+            agent {
+                kubernetes {
+                    yaml """
+                        apiVersion: v1
+                        kind: Pod
+                        spec:
+                          containers:
+                          - name: librarian
+                            image: ${GAR_REPO}/minordomo-image:latest
+                            command:
+                            - cat
+                            tty: true
+                            resources:
+                              requests:
+                                cpu: "500m"
+                                memory: "1Gi"
+                              limits:
+                                cpu: "1000m"
+                                memory: "2Gi"
+                    """
+                }
+            }
+            environment {
+                CLAUDE_CODE_OAUTH_TOKEN = credentials('claude-code-oauth-token')
+                GH_APP                  = credentials('github-app')
+            }
+            options {
+                timeout(time: 60, unit: 'MINUTES')
+            }
+            steps {
+                container('librarian') {
+                    sh '''
+                        set -euo pipefail
+
+                        source shared/setup-env.sh
+                        source shared/setup-claude.sh
+
+                        gh auth setup-git
+
+                        CLAUDE_EXIT=0
+                        claude -p "$(cat minordomo-librarian/system-prompt.md)" --output-format json \
+                          > /tmp/claude-output.json || CLAUDE_EXIT=$?
+
+                        python3 shared/report-token-usage.py /tmp/claude-output.json 2>&1 | tee /tmp/prompt-output.txt || true
+                        exit $CLAUDE_EXIT
+                    '''
+                }
+            }
+            post {
+                always {
+                    container('librarian') {
+                        script {
+                            def hasErrors = sh(
+                                script: 'python3 shared/check-run-errors.py /tmp/prompt-output.txt',
+                                returnStatus: true
+                            ) == 1
+                            if (hasErrors) {
+                                currentBuild.result = 'FAILURE'
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    post {
+        failure { notifyFailure() }
+    }
+}
