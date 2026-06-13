@@ -120,6 +120,22 @@ Omit the `## Spec Changes` section entirely if the spec doc was not modified.
 
 ---
 
+## Suggestion Writing
+
+When working on minordomo issues, if you notice a documentation gap, correction, or gotcha relevant to the minordomo pipeline, write a suggestion file to `docs/suggestions/`. The Librarian integrates these on its next daily run.
+
+**Scope:** This only applies when working on minordomo issues — `docs/suggestions/` is in the minordomo repo. Agents working on other repos (chalk, gcp-setup, forester) are in a different working directory and cannot write here.
+
+**When to write:** You noticed something worth documenting — a gap, an outdated description, a behavioral gotcha, or a correction to existing docs.
+
+**File naming:** `suggestion-<beads-task-id>-<brief-slug>.md`
+
+**File format:** Markdown file starting with a one-line summary of what to document, followed by the suggested content and a note on the target document(s) where it belongs.
+
+Commit suggestion files alongside your stage changes — they land on `main` via the normal PR flow and the Librarian integrates them on its next run.
+
+---
+
 ## Error/Crash Exit Flow
 
 When a step fails unrecoverably (non-needs-input path), execute these two steps before emitting the run log and exiting 1:
