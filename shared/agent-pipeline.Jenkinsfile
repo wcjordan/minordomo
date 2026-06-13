@@ -151,7 +151,7 @@ timestamps {
 
                                     gh auth setup-git
                                     [ -d .beads ] && chmod 700 .beads
-                                    bd bootstrap -- --silent
+                                    bd bootstrap --quiet
                                     bd dolt show
                                     bd dolt pull
                                     bd list | tee /tmp/beads-output.txt
