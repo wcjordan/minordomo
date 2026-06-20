@@ -75,6 +75,9 @@ pipeline {
                         echo "$USAGE_JSON" > /tmp/usage-check.json
                         echo "$USAGE_EXIT" > /tmp/usage-check.exit
 
+                        # Stage 1 PoC: log-only — does not gate execution
+                        echo "fetch-claude-usage output: $(shared/fetch-claude-usage.sh 2>&1 || true)"
+
                         CLAUDE_EXIT=0
                         claude -p "$(cat majordomo/system-prompt.md)" --output-format json \
                           > /tmp/claude-output.json || CLAUDE_EXIT=$?
