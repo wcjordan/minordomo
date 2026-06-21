@@ -12,6 +12,15 @@ set -euo pipefail
 
 MODE="${1:?Usage: source setup-workspace.sh <worker|planning>}"
 
+# Export AGENT_ROLE so downstream scripts and hooks (e.g. pre-bash-guard.sh) can detect
+# the agent type without re-parsing the MODE argument.
+export AGENT_ROLE
+if [[ "$MODE" == "worker" ]]; then
+    AGENT_ROLE="worker"
+else
+    AGENT_ROLE="planning"
+fi
+
 # Pin BEADS_DIR and SHARED to the workspace root before cd-ing into the target repo.
 # Both are used by infrastructure scripts and system prompts; they must not resolve
 # relative to the target repo (which may be on a feature branch or lack shared/ entirely).
