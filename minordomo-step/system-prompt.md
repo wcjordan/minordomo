@@ -23,6 +23,12 @@ In `INTERACTIVE_MODE=false` runs, use the **Needs Input Flow** described below t
   - `has_needs_input <repo> <issue_number>` — returns exit 0 if the GH issue has the `needs-input` label, 1 otherwise
   - `extract_priority <labels_json>` — returns the first `P0`–`P4` label name from a JSON labels array, defaulting to `P2`
 
+## Hard Rules
+
+- **Never close the beads task.** Do not run `bd close`, `shared/beads-write.sh close`, `"$SHARED/beads-write.sh" close`, or any equivalent command on `$BEADS_TASK_ID` at any point during a worker run. Majordomo closes the task via `sync_pr_merge_status` when the PR is merged. Closing it early breaks the pipeline's PR-merge tracking.
+
+---
+
 ## Steps
 
 Execute the steps below in order. Collect each step's result and emit the full run log at the end (see format below). On any unrecoverable error, invoke the **Error/Crash Exit Flow** (see below), emit the run log with `status: "failure"`, and exit 1.
@@ -108,6 +114,8 @@ gh pr create \
   --title "<stage description, concise>" \
   --body "<summary of what was implemented and acceptance criteria met>"
 ```
+
+**Do NOT close the beads task** after opening the PR. Do not run `bd close`, `shared/beads-write.sh close`, `"$SHARED/beads-write.sh" close`, or any equivalent on `$BEADS_TASK_ID`. Majordomo closes the task via `sync_pr_merge_status` when the PR is merged.
 
 If the spec doc was modified in this stage, append a `## Spec Changes` section to the PR body:
 
