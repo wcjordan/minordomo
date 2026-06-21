@@ -204,3 +204,40 @@ guard() {
     run guard "brew upgrade"
     [ "$status" -eq 0 ]
 }
+
+# ---------------------------------------------------------------------------
+# bd close guard: blocked in worker/planning context, allowed otherwise
+# ---------------------------------------------------------------------------
+
+@test "blocks bd close when AGENT_ROLE=worker" {
+    export AGENT_ROLE=worker
+    run guard "bd close minordomo-123"
+    unset AGENT_ROLE
+    [ "$status" -eq 1 ]
+}
+
+@test "blocks bd close when AGENT_ROLE=planning" {
+    export AGENT_ROLE=planning
+    run guard "bd close minordomo-123"
+    unset AGENT_ROLE
+    [ "$status" -eq 1 ]
+}
+
+@test "allows bd close when AGENT_ROLE is unset" {
+    unset AGENT_ROLE
+    run guard "bd close minordomo-123"
+    [ "$status" -eq 0 ]
+}
+
+@test "blocks beads-write.sh close when AGENT_ROLE=worker" {
+    export AGENT_ROLE=worker
+    run guard "shared/beads-write.sh close minordomo-123"
+    unset AGENT_ROLE
+    [ "$status" -eq 1 ]
+}
+
+@test "allows beads-write.sh close when AGENT_ROLE is unset" {
+    unset AGENT_ROLE
+    run guard "shared/beads-write.sh close minordomo-123"
+    [ "$status" -eq 0 ]
+}
