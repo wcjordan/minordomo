@@ -122,6 +122,7 @@ When adding `sh` steps that call scripts with relative paths, verify which CWD t
 - Workers always branch from the current feature branch tip — this ensures each agent picks up the latest spec and any code merged by prior stages.
 - Spec docs land on feature branches only via merged PRs from planning agent task branches.
 - **Put deterministic commands in shared scripts, not inline in `system-prompt.md`.** Any shell command that fetches data, checks state, or calls an API belongs in a file under `shared/` and is invoked by name from the prompt. Inline shell is only acceptable for truly one-off, single-step logic that cannot be extracted. This keeps system prompts readable and commands testable.
+- **Workers must never close their own beads task.** After opening a PR, leave the task `in_progress`. Majordomo's `sync_pr_merge_status` step (Step 4) detects the merged PR via `check-pr-merged.sh` and closes the task. Running `bd close` or `beads-write.sh close` on the active task before the PR is merged causes the task to disappear from Majordomo's in-progress view and breaks the lifecycle. `shared/pre-bash-guard.sh` enforces this when `AGENT_ROLE=worker` or `AGENT_ROLE=planning`.
 
 ---
 
