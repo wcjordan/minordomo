@@ -78,6 +78,7 @@ pipeline {
                         # Stage 1 PoC: log-only — does not gate execution
                         echo "fetch-claude-usage output: $(shared/fetch-claude-usage.sh 2>&1 || true)"
 
+                        sleep 1200
                         exit 0
 
                         CLAUDE_EXIT=0
