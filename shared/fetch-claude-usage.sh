@@ -43,6 +43,9 @@ CLEANED="$(
     | LC_ALL=C tr -cd '[:print:]\n'
 )"
 
+echo $CLEANED
+echo ""
+
 # Extract integer percentage from "N% used" line following "Current week"
 PCT="$(printf '%s\n' "$CLEANED" | awk '
     /Current week/ { found=1; next }
