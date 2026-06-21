@@ -107,4 +107,13 @@ if matches '\beval\s+.*\$'; then
     block "dynamic eval not allowed"
 fi
 
+# Block bd close / beads-write.sh close in worker and planning contexts.
+# Majordomo closes beads tasks automatically via sync_pr_merge_status when the PR is merged.
+if [[ "${AGENT_ROLE:-}" == "worker" || "${AGENT_ROLE:-}" == "planning" ]]; then
+    if matches '(^|[;&|[:space:]])bd[[:space:]]+close([[:space:]]|$)' || \
+       matches '[^ ]*beads-write\.sh[[:space:]]+close([[:space:]]|$)'; then
+        block "bd close not allowed in worker/planning context; Majordomo closes beads tasks when the PR is merged."
+    fi
+fi
+
 exit 0
