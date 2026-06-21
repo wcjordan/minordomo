@@ -2,6 +2,11 @@
   "hasCompletedOnboarding": true,
   "bypassPermissionsModeAccepted": true,
   "projects": {
+    "/home/jenkins/agent/workspace/majordomo_main": {
+      "allowedTools": [],
+      "hasTrustDialogAccepted": true,
+      "hasCompletedProjectOnboarding": true
+    },
     "/home/jenkins/agent/workspace/minordomo-step_main/minordomo": {
       "allowedTools": [],
       "hasTrustDialogAccepted": true,
@@ -18,6 +23,11 @@
       "hasCompletedProjectOnboarding": true
     },
     "/home/jenkins/agent/workspace/minordomo-step_main/gcp-setup": {
+      "allowedTools": [],
+      "hasTrustDialogAccepted": true,
+      "hasCompletedProjectOnboarding": true
+    },
+    "/home/jenkins/agent/workspace/majordomo_task_minordomo-u8i.2": {
       "allowedTools": [],
       "hasTrustDialogAccepted": true,
       "hasCompletedProjectOnboarding": true
