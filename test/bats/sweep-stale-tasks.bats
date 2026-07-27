@@ -251,6 +251,57 @@ MOCK
 }
 
 # ---------------------------------------------------------------------------
+# Task has a merged PR: task is skipped (not reset)
+# ---------------------------------------------------------------------------
+
+@test "task with merged PR: skipped (not reset)" {
+    cat > "$MOCKS/gh" << 'MOCK'
+#!/usr/bin/env bash
+if [[ "$*" == *"--state merged"* ]]; then
+    echo '[{"number":42}]'
+elif [[ "$*" == *"--state open"* ]]; then
+    echo '[]'
+fi
+MOCK
+    chmod +x "$MOCKS/gh"
+
+    cat > "$MOCKS/bd" << 'MOCK'
+#!/usr/bin/env bash
+case "$1" in
+    list)
+        echo '[{"id":"minordomo-test-1","started_at":"2020-01-01T00:00:00Z","title":"Stage 1: Test","status":"in_progress"}]'
+        ;;
+    show)
+        case "$2" in
+            minordomo-test-1)
+                echo '[{"id":"minordomo-test-1","title":"Stage 1: Test","parent":"minordomo-story-1","status":"in_progress","description":null}]'
+                ;;
+            minordomo-story-1)
+                echo '[{"id":"minordomo-story-1","title":"Story: Test feature","description":"GH Issue: https://github.com/wcjordan/minordomo/issues/99","parent":null,"status":"open"}]'
+                ;;
+            *)
+                echo '[]'
+                ;;
+        esac
+        ;;
+    dolt)
+        exit 0
+        ;;
+    update)
+        touch "$MOCKS/update-was-called"
+        exit 0
+        ;;
+esac
+MOCK
+    chmod +x "$MOCKS/bd"
+
+    run "$SCRIPT"
+    [ "$status" -eq 0 ]
+    echo "$output" | grep -q "Swept 0 stale task(s) to open (0 comment errors)."
+    [ ! -f "$MOCKS/update-was-called" ]
+}
+
+# ---------------------------------------------------------------------------
 # bd list returns empty: exits 0 with Swept 0 message
 # ---------------------------------------------------------------------------
 
