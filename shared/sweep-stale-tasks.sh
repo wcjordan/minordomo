@@ -62,6 +62,7 @@ while IFS= read -r task_id; do
         fi
         continue
     }
+    epic_key=$(echo "$story_output" | sed -n '1p')
     gh_issue_number=$(echo "$story_output" | sed -n '2p')
     repo=$(echo "$story_output" | sed -n '3p')
 
@@ -74,6 +75,13 @@ while IFS= read -r task_id; do
         | python3 -c "import json,sys; print(len(json.load(sys.stdin)))" 2>/dev/null) || open_pr_count=0
 
     if [ "${open_pr_count}" -gt 0 ]; then
+        continue
+    fi
+
+    # Step 4b: Skip tasks that have a merged PR — PR was merged on a weekend
+    # while Majordomo was not running; it will close the task on Monday.
+    if "${SCRIPT_DIR}/check-pr-merged.sh" "$repo" "$epic_key" "$task_id" >/dev/null 2>&1; then
+        echo "Skipping task ${task_id}: merged PR found, Majordomo will close it."
         continue
     fi
 
