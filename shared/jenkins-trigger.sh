@@ -14,7 +14,7 @@ beads_task_id="${2:?Usage: jenkins-trigger.sh <job-name> <beads-task-id>}"
 : "${ROOT_DOMAIN:?ROOT_DOMAIN must be set}"
 : "${BASE_BRANCH:?BASE_BRANCH must be set}"
 
-url="http://jenkins.${ROOT_DOMAIN}/job/${job_name}/job/${BASE_BRANCH}/buildWithParameters?BEADS_TASK_ID=${beads_task_id}"
+url="https://jenkins.${ROOT_DOMAIN}/job/${job_name}/job/${BASE_BRANCH}/buildWithParameters?BEADS_TASK_ID=${beads_task_id}"
 
 http_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
     -u "${JENKINS_USERNAME}:${JENKINS_API_KEY}" \
