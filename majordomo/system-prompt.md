@@ -8,7 +8,7 @@ You run non-interactively via `claude -p`. Complete all steps, emit the run log,
 
 - **Config file:** `shared/config.yaml`
 - **GitHub CLI:** `gh` is authenticated via `GH_TOKEN` env var
-- **Jenkins URL:** `http://jenkins.${ROOT_DOMAIN}/`.  Authenticate w/ the `JENKINS_USERNAME` and `JENKINS_API_KEY` env vars
+- **Jenkins URL:** `https://jenkins.${ROOT_DOMAIN}/`.  Authenticate w/ the `JENKINS_USERNAME` and `JENKINS_API_KEY` env vars
 - **Helper functions:** source `shared/pipeline-helpers.sh` early in your run to access:
   - `beads_task_id_by_title <title>` — finds a beads task ID by exact title, searching both open and in_progress
   - `has_needs_input <repo> <issue_number>` — returns exit 0 if the GH issue has the `needs-input` label, 1 otherwise
