@@ -39,7 +39,6 @@ def check_schedule(now_str=None):
     tz_name = schedule.get("timezone", "America/New_York")
     allowed_days = schedule.get("allowed_days", [])
     allowed_hours = schedule.get("allowed_hours", [])
-    weekend_override = schedule.get("weekend_override", False)
 
     tz = ZoneInfo(tz_name)
 
@@ -49,11 +48,6 @@ def check_schedule(now_str=None):
         dt = datetime.now(tz)
 
     day_abbr = dt.strftime("%a")
-    is_weekend = day_abbr in ("Sat", "Sun")
-
-    if weekend_override and is_weekend:
-        print(json.dumps({"step": "schedule_check", "status": "ok", "action": "proceed"}))
-        sys.exit(0)
 
     if day_abbr not in allowed_days:
         print(json.dumps({
