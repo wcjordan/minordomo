@@ -6,13 +6,12 @@ setup() {
     TMP_DIR="$(mktemp -d)"
     export REPO_ROOT TMP_DIR
 
-    # Write a known test config (limited hours, no weekend override) so tests
+    # Write a known test config (limited hours) so tests
     # are independent of the production config values in shared/config.yaml.
     cat > "$TMP_DIR/config.yaml" <<'EOF'
 schedule:
-  allowed_days: [Mon, Tue, Wed, Thu, Fri]
+  allowed_days: [Mon, Tue, Wed, Thu, Fri, Sat, Sun]
   allowed_hours: ["00:00-08:00"]
-  weekend_override: false
   timezone: America/New_York
 EOF
 
@@ -47,23 +46,23 @@ teardown() {
     echo "$output" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['action']=='exit'; assert d['reason']=='outside_hours', d"
 }
 
-@test "Saturday with weekend_override false exits 1 with reason day_not_allowed" {
-    # Saturday 2026-01-03 at 07:00 — Sat not in allowed_days, override=false
+@test "Saturday not in allowed_days exits 1 with reason day_not_allowed" {
+    python3 -c "
+import yaml, pathlib, os
+cfg_path = os.environ['TMP_DIR'] + '/config.yaml'
+cfg = yaml.safe_load(open(cfg_path))
+cfg['schedule']['allowed_days'] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+open(cfg_path, 'w').write(yaml.dump(cfg))
+"
+    # Saturday 2026-01-03 at 07:00 — Sat not in allowed_days
     run python3 "$SCRIPT" --now "2026-01-03T07:00:00"
     [ "$status" -eq 1 ]
     echo "$output" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['action']=='exit'; assert d['reason']=='day_not_allowed', d"
 }
 
-@test "Saturday with weekend_override true exits 0" {
-    python3 -c "
-import yaml, pathlib, os
-cfg_path = os.environ['TMP_DIR'] + '/config.yaml'
-cfg = yaml.safe_load(open(cfg_path))
-cfg['schedule']['weekend_override'] = True
-open(cfg_path, 'w').write(yaml.dump(cfg))
-"
-    # Saturday 2026-01-03 at 12:00
-    run python3 "$SCRIPT" --now "2026-01-03T12:00:00"
+@test "Saturday in allowed_days exits 0" {
+    # Saturday 2026-01-03 at 07:00 — Sat in allowed_days (production-style config), within hours
+    run python3 "$SCRIPT" --now "2026-01-03T07:00:00"
     [ "$status" -eq 0 ]
     echo "$output" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['action']=='proceed', d"
 }
