@@ -52,6 +52,11 @@ ENV NODE_PATH=/opt/discord-notify/node_modules
 COPY minordomo-container-builder/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
+# Chromium system libraries for repos whose tests use Playwright (number-quest).
+# The agent user downloads the browser itself per repo with `npx playwright install chromium`;
+# installing the system libraries needs root, so it happens here.
+RUN npx -y playwright@1.63.0 install-deps chromium && rm -rf /var/lib/apt/lists/*
+
 # Switch to non-root agent user for Claude Code install and all runtime execution.
 # --dangerously-skip-permissions requires non-root; this is the primary motivation.
 # ENV HOME must be set explicitly — Docker's USER directive does not update $HOME,

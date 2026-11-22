@@ -12,6 +12,7 @@ projects:
   - repo: chalk
   - repo: gcp-setup
   - repo: forester
+  - repo: number-quest
 
 # Stage 5: Schedule gating (not yet enforced)
 schedule:
