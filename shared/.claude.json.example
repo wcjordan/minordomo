@@ -21,6 +21,11 @@
       "allowedTools": [],
       "hasTrustDialogAccepted": true,
       "hasCompletedProjectOnboarding": true
+    },
+    "/home/jenkins/agent/workspace/minordomo-step_main/number-quest": {
+      "allowedTools": [],
+      "hasTrustDialogAccepted": true,
+      "hasCompletedProjectOnboarding": true
     }
   }
 }
