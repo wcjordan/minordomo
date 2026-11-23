@@ -35,3 +35,31 @@ MOCK
     diff shared/pre-bash-guard.sh "$HOME/.claude/hooks/pre-bash-guard.sh"
 }
 
+@test "copies .claude.json.example to ~/.claude.json" {
+    source shared/setup-claude.sh
+    diff shared/.claude.json.example "$HOME/.claude.json"
+}
+
+# The interactive worker runs claude in each repo's workspace. Without a
+# pre-accepted trust entry, claude blocks on the "trust this folder?" dialog
+# (hidden, since PTY output goes to /dev/null) and never writes a transcript.
+@test "every repo in config.yaml is pre-trusted for the worker workspace" {
+    source shared/setup-claude.sh
+    run python3 - "$HOME/.claude.json" << 'PY'
+import json, sys, yaml
+cfg = yaml.safe_load(open('shared/config.yaml'))
+projects = json.load(open(sys.argv[1])).get('projects', {})
+missing = []
+for p in cfg.get('projects', []):
+    path = f"/home/jenkins/agent/workspace/minordomo-step_main/{p['repo']}"
+    entry = projects.get(path, {})
+    if not (entry.get('hasTrustDialogAccepted') and entry.get('hasCompletedProjectOnboarding')):
+        missing.append(path)
+if missing:
+    print("Repos missing a trust entry in shared/.claude.json.example:")
+    print("\n".join(missing))
+    sys.exit(1)
+PY
+    echo "$output"
+    [ "$status" -eq 0 ]
+}
