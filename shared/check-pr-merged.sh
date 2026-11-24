@@ -7,12 +7,11 @@ if [ "$#" -ne 3 ]; then
 fi
 
 repo="$1"
-epic_key="$2"
+_epic_key="$2"
 beads_task_id="$3"
 
 gh pr list \
     --repo "wcjordan/${repo}" \
-    --base "feature/${epic_key}" \
     --head "task/${beads_task_id}" \
     --state merged \
     --json number \
