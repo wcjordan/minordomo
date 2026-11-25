@@ -1,0 +1,221 @@
+// Multi-step worker job: runs all implementation stages for an epic in a single Jenkins run.
+// Each stage creates its own PR; successive stage branches are stacked on the previous one.
+// BEADS_TASK_ID is the first (or resumption) stage task ID to run from.
+
+def GAR_HOST = 'us-east4-docker.pkg.dev'
+def GAR_REPO = "${GAR_HOST}/${env.GCP_PROJECT}/default-gar"
+
+properties([parameters([
+    string(name: 'BEADS_TASK_ID', description: 'Beads stage task ID to start from (first or resumption)', trim: true),
+])])
+
+def workerPodYaml = """
+apiVersion: v1
+kind: Pod
+spec:
+  securityContext:
+    fsGroup: 1000
+  containers:
+  - name: worker
+    image: ${GAR_REPO}/minordomo-image:latest
+    command: [cat]
+    tty: true
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "2000m"
+        memory: "4Gi"
+"""
+
+def majordomoPodYaml = """
+apiVersion: v1
+kind: Pod
+spec:
+  securityContext:
+    fsGroup: 1000
+  containers:
+  - name: majordomo
+    image: ${GAR_REPO}/minordomo-image:latest
+    command: [cat]
+    tty: true
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+      limits:
+        cpu: "500m"
+        memory: "512Mi"
+"""
+
+timestamps {
+    try {
+        podTemplate(yaml: workerPodYaml) {
+            node(POD_LABEL) {
+                stage('Worker') {
+                    timeout(time: 360, unit: 'MINUTES') {
+                        withCredentials([
+                            string(credentialsId: 'claude-code-oauth-token', variable: 'CLAUDE_CODE_OAUTH_TOKEN'),
+                            usernamePassword(credentialsId: 'github-app', usernameVariable: 'GH_APP_USR', passwordVariable: 'GH_APP_PSW'),
+                            string(credentialsId: 'discord-webhook-url', variable: 'DISCORD_WEBHOOK_URL'),
+                        ]) {
+                            checkout scm
+                            container('worker') {
+                                script {
+                                    sh """
+                                        set -euo pipefail
+                                        export DISCORD_WEBHOOK_URL="\${DISCORD_WEBHOOK_URL}"
+                                        export INTERACTIVE_MODE=false
+
+                                        # Bootstrap: clone repo, set up feature branch, create first task branch.
+                                        # Sets REPO, EPIC_KEY, FEATURE_BRANCH, SHARED, BEADS_DIR, GH_ISSUE_NUMBER.
+                                        source shared/bootstrap.sh worker
+
+                                        # We are now inside \${REPO}/. SHARED and BEADS_DIR are absolute paths.
+
+                                        # Derive the Story bead ID from the starting task.
+                                        STORY_BEAD_ID=\$(bd show "${params.BEADS_TASK_ID}" --json | python3 -c "import json,sys; t=json.load(sys.stdin); print(t[0].get('parent') or '')")
+                                        if [[ -z "\$STORY_BEAD_ID" ]]; then
+                                            echo "ERROR: could not derive STORY_BEAD_ID from task ${params.BEADS_TASK_ID}" >&2
+                                            exit 1
+                                        fi
+
+                                        # Get ordered stage task IDs (all statuses, ascending stage number).
+                                        mapfile -t STAGE_ARRAY < <("\$SHARED/list-story-stage-tasks.sh" "\$STORY_BEAD_ID")
+                                        if [[ \${#STAGE_ARRAY[@]} -eq 0 ]]; then
+                                            echo "ERROR: no Stage tasks found for story \$STORY_BEAD_ID" >&2
+                                            exit 1
+                                        fi
+
+                                        # Find the index of the starting task in the ordered list.
+                                        START_INDEX=-1
+                                        for i in "\${!STAGE_ARRAY[@]}"; do
+                                            if [[ "\${STAGE_ARRAY[\$i]}" == "${params.BEADS_TASK_ID}" ]]; then
+                                                START_INDEX=\$i
+                                                break
+                                            fi
+                                        done
+                                        if [[ \$START_INDEX -eq -1 ]]; then
+                                            echo "ERROR: starting task ${params.BEADS_TASK_ID} not found in stage list for \$STORY_BEAD_ID" >&2
+                                            exit 1
+                                        fi
+
+                                        bd list | tee /tmp/beads-output.txt
+
+                                        OVERALL_EXIT=0
+                                        PREV_TASK_ID=""
+
+                                        for i in "\${!STAGE_ARRAY[@]}"; do
+                                            TASK_ID="\${STAGE_ARRAY[\$i]}"
+
+                                            if [[ \$i -lt \$START_INDEX ]]; then
+                                                PREV_TASK_ID="\$TASK_ID"
+                                                continue
+                                            fi
+
+                                            if [[ \$i -gt \$START_INDEX ]]; then
+                                                # Subsequent task: stack this branch on the previous task's branch.
+                                                git fetch origin "task/\${PREV_TASK_ID}"
+                                                git checkout -b "task/\${TASK_ID}" "origin/task/\${PREV_TASK_ID}"
+                                                "\$SHARED/beads-write.sh" update "\$TASK_ID" --claim
+                                                export TARGET_BRANCH="task/\${PREV_TASK_ID}"
+                                            else
+                                                # First task in this run: PR targets the feature branch.
+                                                export TARGET_BRANCH="\$FEATURE_BRANCH"
+                                            fi
+
+                                            export BEADS_TASK_ID="\$TASK_ID"
+                                            CLAUDE_EXIT=0
+                                            claude -p "\$(cat ../minordomo-step/system-prompt.md)" --output-format json \\
+                                                > "/tmp/claude-output-\${TASK_ID}.json" || CLAUDE_EXIT=\$?
+
+                                            if [[ \$CLAUDE_EXIT -ne 0 ]]; then
+                                                OVERALL_EXIT=\$CLAUDE_EXIT
+                                                break
+                                            fi
+
+                                            PREV_TASK_ID="\$TASK_ID"
+                                        done
+
+                                        # Return to workspace root for beads sync and reporting.
+                                        cd ../
+
+                                        bd dolt pull && bd dolt push
+
+                                        # Token usage and PR notification: process all per-task outputs.
+                                        > /tmp/prompt-output.txt
+                                        for TASK_ID in "\${STAGE_ARRAY[@]}"; do
+                                            OUTPUT_FILE="/tmp/claude-output-\${TASK_ID}.json"
+                                            if [[ -f "\$OUTPUT_FILE" ]]; then
+                                                python3 shared/report-token-usage.py "\$OUTPUT_FILE" 2>&1 >> /tmp/prompt-output.txt || true
+                                                echo "" >> /tmp/prompt-output.txt
+                                            fi
+                                        done
+
+                                        DISCORD_WEBHOOK_URL="\${DISCORD_WEBHOOK_URL}" node shared/notify-pr-discord.js /tmp/prompt-output.txt || true
+
+                                        exit \$OVERALL_EXIT
+                                    """
+                                }
+                                def beadsOutput = sh(
+                                    script: 'cat /tmp/beads-output.txt /tmp/prompt-output.txt 2>/dev/null || true',
+                                    returnStdout: true
+                                ).trim()
+                                if (beadsOutput) currentBuild.description = beadsOutput
+                                def hasErrors = sh(
+                                    script: 'python3 shared/check-run-errors.py /tmp/prompt-output.txt',
+                                    returnStatus: true
+                                ) == 1
+                                if (hasErrors) currentBuild.result = 'FAILURE'
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        podTemplate(yaml: majordomoPodYaml) {
+            node(POD_LABEL) {
+                stage('Beads Status') {
+                    timeout(time: 5, unit: 'MINUTES') {
+                        withCredentials([
+                            usernamePassword(credentialsId: 'github-app', usernameVariable: 'GH_APP_USR', passwordVariable: 'GH_APP_PSW'),
+                        ]) {
+                            checkout scm
+                            container('majordomo') {
+                                sh '''
+                                    set -euo pipefail
+                                    source shared/setup-env.sh
+
+                                    gh auth setup-git
+                                    [ -d .beads ] && chmod 700 .beads
+                                    bd bootstrap --quiet
+                                    bd dolt show
+                                    bd dolt pull
+                                    bd list | tee /tmp/beads-output.txt
+                                '''
+                                def beadsOutput = sh(
+                                    script: 'cat /tmp/beads-output.txt 2>/dev/null || true',
+                                    returnStdout: true
+                                ).trim()
+                                if (beadsOutput) {
+                                    def existing = currentBuild.description ?: ''
+                                    currentBuild.description = existing + (existing ? '\n\n---\n\n' : '') + beadsOutput
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+    } catch (err) {
+        currentBuild.result = 'FAILURE'
+        throw err
+    } finally {
+        if (currentBuild.result == 'FAILURE') {
+            notifyFailure()
+        }
+    }
+}
