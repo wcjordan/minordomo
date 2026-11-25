@@ -15,8 +15,10 @@ minordomo/
 │   ├── Jenkinsfile          — Planning agent job (parameterized: BEADS_TASK_ID)
 │   └── system-prompt.md     — Planning agent instructions
 ├── minordomo-step/
-│   ├── Jenkinsfile          — Worker agent job (parameterized: BEADS_TASK_ID)
+│   ├── Jenkinsfile          — Worker agent job (parameterized: BEADS_TASK_ID); manual single-step runs
 │   └── system-prompt.md     — Worker agent instructions
+├── minordomo-steps/
+│   └── Jenkinsfile          — Multi-step worker job; runs all stages for an epic in one run
 ├── minordomo-librarian/
 │   ├── Jenkinsfile          — Librarian job (daily cron, 60 min timeout)
 │   └── system-prompt.md     — Librarian agent instructions
@@ -65,7 +67,7 @@ The pipeline is fully operational. Key capabilities:
 | GH Issue ingestion | Polls GH Issues → creates Planning Tasks |
 | Planning agent loop | Research, Q&A, spec doc, plan approval spinoff |
 | Task prioritization | Ready promotion, continuity/priority/rank ordering |
-| Worker agents | Branch, implement, open PR |
+| Worker agents | Branch, implement, open PR; multi-step runs (`minordomo-steps`) execute all stages for an epic in a single Jenkins run |
 | Feature→main PRs | Auto-opened when all Stage tasks are closed; includes doc cleanup |
 | Beads coordination | `bd` CLI for task tracking; `bd ready` for task selection |
 | Planning priority guard | Defers planning if higher-priority implementation work is available |
