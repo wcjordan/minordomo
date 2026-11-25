@@ -99,7 +99,10 @@ Majordomo triggers sub-agents via `shared/jenkins-trigger.sh <job-name> <beads-t
 # Planning agent
 shared/jenkins-trigger.sh minordomo-plan "<beads_plan_id>"
 
-# Worker
+# Worker (multi-step; runs all stages in one Jenkins run)
+shared/jenkins-trigger.sh minordomo-steps "<beads_impl_id>"
+
+# Worker (manual single-stage)
 shared/jenkins-trigger.sh minordomo-step "<beads_impl_id>"
 ```
 
@@ -119,7 +122,7 @@ When adding `sh` steps that call scripts with relative paths, verify which CWD t
 
 - **Never merge PRs directly.** Workers and Majordomo open PRs; humans merge them.
 - **Never force-push.** The deny list blocks this; do not attempt workarounds.
-- Workers always branch from the current feature branch tip — this ensures each agent picks up the latest spec and any code merged by prior stages.
+- Workers branch from the previous stage's task branch in multi-step runs (`minordomo-steps`), forming a stacked chain where each PR shows only that stage's diff. Stage 1 branches from the feature branch tip; Stages 2+ branch from the previous task branch (`task/<prev-id>`). Single-stage manual runs (`minordomo-step`) still branch from the feature branch tip.
 - Spec docs land on feature branches only via merged PRs from planning agent task branches.
 - **Put deterministic commands in shared scripts, not inline in `system-prompt.md`.** Any shell command that fetches data, checks state, or calls an API belongs in a file under `shared/` and is invoked by name from the prompt. Inline shell is only acceptable for truly one-off, single-step logic that cannot be extracted. This keeps system prompts readable and commands testable.
 - **Workers must never close their own beads task.** After opening a PR, leave the task `in_progress`. Majordomo's `sync_pr_merge_status` step (Step 4) detects the merged PR via `check-pr-merged.sh` and closes the task. Running `bd close` or `beads-write.sh close` on the active task before the PR is merged causes the task to disappear from Majordomo's in-progress view and breaks the lifecycle. `shared/pre-bash-guard.sh` enforces this when `AGENT_ROLE=worker` or `AGENT_ROLE=planning`.

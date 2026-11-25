@@ -110,7 +110,7 @@ Open a PR from `task/$BEADS_TASK_ID` targeting `$FEATURE_BRANCH`:
 
 ```bash
 gh pr create \
-  --base "$FEATURE_BRANCH" \
+  --base "${TARGET_BRANCH:-$FEATURE_BRANCH}" \
   --title "<stage description, concise>" \
   --body "<summary of what was implemented and acceptance criteria met>"
 ```

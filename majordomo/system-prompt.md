@@ -285,7 +285,7 @@ Log `{"step": "promote_tasks", "status": "skipped", "message": "replaced by bead
 
 8. **Trigger worker Jenkins job:**
    ```bash
-   shared/jenkins-trigger.sh minordomo-step "<beads_impl_id>"
+   shared/jenkins-trigger.sh minordomo-steps "<beads_impl_id>"
    ```
 
 9. **Log result:**
