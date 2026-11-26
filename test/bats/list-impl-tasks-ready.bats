@@ -17,10 +17,10 @@ teardown() {
     cat > "$TMP_DIR/bd" <<'EOF'
 #!/usr/bin/env bash
 echo '[
-  {"id": "t-1", "title": "Stage 1: Do thing",    "status": "open"},
-  {"id": "t-2", "title": "Plan: Some feature",    "status": "open"},
+  {"id": "t-1", "title": "Stage 1: Do thing",    "status": "open", "parent": "s-1"},
+  {"id": "t-2", "title": "Plan: Some feature",    "status": "open", "parent": "s-1"},
   {"id": "t-3", "title": "Story: Some feature",   "status": "open"},
-  {"id": "t-4", "title": "Stage 2: Do other thing","status": "open"}
+  {"id": "t-4", "title": "Stage 2: Do other thing","status": "open", "parent": "s-1"}
 ]'
 EOF
     chmod +x "$TMP_DIR/bd"
@@ -72,4 +72,21 @@ EOF
 
     run bash "$SCRIPT"
     [ "$status" -eq 0 ]
+}
+
+@test "excludes parentless tasks (no Story bead to derive repo from)" {
+    cat > "$TMP_DIR/bd" <<'EOF2'
+#!/usr/bin/env bash
+echo '[
+  {"id": "t-1", "title": "Stage 1: Do thing",        "status": "open", "parent": "s-1"},
+  {"id": "t-2", "title": "Update CLAUDE.md rules",   "status": "open"},
+  {"id": "t-3", "title": "Fix something",            "status": "open", "parent": ""}
+]'
+EOF2
+    chmod +x "$TMP_DIR/bd"
+
+    run bash "$SCRIPT"
+    [ "$status" -eq 0 ]
+    ids=$(echo "$output" | python3 -c "import json,sys; print([t['id'] for t in json.load(sys.stdin)])")
+    [ "$ids" = "['t-1']" ]
 }
