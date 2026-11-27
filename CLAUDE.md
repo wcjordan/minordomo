@@ -83,7 +83,7 @@ GH comment is best-effort (failure is logged and execution continues); beads res
 
 **Planning Tasks:** Plan tasks exist in beads only. A beads task is a Plan task if and only if its title **starts with** the literal prefix `Plan:` (case-sensitive, no leading whitespace).
 
-**Implementation Tasks:** Every beads task that does not start with `Plan:` or `Story:`.
+**Implementation Tasks:** Every beads task that does not start with `Plan:` or `Story:` and whose parent is a `Story:` bead. `shared/list-impl-tasks-ready.sh` skips (with a note on stderr) ready tasks that have no parent or a non-Story parent, such as hand-filed follow-up beads, because `get-story-key.sh` cannot resolve a repo or GH issue for them.
 
 Implementation task titles are the text after `## Stage N:` from the spec doc — the stage number itself is not stored in the task title.
 
